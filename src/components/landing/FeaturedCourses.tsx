@@ -2,8 +2,8 @@ import { motion } from "framer-motion";
 import { Star, Clock, Users, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { useCourses } from "@/hooks/useData";
-import { Course } from "@/data/mockData";
+import { useCourses } from "@/hooks/useQueries";
+import type { Course } from "@/types";
 
 const badgeStyles: Record<string, string> = {
   Bestseller: "bg-secondary text-primary",

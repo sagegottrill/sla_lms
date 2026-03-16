@@ -39,13 +39,6 @@ export default function LoginPage() {
     if (isAuthenticated) navigate("/dashboard", { replace: true });
   }, [isAuthenticated, navigate]);
 
-  const demoAccounts = [
-    { label: "Student",         email: "student@demo.sla",    role: "student" as UserRole },
-    { label: "Instructor",      email: "instructor@demo.sla", role: "instructor" as UserRole },
-    { label: "Program Manager", email: "manager@demo.sla",    role: "program_manager" as UserRole },
-    { label: "Admin",           email: "admin@demo.sla",      role: "admin" as UserRole },
-  ];
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -54,7 +47,7 @@ export default function LoginPage() {
     if (!error) {
       navigate("/dashboard");
     } else {
-      toast.error("Invalid email or password. Use a demo account below.");
+      toast.error(error.message || "Invalid email or password.");
     }
   };
 
@@ -194,21 +187,7 @@ export default function LoginPage() {
             <div className="flex justify-end -mt-1">
               <Link to="/forgot-password" className="text-sm text-primary hover:underline">Forgot password?</Link>
             </div>
-            {/* Demo access */}
-            <div className="rounded-xl border border-primary/20 bg-accent/40 p-4">
-              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-2.5">Demo Access — click to fill</p>
-              <div className="grid grid-cols-2 gap-2">
-                {demoAccounts.map((a) => (
-                  <button key={a.email} type="button"
-                    onClick={() => { setEmail(a.email); setPassword("demo1234"); setRole(a.role); }}
-                    className="text-left p-2.5 rounded-lg border border-primary/20 hover:bg-accent hover:border-primary/40 transition-all group">
-                    <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">{a.label}</p>
-                    <p className="text-[10px] text-muted-foreground font-mono">{a.email}</p>
-                  </button>
-                ))}
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-2">Password for all: <span className="font-mono font-bold text-foreground">demo1234</span></p>
-            </div>
+
 
             <Button type="submit" disabled={loading} className="w-full gradient-card text-primary-foreground h-11 rounded-xl font-semibold hover:opacity-90 transition-opacity mt-1">
               {loading ? "Signing in..." : (

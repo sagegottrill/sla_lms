@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { allCourses } from "@/data/mockData";
+import { useCourses } from "@/hooks/useQueries";
 import { useEnrollment } from "@/contexts/EnrollmentContext";
 
 const categories = [
@@ -53,6 +53,7 @@ export default function OnboardingPage() {
   const { user, completeOnboarding, needsOnboarding } = useAuth();
   const { enroll } = useEnrollment();
   const navigate = useNavigate();
+  const { data: courses = [], isLoading } = useCourses();
 
   const [step, setStep] = useState(0);
   const [interests, setInterests] = useState<string[]>([]);
@@ -70,7 +71,7 @@ export default function OnboardingPage() {
   const toggleCourse = (id: number) =>
     setSelectedCourses((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 5 ? [...prev, id] : prev);
 
-  const recommendedCourses = allCourses.filter(
+  const recommendedCourses = courses.filter(
     (c) => interests.includes(c.category) || interests.length === 0
   );
 
@@ -86,8 +87,8 @@ export default function OnboardingPage() {
   const handleFinish = () => {
     setFinishing(true);
     selectedCourses.forEach((cid) => {
-      const course = allCourses.find((c) => c.id === cid);
-      if (course) enroll(course.id, course.curriculum[0]?.items[0] ?? "Module 1");
+      const course = courses.find((c) => c.id === cid);
+      if (course) enroll(course.id, course.curriculum?.[0]?.items?.[0] ?? "Module 1");
     });
     setTimeout(() => {
       completeOnboarding({ interests, selectedCourses, careerGoal: goal, experienceLevel: level });
@@ -379,7 +380,11 @@ export default function OnboardingPage() {
                     })}
                   </div>
 
-                  {recommendedCourses.length === 0 && (
+                  {isLoading ? (
+                    <div className="text-center py-12 flex justify-center">
+                       <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+                    </div>
+                  ) : recommendedCourses.length === 0 && (
                     <div className="text-center py-12 text-muted-foreground">
                       <BookOpen className="w-8 h-8 mx-auto mb-3 opacity-30" />
                       <p className="text-sm">No courses matched. You can skip this step.</p>

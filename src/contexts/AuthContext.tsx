@@ -50,20 +50,12 @@ const defaultOnboarding: OnboardingData = {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  // Start as null — restored from localStorage if demo session exists
-  const [appUser, setAppUser] = useState<AppUser | null>(() => {
-    try {
-      const saved = localStorage.getItem("sla_demo_user");
-      return saved ? (JSON.parse(saved) as AppUser) : null;
-    } catch { return null; }
-  });
+  const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Load user profile from Supabase profiles table
   const loadUserProfile = async (userId: string) => {
-    // In a real app we'd fetch from profiles table. 
-    // For now, if no DB exists, we fall back to mock data until we set up the tables.
     try {
         const { data, error } = await supabase
             .from('profiles')
@@ -74,10 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data && !error) {
             setAppUser(data as AppUser);
         } else {
-            console.log("Could not load profile, using mock.");
+            console.error("Could not load profile:", error?.message);
         }
-    } catch {
-        console.log("Supabase not fully configured yet, using mock profile.");
+    } catch (err) {
+        console.error("Error loading profile:", err);
     }
   };
 
@@ -96,9 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
             loadUserProfile(session.user.id);
         } else {
-            // Don't clear appUser if we have a demo session in localStorage
-            const saved = localStorage.getItem("sla_demo_user");
-            if (!saved) setAppUser(null);
+            setAppUser(null);
         }
         setLoading(false);
       }
@@ -107,41 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-// ─── Local demo accounts — any of these work without Supabase ───────────────
-const DEMO_ACCOUNTS: Record<string, AppUser> = {
-  "student@demo.sla": {
-    id: "demo-student", name: "Chioma Eze", email: "student@demo.sla",
-    role: "student",
-    onboarding: { interests: ["Data Science", "Leadership"], selectedCourses: [1, 2], careerGoal: "Data Analyst", experienceLevel: "beginner", completed: true },
-  },
-  "instructor@demo.sla": {
-    id: "demo-instructor", name: "Dr. Fatima Hassan", email: "instructor@demo.sla",
-    role: "instructor",
-    onboarding: { interests: [], selectedCourses: [], careerGoal: "", experienceLevel: "", completed: true },
-  },
-  "manager@demo.sla": {
-    id: "demo-manager", name: "Ngozi Williams", email: "manager@demo.sla",
-    role: "program_manager",
-    onboarding: { interests: [], selectedCourses: [], careerGoal: "", experienceLevel: "", completed: true },
-  },
-  "admin@demo.sla": {
-    id: "demo-admin", name: "Yasmin Belo-Osagie", email: "admin@demo.sla",
-    role: "admin",
-    onboarding: { interests: [], selectedCourses: [], careerGoal: "", experienceLevel: "", completed: true },
-  },
-};
-const DEMO_PASSWORD = "demo1234";
-// ─────────────────────────────────────────────────────────────────────────────
-
   const login = async (email: string, password: string) => {
-    // Try demo accounts first — they work offline / without Supabase tables
-    const demoUser = DEMO_ACCOUNTS[email.toLowerCase()];
-    if (demoUser && password === DEMO_PASSWORD) {
-      localStorage.setItem("sla_demo_user", JSON.stringify(demoUser));
-      setAppUser(demoUser);
-      return { error: null };
-    }
-
     // Real Supabase auth
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
@@ -173,7 +129,6 @@ const DEMO_PASSWORD = "demo1234";
   };
 
   const logout = async () => {
-    localStorage.removeItem("sla_demo_user");
     await supabase.auth.signOut();
     setAppUser(null);
     setUser(null);

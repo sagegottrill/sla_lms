@@ -3,8 +3,8 @@ import { motion } from "framer-motion";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, CreditCard, Smartphone, Building2, Lock, Shield, CheckCircle2, Clock, Download, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { api } from "@/services/api";
-import type { Course } from "@/data/mockData";
+import { useCourse } from "@/hooks/useQueries";
+import type { Course } from "@/types";
 import { useEnrollment } from "@/contexts/EnrollmentContext";
 import { toast } from "sonner";
 
@@ -24,15 +24,7 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const { enroll, isEnrolled } = useEnrollment();
 
-  const [course, setCourse] = useState<Course | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api.getCourseById(Number(id)).then((data) => {
-      setCourse(data ?? null);
-      setLoading(false);
-    });
-  }, [id]);
+  const { data: course, isLoading: loading } = useCourse(Number(id));
 
   const [step, setStep] = useState<"details" | "payment" | "success">("details");
   const [method, setMethod] = useState<PaymentMethod>("card");

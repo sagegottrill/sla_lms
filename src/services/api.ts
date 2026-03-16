@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Course, Program, Job } from "@/data/mockData";
+import type { Course, Program, Job } from "@/types";
 
 // Feature flag: if real Supabase URL is configured, use live data
 const USE_SUPABASE = Boolean(
