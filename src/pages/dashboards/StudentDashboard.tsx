@@ -75,7 +75,7 @@ export default function StudentDashboard() {
       id: c.id, title: c.title, category: c.category, rating: c.rating,
       price: c.price === 0 ? "Free" : `$${c.price}`, image: c.image,
     }));
-  }, [appUser, enrollments]);
+  }, [appUser, enrollments, allCourses]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-8">
