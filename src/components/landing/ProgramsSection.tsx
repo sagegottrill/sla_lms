@@ -2,8 +2,8 @@ import { motion } from "framer-motion";
 import { BookOpen, Clock, Users, ArrowRight, CalendarDays, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { usePrograms } from "@/hooks/useData";
-import { Program } from "@/data/mockData";
+import { usePrograms } from "@/hooks/useQueries";
+import type { Program } from "@/types";
 
 const tagStyles: Record<string, string> = {
   "Most Popular": "bg-primary text-primary-foreground",

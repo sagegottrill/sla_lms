@@ -3,12 +3,12 @@ import { motion } from "framer-motion";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Upload, Briefcase, GraduationCap, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { allPrograms } from "@/data/mockData";
+import { useProgram } from "@/hooks/useQueries";
 import { toast } from "sonner";
 
 export default function ProgramApplicationPage() {
   const { id } = useParams();
-  const program = allPrograms.find((p) => p.id === Number(id));
+  const { data: program, isLoading } = useProgram(Number(id));
   const [submitted, setSubmitted] = useState(false);
   const [step, setStep] = useState(1);
 
@@ -30,6 +30,14 @@ export default function ProgramApplicationPage() {
   });
 
   const update = (key: string, val: string) => setForm((p) => ({ ...p, [key]: val }));
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+      </div>
+    );
+  }
 
   if (!program) {
     return (

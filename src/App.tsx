@@ -58,9 +58,11 @@ import AboutPage from "./pages/AboutPage";
 import ForTeamsPage from "./pages/ForTeamsPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import AdminLogin from "./pages/AdminLogin";
+import JobsAdminPage from "./pages/JobsAdminPage";
 import { useAuth } from "./contexts/AuthContext";
 
-const queryClient = new QueryClient();
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { queryClient } from "@/lib/react-query";
 
 function CoursesRoute() {
   const { appUser } = useAuth();
@@ -72,6 +74,12 @@ function ProgramsRoute() {
   const { appUser } = useAuth();
   if (appUser?.role === "program_manager" || appUser?.role === "admin") return <ProgramManagerProgramsPage />;
   return <MyPrograms />;
+}
+
+function JobsRoute() {
+  const { appUser } = useAuth();
+  if (appUser?.role === "admin" || appUser?.role === "program_manager") return <JobsAdminPage />;
+  return <JobBoardPage />;
 }
 
 const App = () => (
@@ -114,7 +122,7 @@ const App = () => (
                 <Route path="payments" element={<PaymentsPage />} />
                 <Route path="certificates" element={<CertificatesPage />} />
                 <Route path="calendar" element={<CalendarPage />} />
-                <Route path="jobs" element={<JobBoardPage />} />
+                <Route path="jobs" element={<JobsRoute />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="roles" element={<RolesPage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
@@ -145,6 +153,7 @@ const App = () => (
       </TooltipProvider>
       </EnrollmentProvider>
     </AuthProvider>
+    <ReactQueryDevtools initialIsOpen={false} />
   </QueryClientProvider>
 );
 

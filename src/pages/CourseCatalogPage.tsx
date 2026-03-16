@@ -9,7 +9,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 
-import { useCourses } from "@/hooks/useData";
+import { useCourses } from "@/hooks/useQueries";
 
 const categoryData = [
   { name: "All", icon: BookOpen, count: 9 },

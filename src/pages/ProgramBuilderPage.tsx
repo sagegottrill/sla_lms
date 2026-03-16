@@ -1,30 +1,54 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { FolderOpen, Plus, BookOpen, Calendar, Users, ArrowLeft, ChevronRight, Trash2, GripVertical, Upload, Image, X } from "lucide-react";
+import { FolderOpen, Plus, BookOpen, Calendar, Users, ArrowLeft, ChevronRight, Trash2, GripVertical, Upload, Image, X, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
-const availableCourses = [
-  { id: 1, title: "Python for Data Analysis", category: "Data Science", duration: "12h" },
-  { id: 2, title: "Data Visualization with Power BI", category: "Data Science", duration: "10h" },
-  { id: 3, title: "Machine Learning Fundamentals", category: "Data Science", duration: "18h" },
-  { id: 4, title: "SQL for Business Analytics", category: "Data Science", duration: "8h" },
-  { id: 5, title: "Excel for Data Analysis", category: "Data Science", duration: "6h" },
-];
+const CATEGORIES = ["Data Science", "Technology", "Business", "Leadership", "Finance", "Marketing", "Health", "Design"];
+const inputCls = "w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground";
+const labelCls = "block text-sm font-medium text-foreground mb-1.5";
 
 type Partner = { id: number; name: string; logoUrl: string };
+type Course = { id: number; title: string; category: string; duration: string };
 
 export default function ProgramBuilderPage() {
+  const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [saving, setSaving] = useState(false);
+  const [published, setPublished] = useState(false);
+
+  // Step 1 fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [duration, setDuration] = useState("");
+  const [startDate, setStartDate] = useState("");
   const [deadline, setDeadline] = useState("");
   const [capacity, setCapacity] = useState("");
-  const [selectedCourses, setSelectedCourses] = useState<number[]>([1, 2]);
+  const [price, setPrice] = useState("");
+  const [image, setImage] = useState("");
+  const [highlights, setHighlights] = useState<string[]>(["Live mentoring sessions", "Certificate from SLA"]);
+
+  // Step 2 — Partners
   const [partners, setPartners] = useState<Partner[]>([]);
   const [newPartnerName, setNewPartnerName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nextPartnerId = useRef(1);
+
+  // Step 3 — Courses
+  const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
+  const [selectedCourses, setSelectedCourses] = useState<number[]>([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
+
+  useEffect(() => {
+    if (step === 3) {
+      setCoursesLoading(true);
+      supabase.from("courses").select("id, title, category, duration").eq("status", "published")
+        .then(({ data }) => { setAvailableCourses((data ?? []) as Course[]); setCoursesLoading(false); });
+    }
+  }, [step]);
 
   const toggleCourse = (id: number) => setSelectedCourses(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
 
@@ -48,7 +72,37 @@ export default function ProgramBuilderPage() {
     setPartners(prev => prev.map(p => p.id === partnerId ? { ...p, logoUrl: url } : p));
   };
 
+
+  const handleSave = async (status: "upcoming" | "active") => {
+    if (!title.trim()) { toast.error("Program title is required."); setStep(1); return; }
+    setSaving(true);
+    const selectedCourseTitles = availableCourses
+      .filter(c => selectedCourses.includes(c.id))
+      .map(c => c.title);
+    const { error } = await supabase.from("programs").insert({
+      title: title.trim(),
+      description: description.trim(),
+      category,
+      duration: duration.trim() || "TBD",
+      start_date: startDate || null,
+      deadline: deadline || null,
+      capacity: Number(capacity) || 100,
+      price: Number(price) || 0,
+      image: image.trim() || null,
+      highlights: highlights.filter(Boolean),
+      courses: selectedCourseTitles,
+      course_count: selectedCourses.length,
+      status,
+    });
+    setSaving(false);
+    if (error) { toast.error(`Failed to save: ${error.message}`); return; }
+    toast.success(status === "active" ? "Program launched!" : "Draft saved.");
+    setPublished(status === "active");
+    if (status === "active") setTimeout(() => navigate("/dashboard/programs"), 1500);
+  };
+
   const stepLabels = ["Program Details", "Partners & Sponsors", "Select Courses", "Preview & Launch"];
+
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -307,9 +361,12 @@ export default function ProgramBuilderPage() {
             </div>
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => setStep(3)} className="rounded-xl">← Back</Button>
-              <Button variant="outline" className="rounded-xl">Save as Draft</Button>
-              <Button className="gradient-card text-primary-foreground rounded-xl hover:opacity-90 flex items-center gap-2">
-                <FolderOpen className="w-4 h-4" /> Launch Program
+              <Button variant="outline" onClick={() => handleSave("upcoming")} disabled={saving} className="rounded-xl gap-2">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Save as Draft
+              </Button>
+              <Button onClick={() => handleSave("active")} disabled={saving} className="gradient-card text-primary-foreground rounded-xl hover:opacity-90 flex items-center gap-2">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4" />}
+                {saving ? "Launching..." : "Launch Program"}
               </Button>
             </div>
           </motion.div>
