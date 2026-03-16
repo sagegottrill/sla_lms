@@ -1,0 +1,196 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Connecta LMS — She Leads Africa Official Brand Identity
+   Primary: SLA Blue #0087DB + Black #000000
+   Complementary: Coral #F77253, Gold #DAAA55, Grey #999999, Navy #1F497D
+   Typography: Open Sans (Bold, Semi Bold, Light)
+   All colors MUST be HSL.
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    /* === Core Backgrounds — pure neutral === */
+    --background: 0 0% 100%;
+    --foreground: 220 9% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 9% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 9% 12%;
+
+    /* === Primary — SLA Blue #0087DB (PANTONE 279 C) === */
+    --primary: 204 100% 43%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 204 85% 55%;
+    --primary-glow: 204 90% 50%;
+
+    /* === Secondary — SLA Coral/Orange #F77253 (PANTONE 7416 C) === */
+    --secondary: 12 91% 64%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* === Muted / Surfaces — clean neutral gray === */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 220 14% 96%;
+    --accent-foreground: 204 100% 43%;
+
+    --destructive: 0 80% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* === Borders — clean neutral === */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 204 100% 43%;
+
+    --radius: 0.875rem;
+
+    /* === Extended Brand Palette === */
+    --brand-blue-50: 204 90% 97%;
+    --brand-blue-100: 204 85% 92%;
+    --brand-blue-200: 204 80% 84%;
+    --brand-blue-500: 204 90% 50%;
+    --brand-blue-700: 204 100% 43%;
+    --brand-blue-900: 213 61% 31%;
+
+    /* === Gold Tones — #DAAA55 (PANTONE 7407 C) === */
+    --gold: 38 68% 59%;
+    --gold-foreground: 38 80% 15%;
+
+    /* === Gradients — SLA Blue-driven, professional === */
+    --gradient-hero: linear-gradient(160deg, hsl(213 61% 18%) 0%, hsl(204 100% 30%) 60%, hsl(204 90% 40%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(204 100% 43%) 0%, hsl(204 90% 48%) 100%);
+    --gradient-accent: linear-gradient(90deg, hsl(204 100% 43%) 0%, hsl(204 85% 50%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(220 14% 98%) 100%);
+
+    /* === Shadows — neutral === */
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.07);
+    --shadow-lg: 0 8px 24px -4px rgb(0 0 0 / 0.10);
+    --shadow-card: 0 1px 4px 0 rgb(0 0 0 / 0.04);
+    --shadow-glow: 0 0 20px hsl(204 90% 50% / 0.15);
+
+    /* === Sidebar — clean white, blue active accent === */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 9% 30%;
+    --sidebar-primary: 204 100% 43%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 204 85% 96%;
+    --sidebar-accent-foreground: 204 100% 43%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 204 100% 43%;
+  }
+
+  .dark {
+    --background: 213 50% 6%;
+    --foreground: 204 15% 95%;
+    --card: 213 45% 10%;
+    --card-foreground: 204 15% 95%;
+    --popover: 213 45% 10%;
+    --popover-foreground: 204 15% 95%;
+    --primary: 204 90% 55%;
+    --primary-foreground: 213 60% 8%;
+    --secondary: 12 85% 60%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 213 40% 16%;
+    --muted-foreground: 204 15% 60%;
+    --accent: 213 40% 18%;
+    --accent-foreground: 204 90% 55%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 213 40% 20%;
+    --input: 213 40% 20%;
+    --ring: 204 90% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+@layer utilities {
+
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .gradient-card {
+    background: var(--gradient-card);
+  }
+
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+
+  .gradient-subtle {
+    background: var(--gradient-subtle);
+  }
+
+  .shadow-brand {
+    box-shadow: var(--shadow-md);
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-lg-brand {
+    box-shadow: var(--shadow-lg);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary-glow)), hsl(var(--secondary)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ─── Lenis smooth scroll ─── */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* ─── Parallax & sticky utilities ─── */
+.parallax-slow {
+  will-change: transform;
+}
+
+.sticky-section {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
