@@ -1,0 +1,141 @@
+import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { MessageSquare, ThumbsUp, Pin, Search, Plus, ChevronDown, ChevronUp, Send, Tag } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+
+const categories = ["All", "General", "Career Advice", "Technical Help", "Programs", "Networking"];
+
+// Awaiting Supabase hook for real forum threads
+const initialThreads: any[] = [];
+
+export default function ForumsPage() {
+  const [threads, setThreads] = useState(initialThreads);
+  const [category, setCategory] = useState("All");
+  const [search, setSearch] = useState("");
+  const [openThread, setOpenThread] = useState<number | null>(null);
+  const [newReply, setNewReply] = useState<Record<number, string>>({});
+  const [showNew, setShowNew] = useState(false);
+  const [newThread, setNewThread] = useState({ title: "", body: "", category: "General" });
+
+  const filtered = threads.filter(t => {
+    const matchCat = category === "All" || t.category === category;
+    const matchSearch = t.title?.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
+  const toggleThread = (id: number) => setOpenThread(prev => prev === id ? null : id);
+
+  const submitThread = () => {
+    if (!newThread.title.trim()) return;
+    setThreads(prev => [{
+      id: Date.now(), ...newThread, author: "You", avatar: "Y", date: "Just now",
+      replies: 0, likes: 0, pinned: false, solved: false, replyList: [],
+    }, ...prev]);
+    setNewThread({ title: "", body: "", category: "General" });
+    setShowNew(false);
+    toast.success("Thread posted!");
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-6 mb-8">
+        <div>
+          <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">Community Forums</h1>
+          <p className="text-muted-foreground text-sm">
+            Ask questions, share knowledge, connect with peers.
+          </p>
+        </div>
+        <Button onClick={() => setShowNew(true)} className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors">
+          <Plus className="w-3.5 h-3.5 mr-2" /> New Thread
+        </Button>
+      </div>
+
+      {/* New thread form */}
+      <AnimatePresence>
+        {showNew && (
+          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+            className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 space-y-4">
+            <h3 className="font-display font-semibold text-lg text-foreground">Start a New Discussion</h3>
+            <input value={newThread.title} onChange={e => setNewThread(p => ({ ...p, title: e.target.value }))}
+              placeholder="Thread title..." className="w-full px-4 py-2 rounded-full ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-primary/40" />
+            <textarea value={newThread.body} onChange={e => setNewThread(p => ({ ...p, body: e.target.value }))}
+              placeholder="What's on your mind?" rows={3}
+              className="w-full px-4 py-3 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none" />
+            <div className="flex items-center gap-3">
+              <select value={newThread.category} onChange={e => setNewThread(p => ({ ...p, category: e.target.value }))}
+                className="px-4 py-2 rounded-full ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm focus:outline-none appearance-none">
+                {categories.filter(c => c !== "All").map(c => <option key={c}>{c}</option>)}
+              </select>
+              <Button onClick={submitThread} className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0">Post</Button>
+              <Button variant="outline" onClick={() => setShowNew(false)} className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">Cancel</Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search discussions..."
+            className="w-full pl-10 pr-4 py-2 rounded-full ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 transition-shadow" />
+        </div>
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 sm:pb-0 hide-scrollbar w-max">
+          {categories.map(c => (
+            <button key={c} onClick={() => setCategory(c)}
+              className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${
+                category === c
+                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-sm"
+                  : "text-foreground bg-transparent hover:bg-muted/80"
+              }`}>
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Thread list */}
+      <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden">
+        {filtered.length === 0 ? (
+          <div className="text-center py-20 bg-card/20">
+            <MessageSquare className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-foreground font-medium mb-1">No discussions yet</p>
+            <p className="text-sm text-muted-foreground">Be the first to start a conversation.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {filtered.map((thread) => (
+              <div key={thread.id}>
+                <button className="w-full text-left px-6 py-4 hover:bg-muted/10 transition-colors" onClick={() => toggleThread(thread.id)}>
+                  <div className="flex items-start gap-4">
+                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0 mt-0.5">
+                      {thread.avatar}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        {thread.pinned && <span className="text-[10px] text-[#0056D2] font-semibold flex items-center gap-1"><Pin className="w-3 h-3" /> Pinned</span>}
+                        <span className="text-[10px] bg-muted px-2 py-0.5 rounded-md text-muted-foreground flex items-center gap-1">
+                          <Tag className="w-2.5 h-2.5" />{thread.category}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold text-foreground text-sm leading-snug">{thread.title}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">by {thread.author} · {thread.date}</p>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0 ml-2">
+                      <span className="flex items-center gap-1"><ThumbsUp className="w-3.5 h-3.5" />{thread.likes}</span>
+                      <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{thread.replies}</span>
+                      {openThread === thread.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

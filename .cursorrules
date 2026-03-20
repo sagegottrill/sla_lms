@@ -1,0 +1,34 @@
+# Security-by-Design Rules for Connecta LMS
+
+Always follow these security guardrails to prevent hacks, data leaks, and insecure code.
+
+## 1. Secrets & Credentials
+- **NEVER** hardcode API keys, secrets, or sensitive data.
+- **ALWAYS** use environment variables (`.env`).
+- **ENSURE** `.env` files are in `.gitignore`.
+- If an agent generates code with placeholders, flag it as a risk.
+
+## 2. Input Validation & Sanitization
+- **NEVER** trust user-provided data.
+- **ALWAYS** validate inputs (e.g., using `Zod` or similar libraries).
+- **ALWAYS** sanitize inputs to prevent XSS.
+- **ALWAYS** use parameterized queries or ORM/Client methods that prevent SQL Injection (e.g., Supabase client).
+
+## 3. Principle of Least Privilege
+- **MINIMIZE** permissions for service accounts and API keys.
+- **RESTRICT** database access patterns to only what is necessary for the current task.
+
+## 4. Secure Error Handling
+- **NEVER** show technical details (stack traces, internal IDs) to the end user.
+- **ALWAYS** provide generic, helpful error messages to users.
+- **ALWAYS** log detailed technical errors to secure internal buffers (e.g., console on server or dedicated logging service).
+
+## 5. Security Reviews
+- **AUDIT** all new features for common OWASP Top 10 vulnerabilities.
+- **CHECK** for broken access control, insecure data exposure, and vulnerable dependencies.
+
+## Security Prompt Reminders:
+- "Did you accidentally include any real keys in the code or comments?"
+- "Is this user input validated and sanitized?"
+- "Are we building strings for DB calls or using parameterized queries?"
+- "Is this error message exposing technical details?"

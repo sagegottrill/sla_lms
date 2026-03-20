@@ -1,0 +1,256 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Connecta LMS — Coursera-Inspired Color System
+   Primary: Coursera Blue #0056D2
+   Text: Black #000000  |  Backgrounds: White #FFFFFF / Light Gray #F5F5F5
+   Accent: Violent Violet #271066  |  Warm: Pink #CE8483, Gold #DAAA55
+   Typography: Outfit + Hanken Grotesk
+   All colors MUST be HSL.
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Noto+Sans:wght@400;500;600&family=Enriqueta:wght@400;600;700&display=swap');
+
+@layer base {
+  :root {
+    /* === Core Backgrounds — Clean white === */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 7%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 7%;
+
+    /* === Primary — Coursera Blue #0056D2 === */
+    --primary: 214 100% 41%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 214 85% 55%;
+    --primary-glow: 214 100% 50%;
+
+    /* === Secondary — Warm accent (light blue tint for surfaces) === */
+    --secondary: 214 30% 96%;
+    --secondary-foreground: 214 100% 41%;
+
+    /* === Muted / Surfaces === */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 220 14% 94%;
+    --accent-foreground: 214 100% 41%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* === Borders — Precise & Clean === */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 214 100% 41%;
+
+    --radius: 0.5rem;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+
+    /* === Spacing Scale-8 System === */
+    --space-1: 8px;
+    --space-2: 16px;
+    --space-3: 24px;
+    --space-4: 32px;
+
+    /* === Extended Palette === */
+    --brand-blue-50: 214 100% 97%;
+    --brand-blue-100: 214 95% 93%;
+    --brand-blue-500: 214 100% 41%;
+    --brand-blue-900: 214 100% 20%;
+
+    /* === Violet Accent (Coursera Purple) === */
+    --violet: 260 75% 24%;
+    --violet-foreground: 0 0% 100%;
+
+    /* === Warm Accents === */
+    --gold: 38 56% 59%;
+    --gold-foreground: 0 0% 10%;
+    --pink: 1 43% 66%;
+    --pink-foreground: 0 0% 100%;
+
+    /* === Gradients — Vibrant Blue progression === */
+    --gradient-hero: linear-gradient(180deg, hsl(214 100% 41%) 0%, hsl(214 100% 22%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(214 100% 41%) 0%, hsl(214 100% 32%) 100%);
+    --gradient-accent: linear-gradient(90deg, hsl(214 100% 41%) 0%, hsl(214 85% 55%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(220 14% 98%) 100%);
+
+    /* === Shadows — Tight & Minimalist === */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --shadow-card: 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+
+    /* === Sidebar === */
+    --sidebar-background: 214 100% 41%;
+    --sidebar-foreground: 214 30% 92%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 214 100% 41%;
+    --sidebar-accent: 214 100% 32%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 214 100% 32%;
+    --sidebar-ring: 214 100% 97%;
+  }
+
+  .dark {
+    --background: 220 25% 6%;
+    --foreground: 210 15% 95%;
+    --card: 220 20% 10%;
+    --card-foreground: 210 15% 95%;
+    --popover: 220 20% 10%;
+    --popover-foreground: 210 15% 95%;
+    --primary: 214 90% 55%;
+    --primary-foreground: 220 25% 6%;
+    --secondary: 260 60% 50%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 220 20% 16%;
+    --muted-foreground: 210 15% 60%;
+    --accent: 220 20% 18%;
+    --accent-foreground: 214 90% 55%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 20%;
+    --input: 220 20% 20%;
+    --ring: 214 90% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Coursera heading scale: bold for headings, regular for everything else */
+  h1 {
+    font-family: "Source Sans 3", "Open Sans", Arial, sans-serif;
+    font-size: 2.75rem;   /* 44px */
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  h2 {
+    font-family: "Source Sans 3", "Open Sans", Arial, sans-serif;
+    font-size: 2rem;      /* 32px */
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+  }
+  h3 {
+    font-family: "Source Sans 3", "Open Sans", Arial, sans-serif;
+    font-size: 1.375rem;  /* 22px */
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+  h4 {
+    font-family: "Source Sans 3", "Open Sans", Arial, sans-serif;
+    font-size: 1.125rem;  /* 18px */
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  h5, h6 {
+    font-family: "Source Sans 3", "Open Sans", Arial, sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  p {
+    font-weight: 400;
+    line-height: 1.6;
+  }
+}
+
+
+@layer utilities {
+
+  .gradient-hero {
+    background: hsl(var(--primary));
+  }
+
+  .gradient-card {
+    background: hsl(var(--primary));
+  }
+
+  .gradient-accent {
+    background: hsl(var(--primary));
+  }
+
+  .gradient-subtle {
+    background: hsl(var(--background));
+  }
+
+  .shadow-brand {
+    box-shadow: var(--shadow-md);
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-lg-brand {
+    box-shadow: var(--shadow-lg);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary-glow)), hsl(var(--secondary)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ─── Lenis smooth scroll ─── */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* ─── Parallax & sticky utilities ─── */
+.parallax-slow {
+  will-change: transform;
+}
+
+.sticky-section {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
