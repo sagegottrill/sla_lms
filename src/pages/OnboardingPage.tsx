@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { isStaffRole } from "@/lib/userRole";
 import { useOnboardingStore, type OnboardingRoleChoice } from "@/store/useOnboardingStore";
 import { supabase } from "@/lib/supabase";
 import { api } from "@/services/api";
@@ -153,7 +154,7 @@ export default function OnboardingPage() {
   const avatarError = avatarForm.formState.errors.avatarUrl?.message;
 
   if (!user) return <Navigate to="/login" replace />;
-  if (appUser && appUser.role !== "student") return <Navigate to="/dashboard" replace />;
+  if (appUser && isStaffRole(appUser.role)) return <Navigate to="/dashboard" replace />;
   if (!needsOnboarding) return <Navigate to="/dashboard" replace />;
 
   const enterX = store.direction > 0 ? 20 : store.direction < 0 ? -20 : 0;

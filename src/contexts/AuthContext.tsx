@@ -2,8 +2,10 @@ import React, { createContext, useContext, useEffect, useState, useRef, ReactNod
 import { User, Session } from "@supabase/supabase-js";
 import { isUsingSupabasePlaceholders, supabase } from "../lib/supabase";
 import { parseJsonStringArray } from "../lib/profileFields";
+import { resolveEffectiveRole, learnerNeedsOnboarding, type UserRole } from "@/lib/userRole";
+import { queryClient, queryKeys } from "@/lib/react-query";
 
-export type UserRole = "student" | "instructor" | "program_manager" | "admin";
+export type { UserRole };
 
 export interface OnboardingData {
   interests: string[];
@@ -35,7 +37,7 @@ function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
     id: String(data.id),
     name: (typeof data.name === "string" && data.name) || "User",
     email: typeof data.email === "string" ? data.email : "",
-    role: data.role as UserRole,
+    role: resolveEffectiveRole(data),
     avatar: typeof data.avatar_url === "string" ? data.avatar_url : undefined,
     careerGoal: typeof data.career_goal === "string" ? data.career_goal : undefined,
     bio: typeof data.bio === "string" ? data.bio : undefined,
@@ -158,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadUserProfileRef = useRef(loadUserProfile);
   loadUserProfileRef.current = loadUserProfile;
 
-  // Realtime: profile row updates (skills, avatar, etc.) do not emit auth events — keep appUser in sync.
+  // Realtime: profile row updates (role, skills, avatar, etc.) — keep appUser in sync without refresh.
   useEffect(() => {
     if (!user?.id || isUsingSupabasePlaceholders) return;
     const uid = user.id;
@@ -168,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles", filter: `id=eq.${uid}` },
         () => {
-          void loadUserProfileRef.current(uid, null);
+          void loadUserProfileRef.current(uid);
         }
       )
       .subscribe();
@@ -315,11 +317,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // We are checking if appUser exists for auth status so UI can function without real keys momentarily
   const isAuthenticated = !!user;
-  // Learner onboarding wizard is for students only — staff (admin, instructor, PM) skip it.
-  const needsOnboarding =
-    !!appUser &&
-    appUser.role === "student" &&
-    !appUser.onboarding?.completed;
+  const needsOnboarding = learnerNeedsOnboarding(appUser);
+
+  const prevRoleRef = useRef<UserRole | null>(null);
+  useEffect(() => {
+    if (!appUser) {
+      prevRoleRef.current = null;
+      return;
+    }
+    const prev = prevRoleRef.current;
+    if (prev !== null && prev !== appUser.role) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
+      queryClient.invalidateQueries({ queryKey: queryKeys.programs.base });
+      queryClient.invalidateQueries({ queryKey: queryKeys.enrollments.base });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.base });
+      queryClient.invalidateQueries({ queryKey: queryKeys.stats.base });
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.base });
+    }
+    prevRoleRef.current = appUser.role;
+  }, [appUser?.id, appUser?.role]);
 
   return (
     <AuthContext.Provider value={{
