@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { isUsingSupabasePlaceholders, supabase } from "../lib/supabase";
+import { parseJsonStringArray } from "../lib/profileFields";
 
 export type UserRole = "student" | "instructor" | "program_manager" | "admin";
 
@@ -20,7 +21,36 @@ export interface AppUser {
   avatar?: string;
   careerGoal?: string;
   bio?: string;
+  headline?: string;
+  location?: string;
+  linkedin?: string;
+  /** Professional skills from profiles.skills (jsonb) */
+  skills?: string[];
   onboarding: OnboardingData;
+}
+
+function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
+  const interests = parseJsonStringArray(data.interests);
+  return {
+    id: String(data.id),
+    name: (typeof data.name === "string" && data.name) || "User",
+    email: typeof data.email === "string" ? data.email : "",
+    role: data.role as UserRole,
+    avatar: typeof data.avatar_url === "string" ? data.avatar_url : undefined,
+    careerGoal: typeof data.career_goal === "string" ? data.career_goal : undefined,
+    bio: typeof data.bio === "string" ? data.bio : undefined,
+    headline: typeof data.headline === "string" ? data.headline : undefined,
+    location: typeof data.location === "string" ? data.location : undefined,
+    linkedin: typeof data.linkedin === "string" ? data.linkedin : undefined,
+    skills: parseJsonStringArray(data.skills),
+    onboarding: {
+      completed: Boolean(data.onboarding_completed),
+      careerGoal: typeof data.career_goal === "string" ? data.career_goal : "",
+      interests,
+      selectedCourses: [],
+      experienceLevel: "",
+    },
+  };
 }
 
 interface AuthContextType {
@@ -32,6 +62,8 @@ interface AuthContextType {
   signup: (name: string, email: string, password: string, role: UserRole) => Promise<{ error: Error | null }>;
   logout: () => Promise<void>;
   completeOnboarding: (data: Partial<OnboardingData>) => Promise<void>;
+  /** Reload profile from Supabase (e.g. after avatar upload — auth events do not fire on profile-only updates). */
+  refreshProfile: () => Promise<void>;
   isAuthenticated: boolean;
   needsOnboarding: boolean;
   
@@ -103,62 +135,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Load user profile from Supabase profiles table
   const loadUserProfile = async (userId: string, authUser?: User | null) => {
     try {
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
-            
-        if (data && !error) {
-            // Map the flat DB row to the React AppUser interface expected by the UI
-            const mappedUser: AppUser = {
-              id: data.id,
-              name: data.name || "User",
-              email: data.email,
-              role: data.role as UserRole,
-              avatar: data.avatar_url,
-              careerGoal: data.career_goal,
-              bio: data.bio,
-              onboarding: {
-                completed: data.onboarding_completed || false,
-                careerGoal: data.career_goal || "",
-                interests: [],
-                selectedCourses: [],
-                experienceLevel: "",
-              }
-            };
-            setAppUser(mappedUser);
-        } else {
-            if (authUser) {
-              await ensureProfileFromAuthUser(authUser);
-              const { data: retry } = await supabase.from("profiles").select("*").eq("id", userId).single();
-              if (retry) {
-                const mappedUser: AppUser = {
-                  id: retry.id,
-                  name: retry.name || "User",
-                  email: retry.email,
-                  role: retry.role as UserRole,
-                  avatar: retry.avatar_url,
-                  careerGoal: retry.career_goal,
-                  bio: retry.bio,
-                  onboarding: {
-                    completed: retry.onboarding_completed || false,
-                    careerGoal: retry.career_goal || "",
-                    interests: [],
-                    selectedCourses: [],
-                    experienceLevel: "",
-                  },
-                };
-                setAppUser(mappedUser);
-                return;
-              }
-            }
-            console.error("Could not load profile:", error?.message);
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
+
+      if (data && !error) {
+        setAppUser(mapProfileRowToAppUser(data as Record<string, unknown>));
+        return;
+      }
+      if (authUser) {
+        await ensureProfileFromAuthUser(authUser);
+        const { data: retry } = await supabase.from("profiles").select("*").eq("id", userId).single();
+        if (retry) {
+          setAppUser(mapProfileRowToAppUser(retry as Record<string, unknown>));
+          return;
         }
+      }
+      console.error("Could not load profile:", error?.message);
     } catch (err) {
-        console.error("Error loading profile:", err);
+      console.error("Error loading profile:", err);
     }
   };
+
+  const loadUserProfileRef = useRef(loadUserProfile);
+  loadUserProfileRef.current = loadUserProfile;
+
+  // Realtime: profile row updates (skills, avatar, etc.) do not emit auth events — keep appUser in sync.
+  useEffect(() => {
+    if (!user?.id || isUsingSupabasePlaceholders) return;
+    const uid = user.id;
+    const channel = supabase
+      .channel(`profile_self_${uid}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles", filter: `id=eq.${uid}` },
+        () => {
+          void loadUserProfileRef.current(uid, null);
+        }
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     // PILLAR 2: Frictionless Authentication State
@@ -266,9 +283,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const refreshProfile = async () => {
+    if (!user) return;
+    await loadUserProfile(user.id, user);
+  };
+
   const completeOnboarding = async (data: Partial<OnboardingData>) => {
     if (!user) return;
-    
+
     // Optimistic UI update
     setAppUser((prev) => {
       if (!prev) return prev;
@@ -279,14 +301,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     });
 
-    // Try to update in DB
     try {
-       await supabase
-         .from('profiles')
-         .update({ onboarding_completed: true, career_goal: data.careerGoal })
-         .eq('id', user.id);
+      await supabase
+        .from("profiles")
+        .update({ onboarding_completed: true, career_goal: data.careerGoal })
+        .eq("id", user.id);
+      // Profile row may already include avatar_url from onboarding; reload so appUser.avatar matches the DB.
+      await loadUserProfile(user.id, user);
     } catch (e) {
-        console.log("Failed to save onboarding to DB, local state updated.");
+      console.log("Failed to save onboarding to DB, local state updated.");
     }
   };
 
@@ -300,7 +323,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, appUser, session, loading, login, signup, logout, completeOnboarding, isAuthenticated, needsOnboarding,
+      user, appUser, session, loading, login, signup, logout, completeOnboarding, refreshProfile, isAuthenticated, needsOnboarding,
       isAuthModalOpen, authModalMode, openAuthModal, closeAuthModal
     }}>
       {/* Always mount children — use opacity fade to prevent flash */}

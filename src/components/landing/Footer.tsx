@@ -126,6 +126,32 @@ export default function Footer() {
             ))}
           </div>
         </div>
+
+        <div className="pt-6 mt-2 border-t border-white/[0.06]">
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[11px] sm:text-xs text-white/35 font-medium tracking-[0.12em] uppercase">
+            <span>Design by</span>
+            <a
+              href="https://github.com/sagegottrill"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-white/45 hover:text-white/75 normal-case tracking-normal font-semibold transition-colors duration-300 underline-offset-[5px] decoration-white/15 hover:decoration-white/35 underline decoration-1"
+            >
+              Orivon Edge
+            </a>
+            <span className="text-white/20 font-normal" aria-hidden>
+              ·
+            </span>
+            <a
+              href="https://www.instagram.com/danfoundorivon/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Orivon Edge on Instagram"
+              className="inline-flex items-center justify-center rounded-md p-1 text-white/40 transition-colors duration-300 hover:text-white/75 hover:bg-white/[0.06]"
+            >
+              <Instagram className="w-[15px] h-[15px] sm:w-4 sm:h-4" strokeWidth={1.75} />
+            </a>
+          </div>
+        </div>
       </div>
     </footer>
   );

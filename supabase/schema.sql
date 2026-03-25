@@ -55,6 +55,8 @@
     location         text,
     linkedin         text,
     career_goal      text,
+    skills           jsonb default '[]'::jsonb,   -- string[] — learner/instructor profile skills
+    interests        jsonb default '[]'::jsonb, -- string[] — onboarding / recommendations
     onboarding_completed boolean default false,
     joined           timestamptz default now(),
     created_at       timestamptz default now(),

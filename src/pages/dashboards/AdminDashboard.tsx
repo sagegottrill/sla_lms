@@ -13,7 +13,7 @@ import { Link } from "react-router-dom";
 
 export default function AdminDashboard() {
   const { data: systemStats, isLoading: loadingStats, refetch } = useSystemStats();
-  const { data: allCourses = [], isLoading: loadingCourses } = useCourses();
+  const { data: allCourses = [], isLoading: loadingCourses } = useCourses({ publishedOnly: false });
   const { data: allProfiles = [] } = useProfiles();
   const [showAllMetrics, setShowAllMetrics] = useState(false);
 

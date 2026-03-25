@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { getLandingProfileMenuItems } from "@/constants/profileMenu";
 
 const navLinks = [
   { label: "Courses", href: "/courses", hasDropdown: true },
@@ -163,21 +164,7 @@ export default function Navbar() {
 
                         {/* Menu items — no icons, clean Coursera text style */}
                         <div className="py-2">
-                          {(appUser?.role === "admin" || appUser?.role === "program_manager"
-                            ? [
-                                { label: "Dashboard",       href: "/dashboard" },
-                                { label: "Profile",         href: "/dashboard/profile" },
-                                { label: "Settings",        href: "/dashboard/settings" },
-                                { label: "Help Center",     href: "/about" },
-                              ]
-                            : [
-                                { label: "Profile",         href: "/dashboard/profile" },
-                                { label: "My Courses",      href: "/dashboard/courses" },
-                                { label: "Accomplishments", href: "/dashboard/certificates" },
-                                { label: "Settings",        href: "/dashboard/settings" },
-                                { label: "Help Center",     href: "/about" },
-                              ]
-                          ).map(({ label, href }) => (
+                          {getLandingProfileMenuItems(appUser?.role).map(({ label, href }) => (
                             <Link
                               key={label}
                               to={href}
@@ -259,20 +246,7 @@ export default function Navbar() {
                       <p className="text-xs text-muted-foreground">{appUser?.email}</p>
                     </div>
                   </div>
-                  {(appUser?.role === "admin" || appUser?.role === "program_manager"
-                    ? [
-                        { label: "Dashboard",       href: "/dashboard" },
-                        { label: "Profile",         href: "/dashboard/profile" },
-                        { label: "Settings",        href: "/dashboard/settings" },
-                      ]
-                    : [
-                        { label: "Dashboard",       href: "/dashboard" },
-                        { label: "My Courses",      href: "/dashboard/courses" },
-                        { label: "Accomplishments", href: "/dashboard/certificates" },
-                        { label: "Profile",         href: "/dashboard/profile" },
-                        { label: "Settings",        href: "/dashboard/settings" },
-                      ]
-                  ).map(({ label, href }) => (
+                  {getLandingProfileMenuItems(appUser?.role).map(({ label, href }) => (
                     <Link key={label} to={href} onClick={() => setMobileOpen(false)}
                       className="block px-4 py-3 text-base font-medium text-foreground/80 hover:text-primary hover:bg-muted rounded-xl transition-colors">
                       {label}

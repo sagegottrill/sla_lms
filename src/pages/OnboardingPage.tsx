@@ -55,7 +55,7 @@ const interestsStepSchema = z.object({
 });
 
 const avatarStepSchema = z.object({
-  avatarUrl: z.string().url("Please upload a photo to finish setup"),
+  avatarUrl: z.union([z.literal(""), z.string().url("Use a valid image URL after upload")]),
 });
 
 export default function OnboardingPage() {
@@ -144,7 +144,7 @@ export default function OnboardingPage() {
     if (step === 1) return roleForm.formState.isValid;
     if (step === 2) return skillsForm.formState.isValid;
     if (step === 3) return interestsForm.formState.isValid;
-    return avatarForm.formState.isValid;
+    return true; // avatar step: photo is optional
   };
 
   const roleError = roleForm.formState.errors.roleChoice?.message;
@@ -198,14 +198,15 @@ export default function OnboardingPage() {
     try {
       // 1. Update Profile in DB using the captured data
       await supabase
-        .from('profiles')
+        .from("profiles")
         .update({
           role: role,
-          avatar_url: avatarUrl,
+          avatar_url: avatarUrl || null,
           onboarding_completed: true,
-          // interests and skills mapping would go here if columns existed
+          skills: skills,
+          interests: interests,
         })
-        .eq('id', user.id);
+        .eq("id", user.id);
 
       // 2. Invalidate React Query Cache strictly as requested
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.base });
@@ -418,8 +419,10 @@ export default function OnboardingPage() {
                 exit={{ opacity: 0, x: exitX, scale: 0.98 }}
                 transition={{ type: "spring", stiffness: 350, damping: 35 }}
               >
-                <h1 className="font-display text-3xl font-bold text-foreground mb-2">Almost done! Add a photo</h1>
-                <p className="text-muted-foreground mb-8">Complete your profile by uploading a professional headshot.</p>
+                <h1 className="font-display text-3xl font-bold text-foreground mb-2">Almost done! Profile photo</h1>
+                <p className="text-muted-foreground mb-8">
+                  Add a professional headshot if you like—you can skip this and upload one later from your profile.
+                </p>
                 
                 <div className="flex flex-col items-center justify-center p-12 ring-1 ring-black/5 dark:ring-white/10 border-0 bg-card rounded-3xl shadow-sm text-center">
                   <div className="relative mb-6">
@@ -505,7 +508,7 @@ export default function OnboardingPage() {
                  onClick={() => {
                    avatarForm.handleSubmit(
                      () => handleFinish(),
-                     () => toast.error("Please upload a photo to finish setup.")
+                     () => toast.error("Fix the photo URL or clear the upload and try again.")
                    )();
                  }}
                  disabled={finishing || !canContinue()}

@@ -15,7 +15,7 @@ export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState("Last 12 months");
 
   const { data: stats, isLoading: loadingStats, refetch: refetchStats } = useSystemStats();
-  const { data: allCourses = [], isLoading: loadingCourses, refetch: refetchCourses } = useCourses();
+  const { data: allCourses = [], isLoading: loadingCourses, refetch: refetchCourses } = useCourses({ publishedOnly: false });
   const { data: allProfiles = [] } = useProfiles();
 
   // Top courses by enrollment count

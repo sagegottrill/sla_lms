@@ -10,11 +10,13 @@ import { toast } from "sonner";
 // ============================================================================
 
 // --- COURSES ---
-export const useCourses = () => {
+/** @param options.publishedOnly — true = storefront/catalog (only published). false = staff dashboards & CMS (drafts + published). */
+export const useCourses = (options?: { publishedOnly?: boolean }) => {
   const { appUser } = useAuth();
+  const publishedOnly = options?.publishedOnly ?? false;
   return useQuery({
-    queryKey: queryKeys.courses.all(appUser?.role),
-    queryFn: api.getCourses,
+    queryKey: [...queryKeys.courses.all(appUser?.role), { publishedOnly }] as const,
+    queryFn: () => api.getCourses({ publishedOnly }),
   });
 };
 
@@ -44,16 +46,19 @@ export const useCreateCourseMutation = () => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
+      queryClient.invalidateQueries({ queryKey: ["site-config"] });
     }
   });
 };
 
 // --- PROGRAMS ---
-export const usePrograms = () => {
+/** @param options.activeCatalog — true = landing / programs catalog (hide completed cohorts). false = admin builder lists all. */
+export const usePrograms = (options?: { activeCatalog?: boolean }) => {
   const { appUser } = useAuth();
+  const activeCatalog = options?.activeCatalog ?? false;
   return useQuery({
-    queryKey: queryKeys.programs.all(appUser?.role),
-    queryFn: api.getPrograms,
+    queryKey: [...queryKeys.programs.all(appUser?.role), { activeCatalog }] as const,
+    queryFn: () => api.getPrograms({ activeCatalog }),
   });
 };
 
@@ -79,6 +84,7 @@ export const useCreateProgramMutation = () => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.programs.base });
+      queryClient.invalidateQueries({ queryKey: ["site-config"] });
     }
   });
 };

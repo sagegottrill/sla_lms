@@ -8,13 +8,25 @@ const USE_SUPABASE = Boolean(
   !import.meta.env.VITE_SUPABASE_URL.includes("placeholder")
 );
 
+function defaultLandingPageConfig(): Record<string, unknown> {
+  return {
+    featured_course_ids: [] as number[],
+    featured_program_ids: [] as number[],
+    promo: { enabled: false, title: "", subtitle: "", deadline: "" },
+  };
+}
+
 export const api = {
   // -------------------------
   // COURSES
   // -------------------------
-  getCourses: async (): Promise<Course[]> => {
+  getCourses: async (options?: { publishedOnly?: boolean }): Promise<Course[]> => {
     if (USE_SUPABASE) {
-      const { data, error } = await supabase.from("courses").select("*").order("id");
+      let q = supabase.from("courses").select("*").order("created_at", { ascending: false });
+      if (options?.publishedOnly) {
+        q = q.eq("status", "published");
+      }
+      const { data, error } = await q;
       if (error) { console.error("Supabase getCourses error:", error.message); return []; }
       return (data ?? []) as Course[];
     }
@@ -42,9 +54,13 @@ export const api = {
   // -------------------------
   // PROGRAMS
   // -------------------------
-  getPrograms: async (): Promise<Program[]> => {
+  getPrograms: async (options?: { activeCatalog?: boolean }): Promise<Program[]> => {
     if (USE_SUPABASE) {
-      const { data, error } = await supabase.from("programs").select("*").order("id");
+      let q = supabase.from("programs").select("*").order("created_at", { ascending: false });
+      if (options?.activeCatalog) {
+        q = q.in("status", ["upcoming", "active"]);
+      }
+      const { data, error } = await q;
       if (error) { console.error("Supabase getPrograms error:", error.message); return []; }
       return (data ?? []) as Program[];
     }
@@ -751,21 +767,31 @@ export const api = {
   // -------------------------
   getSiteConfig: async (id: string = "landing_page") => {
     if (USE_SUPABASE) {
-      const { data, error } = await supabase.from("site_config").select("*").eq("id", id).single();
-      if (error) { console.error("Supabase getSiteConfig error:", error.message); return null; }
-      return data.data;
+      const { data, error } = await supabase.from("site_config").select("*").eq("id", id).maybeSingle();
+      if (error) {
+        console.error("Supabase getSiteConfig error:", error.message);
+        return defaultLandingPageConfig();
+      }
+      if (!data?.data || typeof data.data !== "object") {
+        return defaultLandingPageConfig();
+      }
+      return { ...defaultLandingPageConfig(), ...(data.data as Record<string, unknown>) };
     }
-    return null;
+    return defaultLandingPageConfig();
   },
 
   updateSiteConfig: async (id: string, configData: unknown) => {
     if (USE_SUPABASE) {
       const { data, error } = await supabase
         .from("site_config")
-        .update({ data: configData, updated_at: new Date().toISOString() })
-        .eq("id", id).select().single();
+        .upsert(
+          { id, data: configData, updated_at: new Date().toISOString() },
+          { onConflict: "id" }
+        )
+        .select()
+        .single();
       if (error) { console.error("Supabase updateSiteConfig error:", error.message); throw error; }
-      return data.data;
+      return data?.data;
     }
     return configData;
   },

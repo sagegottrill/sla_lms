@@ -168,7 +168,7 @@ const navByRole: Record<UserRole, NavGroup[]> = {
         { label: "Campaigns", icon: Megaphone, href: "/dashboard/campaigns" },
         { label: "Email Templates", icon: FileText, href: "/dashboard/email-templates" },
         { label: "Report Builder", icon: ClipboardList, href: "/dashboard/report-builder" },
-        { label: "Certificates", icon: Award, href: "/dashboard/certificates" },
+        { label: "Issued certificates", icon: Award, href: "/dashboard/certificates" },
       ],
     },
     {

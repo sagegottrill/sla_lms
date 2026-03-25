@@ -12,7 +12,7 @@ const tabs = ["All", "In Progress", "Completed", "Not Started", "Frozen"];
 export default function MyCourses() {
   const { appUser } = useAuth();
   const { data: rawEnrollments = [], isLoading: loads1 } = useUserEnrollments(appUser?.id);
-  const { data: catalog = [], isLoading: loads2 } = useCourses();
+  const { data: catalog = [], isLoading: loads2 } = useCourses({ publishedOnly: true });
 
   const [activeTab, setActiveTab] = useState("All");
   const [search, setSearch] = useState("");

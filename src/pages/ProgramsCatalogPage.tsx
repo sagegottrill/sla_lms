@@ -131,6 +131,7 @@ export default function ProgramsCatalogPage() {
       const { data, error } = await supabase
         .from("programs")
         .select("*")
+        .in("status", ["upcoming", "active"])
         .order("created_at", { ascending: false });
       if (!error && data) setPrograms(data as Program[]);
       setLoading(false);

@@ -7,7 +7,7 @@ import { usePrograms } from "@/hooks/useQueries";
 export default function ProgramManagerProgramsPage() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
-  const { data: programs = [], isLoading } = usePrograms();
+  const { data: programs = [], isLoading } = usePrograms({ activeCatalog: false });
 
   const filtered = programs.filter((p) => {
     const matchFilter = filter === "All" || p.status === filter.toLowerCase();

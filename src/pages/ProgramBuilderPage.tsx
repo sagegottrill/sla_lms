@@ -16,7 +16,7 @@ type Course = { id: number; title: string; category: string; duration: string };
 export default function ProgramBuilderPage() {
   const navigate = useNavigate();
   const createProgram = useCreateProgramMutation();
-  const { data: allCoursesData, isLoading: coursesLoading } = useCourses();
+  const { data: allCoursesData, isLoading: coursesLoading } = useCourses({ publishedOnly: false });
   
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [saving, setSaving] = useState(false);

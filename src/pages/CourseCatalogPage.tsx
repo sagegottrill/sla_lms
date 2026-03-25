@@ -36,7 +36,7 @@ export default function CourseCatalogPage() {
   const [selectedPrices, setSelectedPrices] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  const { data: allCourses = [] } = useCourses();
+  const { data: allCourses = [] } = useCourses({ publishedOnly: true });
 
   const categoryOptions = useMemo(
     () => categoryData.filter((c) => c.name !== "All").map((c) => ({ label: c.name, value: c.name })),

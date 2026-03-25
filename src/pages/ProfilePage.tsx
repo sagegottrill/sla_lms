@@ -14,7 +14,7 @@ const skillCategories = {
 };
 
 export default function ProfilePage() {
-  const { appUser } = useAuth();
+  const { appUser, refreshProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -42,11 +42,11 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (appUser) {
-      setBio((appUser as any).bio || "");
-      setHeadline((appUser as any).headline || "");
-      setLocation((appUser as any).location || "");
-      setLinkedin((appUser as any).linkedin || "");
-      setSelectedSkills((appUser as any).skills || []);
+      setBio(appUser.bio || "");
+      setHeadline(appUser.headline || "");
+      setLocation(appUser.location || "");
+      setLinkedin(appUser.linkedin || "");
+      setSelectedSkills(appUser.skills ?? []);
     }
   }, [appUser]);
 
@@ -68,6 +68,7 @@ export default function ProfilePage() {
     try {
       const publicUrl = await api.uploadAvatar(appUser.id, file);
       if (publicUrl) {
+        await refreshProfile();
         toast.success("Profile photo updated!");
       } else {
         toast.error("Photo upload failed — check Supabase Storage bucket 'avatars' is public.");
@@ -90,6 +91,7 @@ export default function ProfilePage() {
         skills: selectedSkills,
       });
       if (result) {
+        await refreshProfile();
         toast.success("Profile saved!");
         setEditing(false);
       } else {
@@ -192,7 +194,7 @@ export default function ProfilePage() {
                   className="w-full p-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm" />
               ) : linkedin ? (
                 <a
-                  href={`https://${linkedin}`}
+                  href={linkedin.startsWith("http") ? linkedin : `https://${linkedin.replace(/^\/+/, "")}`}
                   target="_blank"
                   rel="noreferrer"
                   className="text-sm text-primary font-medium hover:text-primary/90 inline-flex items-center gap-1.5 transition-colors"
@@ -207,60 +209,91 @@ export default function ProfilePage() {
         </div>
       </motion.div>
 
-      {/* Skills Section */}
+      {/* Skills: view shows only skills stored in Supabase; edit mode shows the full skill picker */}
       <div className="py-10 border-b border-border/60">
-        <h2 className="font-display text-2xl font-bold text-foreground tracking-tight mb-8">Professional Skills</h2>
-        <div className="grid md:grid-cols-3 gap-8">
-          {Object.entries(skillCategories).map(([cat, skills]) => (
-            <div key={cat}>
-              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 border-b border-border/40 pb-2">{cat}</h3>
-              <div className="flex flex-wrap gap-2">
-                {skills.map(skill => (
-                  <button key={skill} onClick={() => editing && toggleSkill(skill)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      selectedSkills.includes(skill)
-                        ? "bg-primary text-white"
-                        : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                    } ${editing ? "cursor-pointer" : "cursor-default"}`}>
-                    {skill}
-                    {editing && selectedSkills.includes(skill) && <span className="ml-1 opacity-80">✓</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-          {/* Custom Skills List (if user added any not in categories) */}
-          {selectedSkills.filter(s => !Object.values(skillCategories).flat().includes(s)).length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 border-b border-border/40 pb-2">Custom Skills</h3>
-              <div className="flex flex-wrap gap-2">
-                {selectedSkills.filter(s => !Object.values(skillCategories).flat().includes(s)).map(skill => (
-                  <button key={skill} onClick={() => editing && toggleSkill(skill)} className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors bg-primary text-white cursor-pointer hover:opacity-90">
-                    {skill} {editing && <span className="ml-1 opacity-80">✓</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        
-        {editing && (
-          <div className="mt-8 max-w-sm">
-            <h3 className="text-sm font-semibold text-foreground mb-2">Add a custom skill</h3>
-            <div className="relative">
-              <Plus className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input 
-                value={customSkill}
-                onChange={e => setCustomSkill(e.target.value)}
-                onKeyDown={handleAddCustomSkill}
-                placeholder="Type skill and press Enter..."
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm"
-              />
-            </div>
-          </div>
-        )}
+        <h2 className="font-display text-2xl font-bold text-foreground tracking-tight mb-2">Professional Skills</h2>
+        <p className="text-sm text-muted-foreground mb-8">
+          {editing ? "Tap skills to add or remove them, then save." : "Only skills you have added are shown here — synced from your account."}
+        </p>
 
-        {editing && <p className="text-xs text-muted-foreground mt-6 flex items-center gap-1.5 bg-muted/30 p-3 rounded-lg w-fit ring-1 ring-black/5 dark:ring-white/10 border-0"><Edit2 className="w-3.5 h-3.5" /> Click skills to add or remove them from your profile.</p>}
+        {!editing ? (
+          <div className="flex flex-wrap gap-2 min-h-[2.5rem] items-start">
+            {selectedSkills.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No skills listed yet. Edit your profile to add skills.</p>
+            ) : (
+              selectedSkills.map((skill) => (
+                <span
+                  key={skill}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary ring-1 ring-primary/20"
+                >
+                  {skill}
+                </span>
+              ))
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="grid md:grid-cols-3 gap-8">
+              {Object.entries(skillCategories).map(([cat, skills]) => (
+                <div key={cat}>
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 border-b border-border/40 pb-2">{cat}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {skills.map((skill) => (
+                      <button
+                        key={skill}
+                        type="button"
+                        onClick={() => toggleSkill(skill)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                          selectedSkills.includes(skill)
+                            ? "bg-primary text-white"
+                            : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                        } cursor-pointer`}
+                      >
+                        {skill}
+                        {selectedSkills.includes(skill) && <span className="ml-1 opacity-80">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {selectedSkills.filter((s) => !Object.values(skillCategories).flat().includes(s)).length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 border-b border-border/40 pb-2">Custom</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedSkills
+                      .filter((s) => !Object.values(skillCategories).flat().includes(s))
+                      .map((skill) => (
+                        <button
+                          key={skill}
+                          type="button"
+                          onClick={() => toggleSkill(skill)}
+                          className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors bg-primary text-white cursor-pointer hover:opacity-90"
+                        >
+                          {skill} <span className="ml-1 opacity-80">✓</span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="mt-8 max-w-sm">
+              <h3 className="text-sm font-semibold text-foreground mb-2">Add a custom skill</h3>
+              <div className="relative">
+                <Plus className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  value={customSkill}
+                  onChange={(e) => setCustomSkill(e.target.value)}
+                  onKeyDown={handleAddCustomSkill}
+                  placeholder="Type skill and press Enter..."
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-6 flex items-center gap-1.5 bg-muted/30 p-3 rounded-lg w-fit ring-1 ring-black/5 dark:ring-white/10 border-0">
+              <Edit2 className="w-3.5 h-3.5" /> Click skills to add or remove them, then save changes.
+            </p>
+          </>
+        )}
       </div>
 
       {/* Account Info Section */}

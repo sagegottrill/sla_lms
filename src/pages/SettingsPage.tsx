@@ -10,7 +10,7 @@ import { supabase } from "@/lib/supabase";
 const tabs = ["Profile", "Account", "Notifications", "Privacy", "Appearance"];
 
 export default function SettingsPage() {
-  const { appUser } = useAuth();
+  const { appUser, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState("Profile");
   const [name, setName] = useState(appUser?.name ?? "");
   const [bio, setBio] = useState(appUser?.bio ?? "");
@@ -26,7 +26,10 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setAvatarUrl(appUser?.avatar ?? null);
-  }, [appUser?.avatar]);
+    setName(appUser?.name ?? "");
+    setBio(appUser?.bio ?? "");
+    setCareerGoal(appUser?.careerGoal ?? "");
+  }, [appUser?.avatar, appUser?.name, appUser?.bio, appUser?.careerGoal]);
 
   const [notifications, setNotifications] = useState({
     courseUpdates: true,
@@ -83,6 +86,7 @@ export default function SettingsPage() {
         toast.error("Save failed — check your Supabase connection.");
         return;
       }
+      await refreshProfile();
       toast.success("Profile saved successfully!");
     } catch (e: any) {
       toast.error(e?.message || "Failed to save profile.");
@@ -209,6 +213,7 @@ export default function SettingsPage() {
             const publicUrl = await api.uploadAvatar(appUser.id, file);
             if (publicUrl) {
               setAvatarUrl(publicUrl);
+              await refreshProfile();
               toast.success("Profile photo updated!");
             } else {
               toast.error("Photo upload failed — check Supabase storage bucket 'avatars'.");

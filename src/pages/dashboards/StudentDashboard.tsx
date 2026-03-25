@@ -13,7 +13,7 @@ export default function StudentDashboard() {
   const [monthOffset, setMonthOffset] = useState(0);
 
   const { data: enrollmentsRaw = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
-  const { data: allCourses = [], isLoading: loadingCourses } = useCourses();
+  const { data: allCourses = [], isLoading: loadingCourses } = useCourses({ publishedOnly: true });
 
   const enrollments = enrollmentsRaw.map((e: any) => ({
     courseId: e.course_id,
@@ -41,6 +41,8 @@ export default function StudentDashboard() {
   const hour = new Date().getHours();
   const timeOfDay = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
   const firstName = appUser?.name?.split(" ")[0] || "Professional";
+  const careerGoal = appUser?.careerGoal?.trim();
+  const onboardingDone = appUser?.onboarding?.completed;
 
   // Estimate remaining time based on real progress (no fabricated timeseries required).
   const getEstimatedCompletionDate = (progress: number) => {
@@ -78,28 +80,33 @@ export default function StudentDashboard() {
           
           {/* Today's Goals Widget */}
           <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
-            <h2 className="font-display font-semibold text-lg text-foreground mb-4">Today's goals</h2>
-            <div className="space-y-4 pl-1">
-              <div className="flex items-start gap-3 group cursor-pointer">
-                <Star className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
-                <p className="text-sm text-primary font-medium transition-colors group-hover:text-primary/90">
-                  Complete any 3 learning items{" "}
-                  <span className="text-muted-foreground ml-1 no-underline font-normal">
-                    {Math.min(3, inProgressCourses.length)}/3
-                  </span>
+            <h2 className="font-display font-semibold text-lg text-foreground mb-4">Next up</h2>
+            <div className="space-y-3 pl-1">
+              {inProgressCourses.length === 0 ? (
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Enroll in a course to see your next steps here.
                 </p>
-              </div>
-              <div className="flex items-start gap-3 group cursor-pointer">
-                <Star className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
-                <p className="text-sm text-foreground font-medium transition-colors group-hover:text-primary">
-                  Practice with Coach
-                </p>
-              </div>
-              <div className="flex items-start gap-3 group cursor-pointer">
-                <Star className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
-                <p className="text-sm text-foreground font-medium transition-colors group-hover:text-primary">
-                  Set up a learning plan
-                </p>
+              ) : (
+                inProgressCourses.slice(0, 4).map((c: any) => (
+                  <Link
+                    key={c.id}
+                    to={`/courses/${c.id}`}
+                    className="flex items-start gap-3 group rounded-xl -mx-1 px-1 py-1 hover:bg-muted/50 transition-colors"
+                  >
+                    <Star className="w-4 h-4 text-primary/70 shrink-0 mt-0.5" />
+                    <span className="text-sm font-medium text-foreground group-hover:text-primary line-clamp-2">
+                      Continue: {c.title}
+                    </span>
+                  </Link>
+                ))
+              )}
+              <div className="pt-2 flex flex-col gap-2 text-sm">
+                <Link to="/dashboard/skills" className="text-primary font-medium hover:text-primary/90">
+                  Skills assessment →
+                </Link>
+                <Link to="/dashboard/calendar" className="text-muted-foreground hover:text-primary transition-colors">
+                  Learning calendar →
+                </Link>
               </div>
             </div>
           </div>
@@ -188,23 +195,53 @@ export default function StudentDashboard() {
               Good {timeOfDay}, {firstName}
             </h1>
             <p className="mt-2 text-foreground/80 text-base">
-              Your career goal is to <span className="font-bold text-foreground">change roles</span>{" "}
-              <button onClick={() => navigate("/onboarding")} className="ml-2 text-sm text-primary font-semibold hover:text-primary/90 transition-colors">
-                Edit goal
-              </button>
+              {careerGoal ? (
+                <>
+                  Your career goal:{" "}
+                  <span className="font-bold text-foreground">{careerGoal}</span>{" "}
+                  <button
+                    type="button"
+                    onClick={() => navigate("/dashboard/settings")}
+                    className="ml-2 text-sm text-primary font-semibold hover:text-primary/90 transition-colors"
+                  >
+                    Edit in settings
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-muted-foreground">Set your career goal in settings to personalize reminders.</span>{" "}
+                  <button
+                    type="button"
+                    onClick={() => navigate("/dashboard/settings")}
+                    className="text-sm text-primary font-semibold hover:text-primary/90 transition-colors"
+                  >
+                    Add goal
+                  </button>
+                </>
+              )}
             </p>
           </div>
 
-          {/* Prompt Banner */}
-          <div className="bg-[#f0f4f9]/60 dark:bg-muted/30 border border-transparent rounded-2xl p-4 sm:p-6 flex items-center gap-4 mb-6 sm:mb-8">
-            <div className="w-10 h-10 rounded-full bg-[#e8f0fe] text-primary flex items-center justify-center shrink-0">
-               <GraduationCap className="w-5 h-5" />
+          {/* Finish setup — only if learner onboarding not completed */}
+          {!onboardingDone && (
+            <div className="bg-[#f0f4f9]/60 dark:bg-muted/30 border border-transparent rounded-2xl p-4 sm:p-6 flex items-center gap-4 mb-6 sm:mb-8">
+              <div className="w-10 h-10 rounded-full bg-[#e8f0fe] text-primary flex items-center justify-center shrink-0">
+                <GraduationCap className="w-5 h-5" />
+              </div>
+              <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="text-foreground font-medium text-sm sm:text-base">
+                  Complete your profile setup to unlock the full dashboard experience.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => navigate("/onboarding")}
+                  className="text-sm font-semibold text-primary hover:text-primary/90 whitespace-nowrap transition-colors"
+                >
+                  Continue setup
+                </button>
+              </div>
             </div>
-            <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <span className="text-foreground font-medium text-sm sm:text-base">Let's get started! Which role(s) are you interested in?</span>
-              <button onClick={() => navigate("/onboarding")} className="text-sm font-semibold text-primary hover:text-primary/90 whitespace-nowrap transition-colors">Select role</button>
-            </div>
-          </div>
+          )}
 
           {/* Pill Tabs */}
           <div className="flex items-center gap-2 mb-6">

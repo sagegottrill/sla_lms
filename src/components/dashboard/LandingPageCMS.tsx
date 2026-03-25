@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 
 export default function LandingPageCMS() {
   const { data: config, isLoading } = useSiteConfig();
-  const { data: courses } = useCourses();
-  const { data: programs } = usePrograms();
+  const { data: courses } = useCourses({ publishedOnly: false });
+  const { data: programs } = usePrograms({ activeCatalog: false });
   const updateMutation = useUpdateSiteConfigMutation();
 
   const [localConfig, setLocalConfig] = useState<any>(null);

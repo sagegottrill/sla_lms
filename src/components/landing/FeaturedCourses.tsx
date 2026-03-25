@@ -87,13 +87,17 @@ function CourseCard({ course, index }: { course: Course; index: number }) {
 }
 
 export default function FeaturedCourses() {
-  const { data: allCourses = [] } = useCourses();
+  const { data: allCourses = [] } = useCourses({ publishedOnly: true });
   const { data: config } = useSiteConfig();
   
-  const featuredIds = config?.featured_course_ids || [];
-  const courses = featuredIds.length > 0 
-    ? allCourses.filter(c => featuredIds.includes(c.id))
-    : allCourses.slice(0, 6);
+  const featuredIds = (config?.featured_course_ids || []) as number[];
+  let courses =
+    featuredIds.length > 0
+      ? allCourses.filter((c) => featuredIds.includes(c.id))
+      : allCourses.slice(0, 6);
+  if (courses.length === 0 && allCourses.length > 0) {
+    courses = allCourses.slice(0, 6);
+  }
 
   return (
     <section className="py-16 sm:py-20 bg-background">

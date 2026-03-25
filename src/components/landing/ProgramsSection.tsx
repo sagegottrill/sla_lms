@@ -22,13 +22,17 @@ function CountdownBadge({ deadline }: { deadline: string }) {
 }
 
 export default function ProgramsSection() {
-  const { data: allPrograms = [] } = usePrograms();
+  const { data: allPrograms = [] } = usePrograms({ activeCatalog: true });
   const { data: config } = useSiteConfig();
 
-  const featuredIds = config?.featured_program_ids || [];
-  const programs = featuredIds.length > 0
-    ? allPrograms.filter(p => featuredIds.includes(p.id))
-    : allPrograms.slice(0, 3);
+  const featuredIds = (config?.featured_program_ids || []) as number[];
+  let programs =
+    featuredIds.length > 0
+      ? allPrograms.filter((p) => featuredIds.includes(p.id))
+      : allPrograms.slice(0, 3);
+  if (programs.length === 0 && allPrograms.length > 0) {
+    programs = allPrograms.slice(0, 3);
+  }
 
   return (
     <section id="programs" className="py-16 sm:py-20 bg-muted/30">

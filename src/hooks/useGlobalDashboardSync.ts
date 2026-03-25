@@ -65,6 +65,13 @@ export function useGlobalDashboardSync() {
           queryClient.invalidateQueries({ queryKey: queryKeys.stats.base });
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "site_config" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["site-config"] });
+        }
+      )
       .subscribe((status, err) => {
         if (err) console.error("Realtime sync error:", err);
       });
