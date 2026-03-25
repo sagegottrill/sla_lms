@@ -292,7 +292,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // We are checking if appUser exists for auth status so UI can function without real keys momentarily
   const isAuthenticated = !!user;
-  const needsOnboarding = !!appUser && !appUser.onboarding?.completed;
+  // Learner onboarding wizard is for students only — staff (admin, instructor, PM) skip it.
+  const needsOnboarding =
+    !!appUser &&
+    appUser.role === "student" &&
+    !appUser.onboarding?.completed;
 
   return (
     <AuthContext.Provider value={{

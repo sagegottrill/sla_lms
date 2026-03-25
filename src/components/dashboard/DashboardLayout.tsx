@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Outlet, Navigate, useLocation, Link, useNavigate } from "react-router-dom";
-import { Bell, Search, Menu, X, ChevronRight, Home, User, Settings, LogOut, BookOpen, Award, HelpCircle } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { Bell, Search, Menu, X, ChevronRight, Home, User, Settings, LogOut, BookOpen, Award, HelpCircle, Users } from "lucide-react";
+import { useAuth, type UserRole } from "@/contexts/AuthContext";
 import DashboardSidebar from "./DashboardSidebar";
 import { useGlobalDashboardSync } from "@/hooks/useGlobalDashboardSync";
 import { useUIStore } from "@/store/useUIStore";
@@ -171,12 +171,7 @@ export default function DashboardLayout() {
                     </div>
 
                     <div className="py-1.5">
-                      {[
-                        { icon: User, label: "My Profile", href: "/dashboard/profile" },
-                        { icon: BookOpen, label: "My Courses", href: "/dashboard/courses" },
-                        { icon: Award, label: "Certificates", href: "/dashboard/certificates" },
-                        { icon: Settings, label: "Settings", href: "/dashboard/settings" },
-                      ].map(({ icon: Icon, label, href }) => (
+                      {(appUser ? profileDropdownLinks[appUser.role] : profileDropdownLinks.student).map(({ icon: Icon, label, href }) => (
                         <Link
                           key={label}
                           to={href}

@@ -59,7 +59,7 @@ const avatarStepSchema = z.object({
 });
 
 export default function OnboardingPage() {
-  const { user, needsOnboarding, completeOnboarding } = useAuth();
+  const { user, appUser, needsOnboarding, completeOnboarding } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const store = useOnboardingStore();
@@ -145,6 +145,7 @@ export default function OnboardingPage() {
   const avatarError = avatarForm.formState.errors.avatarUrl?.message;
 
   if (!user) return <Navigate to="/login" replace />;
+  if (appUser && appUser.role !== "student") return <Navigate to="/dashboard" replace />;
   if (!needsOnboarding) return <Navigate to="/dashboard" replace />;
 
   const enterX = store.direction > 0 ? 20 : store.direction < 0 ? -20 : 0;
