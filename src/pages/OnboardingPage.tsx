@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useOnboardingStore } from "@/store/useOnboardingStore";
+import { useOnboardingStore, type OnboardingRoleChoice } from "@/store/useOnboardingStore";
 import { supabase } from "@/lib/supabase";
 import { api } from "@/services/api";
 import { useQueryClient } from "@tanstack/react-query";
@@ -18,11 +18,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
+/** Only student + instructor are self-selected; program_manager and admin are assigned in User management. */
 const ROLES = [
-  { id: "student", label: "Student Learner", desc: "I want to take courses and build skills", icon: BookOpen },
-  { id: "instructor", label: "Instructor", desc: "I want to teach and create courses", icon: Megaphone },
-  { id: "program_manager", label: "Program Manager", desc: "I manage cohorts and enterprise learning", icon: Briefcase },
-];
+  { id: "student" as const, label: "Student Learner", desc: "I want to take courses and build skills", icon: BookOpen },
+  { id: "instructor" as const, label: "Instructor", desc: "I want to teach and create courses", icon: Megaphone },
+] as const;
 
 const COMMON_SKILLS = ["React", "Python", "Digital Marketing", "Figma", "Data Analysis", "Leadership", "SEO", "Copywriting"];
 
@@ -37,7 +37,7 @@ const INTEREST_CATEGORIES = [
   { id: "Health", label: "Health & Wellness", icon: Heart },
 ];
 
-const allowedRoles = ["student", "instructor", "program_manager", "admin"] as const;
+const allowedRoles = ["student", "instructor"] as const;
 
 const roleStepSchema = z.object({
   roleChoice: z
@@ -101,6 +101,14 @@ export default function OnboardingPage() {
     mode: "onChange",
     defaultValues: { avatarUrl: avatarUrl ?? "" },
   });
+
+  // Clear legacy persisted roles (PM/admin) from before the funnel was limited to student + instructor.
+  useEffect(() => {
+    if (role != null && role !== "student" && role !== "instructor") {
+      useOnboardingStore.getState().setFormData({ role: null });
+      roleForm.reset({ roleChoice: "" });
+    }
+  }, [role, roleForm]);
 
   // Keep the current step forms synchronized with persisted Zustand state.
   useEffect(() => {
@@ -269,8 +277,8 @@ export default function OnboardingPage() {
                     <button
                       key={id}
                       onClick={() => {
-                        store.setFormData({ role: id as any });
-                        roleForm.setValue("roleChoice", id as any, { shouldValidate: true, shouldDirty: true });
+                        store.setFormData({ role: id });
+                        roleForm.setValue("roleChoice", id, { shouldValidate: true, shouldDirty: true });
                       }}
                       className={`flex items-start gap-4 p-5 rounded-2xl border text-left transition-all ${
                         role === id ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/40 bg-card"
@@ -456,7 +464,7 @@ export default function OnboardingPage() {
                    if (step === 1) {
                      roleForm.handleSubmit(
                        (values) => {
-                        store.setFormData({ role: values.roleChoice as any });
+                        store.setFormData({ role: values.roleChoice as OnboardingRoleChoice });
                          store.nextStep();
                        },
                        () => toast.error("Please select a role to continue.")

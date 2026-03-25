@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-type Role = "student" | "instructor" | "program_manager" | "admin" | null;
+/** Self-service onboarding only offers student + instructor; admin/PM are assigned by admin. */
+export type OnboardingRoleChoice = "student" | "instructor" | null;
 
 interface OnboardingData {
   // Matches the onboarding wizard selections we capture across steps.
-  role: Role;
+  role: OnboardingRoleChoice;
   skills: string[];
   interests: string[];
   avatarUrl: string | null;

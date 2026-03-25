@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { getSiteUrl } from "@/lib/siteUrl";
 import { toast } from "sonner";
@@ -48,7 +48,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
     setName("");
     setShowPass(false);
     setLoading(false);
-    setRoleHint(null);
   }, [initialMode, isOpen]);
 
   // Reset state when mode changes
@@ -107,7 +106,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
       return;
     }
     setLoading(true);
-    const { error } = await signup(name, email, password, (roleHint as UserRole) || "student");
+    const { error } = await signup(name, email, password, "student");
     setLoading(false);
     if (!error) {
       toast.success("Account created!");
@@ -212,27 +211,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
                   </span>
                 )}
               </Button>
-
-              {/* Role selection for local testing */}
-              <div className="flex flex-wrap items-center justify-center gap-1.5 pt-0.5">
-                <span className="text-[10px] text-muted-foreground/70">
-                  {mode === "login" ? "Signing in as" : "Create account as"}
-                </span>
-                {(["admin", "program_manager"] as const).map(r => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRoleHint(prev => prev === r ? null : r)}
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${
-                      roleHint === r
-                        ? "bg-primary text-white border-primary"
-                        : "text-muted-foreground border-border hover:border-primary hover:text-primary"
-                    }`}
-                  >
-                    {r === "admin" ? "Admin" : "Program Manager"}
-                  </button>
-                ))}
-              </div>
             </form>
 
             {/* Divider */}
