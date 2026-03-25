@@ -142,7 +142,7 @@ export default function Footer() {
               ·
             </span>
             <a
-              href="https://www.instagram.com/danfoundorivon/"
+              href="https://www.instagram.com/orivonedge"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Orivon Edge on Instagram"
