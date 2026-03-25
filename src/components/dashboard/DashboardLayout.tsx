@@ -1,12 +1,38 @@
 import { useState, useRef, useEffect } from "react";
 import { Outlet, Navigate, useLocation, Link, useNavigate } from "react-router-dom";
-import { Bell, Search, Menu, X, ChevronRight, Home, User, Settings, LogOut, BookOpen, Award, HelpCircle, Users } from "lucide-react";
+import { Bell, Search, Menu, X, ChevronRight, Home, User, Settings, LogOut, BookOpen, Award, HelpCircle, Users, type LucideIcon } from "lucide-react";
 import { useAuth, type UserRole } from "@/contexts/AuthContext";
 import DashboardSidebar from "./DashboardSidebar";
 import { useGlobalDashboardSync } from "@/hooks/useGlobalDashboardSync";
 import { useUIStore } from "@/store/useUIStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+
+const profileDropdownLinks: Record<
+  UserRole,
+  { icon: LucideIcon; label: string; href: string }[]
+> = {
+  student: [
+    { icon: User, label: "My Profile", href: "/dashboard/profile" },
+    { icon: BookOpen, label: "My Courses", href: "/dashboard/courses" },
+    { icon: Award, label: "Certificates", href: "/dashboard/certificates" },
+    { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+  ],
+  instructor: [
+    { icon: User, label: "My Profile", href: "/dashboard/profile" },
+    { icon: BookOpen, label: "My Courses", href: "/dashboard/courses" },
+    { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+  ],
+  program_manager: [
+    { icon: User, label: "My Profile", href: "/dashboard/profile" },
+    { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+  ],
+  admin: [
+    { icon: User, label: "Profile", href: "/dashboard/profile" },
+    { icon: Users, label: "User management", href: "/dashboard/users" },
+    { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+  ],
+};
 
 export default function DashboardLayout() {
   const { isAuthenticated, appUser, logout, loading, needsOnboarding } = useAuth();
