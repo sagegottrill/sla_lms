@@ -61,6 +61,7 @@ import JobsAdminPage from "./pages/JobsAdminPage";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import { useAuth } from "./contexts/AuthContext";
 import AuthModal from "./components/AuthModal";
+import { RoleGuard } from "./components/auth/RoleGuard";
 
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from "@/lib/react-query";
@@ -124,38 +125,164 @@ const App = () => (
               }>
                 <Route index element={<DashboardHome />} />
                 <Route path="courses" element={<CoursesRoute />} />
-                <Route path="courses/new" element={<CourseBuilderPage />} />
+                <Route
+                  path="courses/new"
+                  element={
+                    <RoleGuard allow={["instructor", "admin", "program_manager"]}>
+                      <CourseBuilderPage />
+                    </RoleGuard>
+                  }
+                />
                 <Route path="programs" element={<ProgramsRoute />} />
-                <Route path="programs/new" element={<ProgramBuilderPage />} />
-                <Route path="students" element={<StudentsPage />} />
-                <Route path="participants" element={<ParticipantsPage />} />
-                <Route path="users" element={<AdminUsersPage />} />
-                <Route path="analytics" element={<AnalyticsPage />} />
-                <Route path="earnings" element={<EarningsPage />} />
-                <Route path="payments" element={<PaymentsPage />} />
+                <Route
+                  path="programs/new"
+                  element={
+                    <RoleGuard allow={["program_manager", "admin"]}>
+                      <ProgramBuilderPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="students"
+                  element={
+                    <RoleGuard allow={["instructor", "admin"]}>
+                      <StudentsPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="participants"
+                  element={
+                    <RoleGuard allow={["program_manager", "admin"]}>
+                      <ParticipantsPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="users"
+                  element={
+                    <RoleGuard allow={["admin"]}>
+                      <AdminUsersPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="analytics"
+                  element={
+                    <RoleGuard allow={["instructor", "program_manager", "admin"]}>
+                      <AnalyticsPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="earnings"
+                  element={
+                    <RoleGuard allow={["instructor", "admin"]}>
+                      <EarningsPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="payments"
+                  element={
+                    <RoleGuard allow={["admin"]}>
+                      <PaymentsPage />
+                    </RoleGuard>
+                  }
+                />
                 <Route path="certificates" element={<CertificatesPage />} />
                 <Route path="calendar" element={<CalendarPage />} />
                 <Route path="jobs" element={<JobsRoute />} />
-                <Route path="reports" element={<ReportsPage />} />
-                <Route path="roles" element={<RolesPage />} />
+                <Route
+                  path="reports"
+                  element={
+                    <RoleGuard allow={["program_manager", "admin"]}>
+                      <ReportsPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="roles"
+                  element={
+                    <RoleGuard allow={["admin"]}>
+                      <RolesPage />
+                    </RoleGuard>
+                  }
+                />
                 <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="portfolio" element={<PortfolioPage />} />
-                <Route path="employers" element={<EmployerPortalPage />} />
-                <Route path="email-templates" element={<EmailTemplatesPage />} />
-                <Route path="campaigns" element={<CampaignsPage />} />
+                <Route
+                  path="employers"
+                  element={
+                    <RoleGuard allow={["admin"]}>
+                      <EmployerPortalPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="email-templates"
+                  element={
+                    <RoleGuard allow={["admin"]}>
+                      <EmailTemplatesPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="campaigns"
+                  element={
+                    <RoleGuard allow={["admin"]}>
+                      <CampaignsPage />
+                    </RoleGuard>
+                  }
+                />
                 <Route path="forums" element={<ForumsPage />} />
-                <Route path="videos" element={<VideoUploadPage />} />
-                <Route path="interviews" element={<InterviewSchedulingPage />} />
+                <Route
+                  path="videos"
+                  element={
+                    <RoleGuard allow={["admin", "instructor", "program_manager"]}>
+                      <VideoUploadPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="interviews"
+                  element={
+                    <RoleGuard allow={["program_manager", "admin"]}>
+                      <InterviewSchedulingPage />
+                    </RoleGuard>
+                  }
+                />
                 <Route path="income" element={<IncomeProgressionPage />} />
                 <Route path="resume" element={<ResumeBuilderPage />} />
                 <Route path="skills" element={<SkillsAssessmentPage />} />
                 <Route path="job-alerts" element={<JobAlertsPage />} />
                 <Route path="notification-preferences" element={<NotificationPrefsPage />} />
-                <Route path="placements" element={<PlacementTrackingPage />} />
-                <Route path="leads" element={<LeadDashboardPage />} />
-                <Route path="report-builder" element={<ReportBuilderPage />} />
+                <Route
+                  path="placements"
+                  element={
+                    <RoleGuard allow={["program_manager", "admin"]}>
+                      <PlacementTrackingPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="leads"
+                  element={
+                    <RoleGuard allow={["admin"]}>
+                      <LeadDashboardPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="report-builder"
+                  element={
+                    <RoleGuard allow={["program_manager", "admin"]}>
+                      <ReportBuilderPage />
+                    </RoleGuard>
+                  }
+                />
               </Route>
 
               <Route path="*" element={<NotFound />} />

@@ -1,9 +1,11 @@
 import { motion } from "framer-motion";
 import { FolderOpen, BookOpen, Clock, Users, ChevronRight, Award, Calendar, Play } from "lucide-react";
-
-const programs: any[] = [];
+import { useMyPrograms } from "@/hooks/useQueries";
 
 export default function MyPrograms() {
+  // Non-instructor users should see the programs they have enrolled in
+  const { data: programs = [], isLoading } = useMyPrograms();
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -14,7 +16,13 @@ export default function MyPrograms() {
         <a href="/programs" className="text-sm font-semibold text-primary hover:underline">Browse programs</a>
       </div>
 
-      {programs.length === 0 ? (
+      {isLoading ? (
+        <div className="bg-card rounded-2xl shadow-sm border-0 p-12 text-center flex flex-col items-center justify-center min-h-[40vh] text-muted-foreground">
+          <FolderOpen className="w-16 h-16 opacity-30 mb-6" />
+          <h2 className="text-xl font-display font-medium text-foreground mb-2">Syncing your programs…</h2>
+          <p className="text-muted-foreground text-sm max-w-sm">We’re pulling your enrollment progress from the platform.</p>
+        </div>
+      ) : programs.length === 0 ? (
         <div className="bg-card rounded-2xl shadow-sm border-0 p-12 text-center flex flex-col items-center justify-center min-h-[40vh]">
           <FolderOpen className="w-16 h-16 text-muted-foreground/30 mb-6" />
           <h2 className="text-xl font-display font-medium text-foreground mb-2">

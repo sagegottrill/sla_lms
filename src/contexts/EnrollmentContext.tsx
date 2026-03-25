@@ -20,13 +20,7 @@ interface EnrollmentContextType {
 
 const EnrollmentContext = createContext<EnrollmentContextType | undefined>(undefined);
 
-const defaultEnrollments: EnrolledCourse[] = [
-  { courseId: 1, enrolledAt: "2025-12-15", progress: 68, status: "in-progress", lastLesson: "Module 4: Data Visualization with Matplotlib" },
-  { courseId: 2, enrolledAt: "2026-01-20", progress: 32, status: "in-progress", lastLesson: "Module 2: Building Your Brand Voice" },
-  { courseId: 3, enrolledAt: "2025-10-01", progress: 100, status: "completed", lastLesson: "Completed!" },
-  { courseId: 5, enrolledAt: "2026-02-10", progress: 15, status: "in-progress", lastLesson: "Module 1: HTML & CSS Fundamentals" },
-  { courseId: 6, enrolledAt: "2025-11-05", progress: 100, status: "completed", lastLesson: "Completed!" },
-];
+const defaultEnrollments: EnrolledCourse[] = [];
 
 export function EnrollmentProvider({ children }: { children: ReactNode }) {
   const [enrollments, setEnrollments] = useState<EnrolledCourse[]>(defaultEnrollments);

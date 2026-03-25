@@ -8,6 +8,7 @@ import { useCourse, useUserEnrollments, useEnrollUserMutation } from "@/hooks/us
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { toVideoEmbedUrl } from "@/lib/videoEmbed";
 
 export default function CourseDetailPage() {
   const { id } = useParams();
@@ -129,13 +130,6 @@ export default function CourseDetailPage() {
     );
   };
 
-  const getEmbedUrl = (url: string) => {
-    if (!url) return "";
-    if (url.includes("player.vimeo.com")) return url;
-    const match = url.match(/vimeo\.com\/(\d+)/);
-    return match ? `https://player.vimeo.com/video/${match[1]}?title=0&byline=0&portrait=0` : url;
-  };
-
   return (
     <div className="min-h-screen bg-background">
       {/* Breadcrumb */}
@@ -168,7 +162,7 @@ export default function CourseDetailPage() {
                   </button>
                 </div>
                 <iframe
-                  src={getEmbedUrl(activeVideo)}
+                  src={toVideoEmbedUrl(activeVideo)}
                   className="w-full h-full"
                   frameBorder="0"
                   allow="autoplay; fullscreen; picture-in-picture"
@@ -248,7 +242,9 @@ export default function CourseDetailPage() {
                                e.stopPropagation();
                                setCompletedLessons(prev => {
                                  const next = new Set(prev);
-                                 next.has(lesson.title) ? next.delete(lesson.title) : next.add(lesson.title);
+                                // Toggle lesson completion state for this user session.
+                                if (next.has(lesson.title)) next.delete(lesson.title);
+                                else next.add(lesson.title);
                                  return next;
                                });
                              }}
@@ -489,7 +485,7 @@ export default function CourseDetailPage() {
                 {course.reviews.map((review: any, i) => (
                   <div key={i} className="p-4 bg-card rounded-2xl shadow-sm border-0">
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="w-9 h-9 rounded-full gradient-card flex items-center justify-center text-sm font-bold text-primary-foreground">{review.name.charAt(0)}</div>
+                      <div className="w-9 h-9 rounded-full gradient-card flex items-center justify-center text-sm font-bold text-primary-foreground">{(review.name ?? "").charAt(0)}</div>
                       <div>
                         <p className="text-sm font-semibold text-foreground">{review.name}</p>
                         <div className="flex items-center gap-1">

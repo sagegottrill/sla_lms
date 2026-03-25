@@ -2,15 +2,22 @@ import { useState } from "react";
 import { FolderOpen, Plus, Users, Calendar, BarChart2, Bell, Download, Edit, Trash2, Search, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-
-// Pending backend hook implementation
-const programs: any[] = [];
+import { usePrograms } from "@/hooks/useQueries";
 
 export default function ProgramManagerProgramsPage() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const { data: programs = [], isLoading } = usePrograms();
 
-  const filtered = programs.filter(p => filter === "All" || p.status === filter.toLowerCase());
+  const filtered = programs.filter((p) => {
+    const matchFilter = filter === "All" || p.status === filter.toLowerCase();
+    const q = search.toLowerCase().trim();
+    const matchSearch =
+      q.length === 0 ||
+      (p.title ?? "").toLowerCase().includes(q) ||
+      (p.cohort ?? "").toLowerCase().includes(q);
+    return matchFilter && matchSearch;
+  });
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
@@ -20,7 +27,7 @@ export default function ProgramManagerProgramsPage() {
         <div>
           <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">Manage Programs</h1>
           <p className="text-muted-foreground text-sm">
-            You currently oversee {programs.length} active cohort environments.
+            {isLoading ? "Syncing programs…" : `You currently oversee ${programs.length} active cohort environments.`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -78,7 +85,13 @@ export default function ProgramManagerProgramsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
-              {filtered.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-20 text-center text-muted-foreground">
+                    Loading programs…
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-20 text-center bg-card/20">
                     <FolderOpen className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
@@ -121,7 +134,7 @@ export default function ProgramManagerProgramsPage() {
                        </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Button variant="outline" className="h-8 px-4 text-xs font-semibold rounded-md border-border bg-transparent hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="outline" className="h-8 px-4 text-xs font-semibold rounded-md border-border bg-transparent hover:bg-muted opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                         Manage
                       </Button>
                     </td>

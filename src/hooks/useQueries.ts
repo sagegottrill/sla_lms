@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/react-query";
 import { api } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 // ============================================================================
 // ENTERPRISE HOOKS LAYER (Pillar 1)
@@ -30,7 +31,17 @@ export const useCreateCourseMutation = () => {
   const queryClient = useQueryClient();
   const { appUser } = useAuth();
   return useMutation({
-    mutationFn: (course: any) => api.createCourse(course),
+    mutationFn: (course: Record<string, unknown>) =>
+      api.createCourse({
+        ...course,
+        instructor_id: appUser?.id ?? course.instructor_id,
+      }),
+    onSuccess: () => {
+      toast.success("Course created");
+    },
+    onError: () => {
+      toast.error("We couldn't create your course. Please try again.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
     }
@@ -60,6 +71,12 @@ export const useCreateProgramMutation = () => {
   const { appUser } = useAuth();
   return useMutation({
     mutationFn: (program: any) => api.createProgram(program),
+    onSuccess: () => {
+      toast.success("Program created");
+    },
+    onError: () => {
+      toast.error("We couldn't create your program. Please try again.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.programs.base });
     }
@@ -89,6 +106,10 @@ export const useCreateJobMutation = () => {
     },
     onError: (err, variables, context) => {
       if (context?.queryKey) queryClient.setQueryData(context.queryKey, context.previousJobs);
+      toast.error("We couldn't post that job. Your changes weren't saved.");
+    },
+    onSuccess: () => {
+      toast.success("Job posted");
     },
     onSettled: (data, error, variables, context) => {
       if (context?.queryKey) queryClient.invalidateQueries({ queryKey: context.queryKey });
@@ -113,6 +134,10 @@ export const useUpdateJobMutation = () => {
     },
     onError: (err, variables, context) => {
       if (context?.queryKey) queryClient.setQueryData(context.queryKey, context.previousJobs);
+      toast.error("We couldn't update that job. Please try again.");
+    },
+    onSuccess: () => {
+      toast.success("Job updated");
     },
     onSettled: (data, error, variables, context) => {
       if (context?.queryKey) queryClient.invalidateQueries({ queryKey: context.queryKey });
@@ -137,6 +162,10 @@ export const useDeleteJobMutation = () => {
     },
     onError: (err, variables, context) => {
       if (context?.queryKey) queryClient.setQueryData(context.queryKey, context.previousJobs);
+      toast.error("We couldn't delete that job. Your changes were reverted.");
+    },
+    onSuccess: () => {
+      toast.success("Job deleted");
     },
     onSettled: (data, error, variables, context) => {
       if (context?.queryKey) queryClient.invalidateQueries({ queryKey: context.queryKey });
@@ -188,6 +217,10 @@ export const useEnrollUserMutation = () => {
       if (context?.queryKey) {
         queryClient.setQueryData(context.queryKey, context.previousEnrollments);
       }
+      toast.error("We couldn't enroll that learner. Please try again.");
+    },
+    onSuccess: () => {
+      toast.success("Enrollment updated");
     },
 
     onSettled: (data, error, variables, context) => {
@@ -196,6 +229,31 @@ export const useEnrollUserMutation = () => {
         queryClient.invalidateQueries({ queryKey: context.queryKey });
       }
     }
+  });
+};
+
+// --- DASHBOARD LISTS (Participants/Students) ---
+export const useProgramParticipants = () => {
+  return useQuery({
+    queryKey: queryKeys.participants.all(),
+    queryFn: api.getProgramParticipants,
+  });
+};
+
+export const useInstructorStudents = (instructorId: string | undefined) => {
+  return useQuery({
+    queryKey: queryKeys.students.instructor(instructorId ?? ""),
+    queryFn: () => api.getInstructorStudents(instructorId!),
+    enabled: !!instructorId,
+  });
+};
+
+export const useMyPrograms = () => {
+  const { appUser } = useAuth();
+  return useQuery({
+    queryKey: queryKeys.myPrograms.user(appUser?.id ?? ""),
+    queryFn: () => api.getUserPrograms(appUser!.id),
+    enabled: !!appUser?.id,
   });
 };
 
@@ -237,6 +295,10 @@ export const useUpdateProfileMutation = () => {
       if (context?.queryKey) {
         queryClient.setQueryData(context.queryKey, context.previousProfiles);
       }
+      toast.error("We couldn't save your profile changes.");
+    },
+    onSuccess: () => {
+      toast.success("Profile updated");
     },
     onSettled: (data, error, variables, context) => {
       if (context?.queryKey) queryClient.invalidateQueries({ queryKey: context.queryKey });
@@ -261,6 +323,10 @@ export const useDeleteProfileMutation = () => {
     },
     onError: (err, variables, context) => {
       if (context?.queryKey) queryClient.setQueryData(context.queryKey, context.previousProfiles);
+      toast.error("We couldn't delete that user. Your changes were reverted.");
+    },
+    onSuccess: () => {
+      toast.success("User removed");
     },
     onSettled: (data, error, variables, context) => {
       if (context?.queryKey) queryClient.invalidateQueries({ queryKey: context.queryKey });
@@ -338,6 +404,10 @@ export const useUpdateSiteConfigMutation = () => {
       if (context?.queryKey) {
         queryClient.setQueryData(context.queryKey, context.previousConfig);
       }
+      toast.error("We couldn't update settings. Please try again.");
+    },
+    onSuccess: () => {
+      toast.success("Settings updated");
     },
 
     onSettled: (data, error, variables, context) => {

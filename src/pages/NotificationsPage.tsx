@@ -1,17 +1,19 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Bell, BookOpen, Award, Users, AlertTriangle, CheckCircle2, MessageSquare, Trash2, CheckCheck, Settings, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserEnrollments } from "@/hooks/useQueries";
+import { api } from "@/services/api";
 
 type NotifType = "course" | "certificate" | "program" | "reminder" | "system" | "message";
 
 interface Notif {
-  id: number; type: NotifType; title: string; body: string; time: string; read: boolean;
+  id: string; type: NotifType; title: string; body: string; time: string; read: boolean;
+  sortTs: number;
 }
-
-const initialNotifs: Notif[] = [];
 
 const iconMap: Record<NotifType, { icon: React.ElementType; bg: string; color: string }> = {
   course:      { icon: BookOpen,      bg: "bg-accent",          color: "text-primary" },
@@ -23,15 +25,197 @@ const iconMap: Record<NotifType, { icon: React.ElementType; bg: string; color: s
 };
 
 export default function NotificationsPage() {
-  const [notifs, setNotifs] = useState(initialNotifs);
+  const { appUser } = useAuth();
+  const { data: enrollments = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
+
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [readIds, setReadIds] = useState<Set<string>>(() => new Set());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
 
-  const unreadCount = notifs.filter(n => !n.read).length;
-  const displayed = filter === "unread" ? notifs.filter(n => !n.read) : notifs;
+  const [reminders, setReminders] = useState([
+    { id: "inactivity", label: "Inactivity Reminders", desc: "After 3 days of no activity", active: true },
+    { id: "deadline", label: "Deadline Alerts", desc: "48h before quiz/assignment due", active: true },
+    { id: "digest", label: "Weekly Progress Digest", desc: "Summary every Monday", active: false },
+  ]);
 
-  const markAllRead = () => setNotifs(n => n.map(x => ({ ...x, read: true })));
-  const markRead = (id: number) => setNotifs(n => n.map(x => x.id === id ? { ...x, read: true } : x));
-  const deleteNotif = (id: number) => setNotifs(n => n.filter(x => x.id !== id));
+  const [notificationPrefsRow, setNotificationPrefsRow] = useState<any | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!appUser?.id) return;
+
+      const [prefsRow, notifRows] = await Promise.all([
+        api.getNotificationPreferences(appUser.id),
+        api.getUserNotificationState(appUser.id),
+      ]);
+
+      setNotificationPrefsRow(prefsRow);
+
+      const smart = (prefsRow?.prefs?.smart_reminders ?? {}) as Record<string, unknown>;
+      setReminders((prev) =>
+        prev.map((r) => ({
+          ...r,
+          active: typeof smart[r.id] === "boolean" ? Boolean(smart[r.id]) : r.active,
+        }))
+      );
+
+      setReadIds(new Set((notifRows ?? []).filter((r: any) => Boolean(r.read)).map((r: any) => String(r.notification_key))));
+      setDismissedIds(new Set((notifRows ?? []).filter((r: any) => Boolean(r.dismissed)).map((r: any) => String(r.notification_key))));
+    };
+
+    load();
+  }, [appUser?.id]);
+
+  const toggleReminder = async (id: string) => {
+    const current = reminders.find((r) => r.id === id);
+    const nextActive = !current?.active;
+
+    setReminders((prev) => prev.map((r) => (r.id === id ? { ...r, active: nextActive } : r)));
+
+    if (!appUser?.id) return;
+
+    const prefsRow = notificationPrefsRow;
+    const existingPrefs = (prefsRow?.prefs ?? {}) as Record<string, any>;
+    const existingSmart = (existingPrefs.smart_reminders ?? {}) as Record<string, any>;
+    const nextSmart = { ...existingSmart, [id]: nextActive };
+
+    const upserted = await api.upsertNotificationPreferences({
+      userId: appUser.id,
+      frequency: prefsRow?.frequency ?? "instant",
+      quietStart: prefsRow?.quiet_start ?? "22:00",
+      quietEnd: prefsRow?.quiet_end ?? "07:00",
+      prefs: { ...existingPrefs, smart_reminders: nextSmart },
+    });
+
+    if (upserted) setNotificationPrefsRow(upserted);
+
+    toast.success(`${current?.label ?? "Reminder"} has been ${nextActive ? "enabled" : "disabled"}`);
+  };
+
+  const derivedNotifs = useMemo<Notif[]>(() => {
+    if (loadingEnrollments) return [];
+
+    const now = Date.now();
+    const daysMs = 24 * 60 * 60 * 1000;
+    const inactivityActive = reminders.find((r) => r.id === "inactivity")?.active ?? true;
+
+    const items: Array<Notif | null> = (enrollments ?? []).map((e: any) => {
+      const courseTitle = e?.courses?.title ?? e?.courses?.name ?? e?.courses?.course_title ?? "Course";
+      const progress = typeof e?.progress === "number" ? e.progress : 0;
+
+      const rawLast =
+        e?.last_accessed ?? e?.enrolled_at ?? e?.updated_at ?? e?.created_at ?? null;
+      const lastDate = rawLast ? new Date(rawLast) : null;
+      const lastMs = lastDate && !isNaN(lastDate.getTime()) ? lastDate.getTime() : null;
+
+      const recentlyActive = lastMs !== null && now - lastMs <= 3 * daysMs;
+
+      const type: NotifType =
+        progress >= 100 ? "certificate" : recentlyActive ? "message" : "reminder";
+
+      if (type === "reminder" && !inactivityActive) return null;
+
+      const title =
+        progress >= 100
+          ? `Certificate ready: ${courseTitle}`
+          : recentlyActive
+            ? `Keep going: ${courseTitle} in progress`
+            : `Reminder: ${courseTitle} needs attention`;
+
+      const body =
+        progress >= 100
+          ? "Nice work! Your completion is recorded. Check your certificates."
+          : recentlyActive
+            ? "We noticed recent activity. Continue from where you left off."
+            : "Come back to your learning journey and resume your course progress.";
+
+      const time = lastDate && !isNaN(lastDate.getTime())
+        ? lastDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        : "Recently";
+
+      // Use a stable enrollment identifier and namespace it by notif type.
+      // This prevents collisions and lets us persist read/dismiss state in DB.
+      const enrollmentKey =
+        e?.id !== undefined && e?.id !== null ? String(e.id) : `${e?.course_id ?? "0"}:${Math.round(progress)}`;
+      const notificationKey = `${enrollmentKey}-${type}`;
+
+      return {
+        id: notificationKey,
+        type,
+        title,
+        body,
+        time,
+        read: readIds.has(notificationKey),
+        sortTs: lastMs ?? now,
+      };
+    });
+
+    // Dedupe by `id` (helps avoid collisions)
+    const byId = new Map<string, Notif>();
+    for (const n of items) {
+      if (!n?.id) continue;
+      byId.set(n.id, n);
+    }
+    return Array.from(byId.values()).sort((a, b) => b.sortTs - a.sortTs);
+  }, [enrollments, loadingEnrollments, readIds, reminders]);
+
+  const filteredNotifs = useMemo(() => {
+    return derivedNotifs.filter((n) => !dismissedIds.has(n.id));
+  }, [derivedNotifs, dismissedIds]);
+
+  const unreadCount = filteredNotifs.filter((n) => !n.read).length;
+  const displayed = filter === "unread" ? filteredNotifs.filter((n) => !n.read) : filteredNotifs;
+
+  const markAllRead = async () => {
+    if (!appUser?.id) return;
+
+    const keysToMark = filteredNotifs.map((n) => n.id);
+    const next = new Set(readIds);
+    for (const key of keysToMark) next.add(key);
+    setReadIds(next);
+
+    await Promise.all(
+      keysToMark.map((notificationKey) =>
+        api.upsertUserNotificationState({
+          userId: appUser.id,
+          notificationKey,
+          read: true,
+          dismissed: false,
+        })
+      )
+    );
+  };
+
+  const markRead = async (id: string) => {
+    if (!appUser?.id) return;
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+
+    await api.upsertUserNotificationState({
+      userId: appUser.id,
+      notificationKey: id,
+      read: true,
+      dismissed: false,
+    });
+  };
+
+  const deleteNotif = async (id: string) => {
+    if (!appUser?.id) return;
+    setDismissedIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+
+    await api.upsertUserNotificationState({
+      userId: appUser.id,
+      notificationKey: id,
+      dismissed: true,
+    });
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full min-h-[80vh]">
@@ -84,14 +268,14 @@ export default function NotificationsPage() {
               const { icon: Icon, bg, color } = iconMap[notif.type];
               return (
                 <motion.div key={notif.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  className={`flex gap-6 p-6 rounded-2xl border transition-all ${notif.read ? "bg-card border-border/60" : "bg-[#f5f9ff] dark:bg-[#0056D2]/10 border-[#0056D2]/30"}`}>
+                  className={`flex gap-6 p-6 rounded-2xl border transition-colors ${notif.read ? "bg-card border-border/60" : "bg-primary/5 dark:bg-primary/10 border-primary/20"}`}>
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${bg}`}>
                     <Icon className={`w-5 h-5 ${color}`} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className={`text-sm font-semibold mb-1 ${notif.read ? "text-foreground" : "text-[#0056D2] dark:text-[#64b5f6]"}`}>
+                        <p className={`text-sm font-semibold mb-1 ${notif.read ? "text-foreground" : "text-primary"}`}>
                           {notif.title}
                         </p>
                         <p className="text-sm text-muted-foreground leading-relaxed">{notif.body}</p>
@@ -130,19 +314,15 @@ export default function NotificationsPage() {
               <Clock className="w-4 h-4 text-[#0056D2]" /> Smart Reminders
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-              We automatically send you reminders for incomplete courses, upcoming deadlines, and new content. Manage your preferences below.
+              These settings apply to targeted automated alerts and direct administrator communications sent to your student profile. Manage your preferences below.
             </p>
             
             <div className="space-y-3">
-              {[
-                { label: "Inactivity Reminders", desc: "After 3 days of no activity", active: true },
-                { label: "Deadline Alerts", desc: "48h before quiz/assignment due", active: true },
-                { label: "Weekly Progress Digest", desc: "Summary every Monday", active: false },
-              ].map(r => (
-                <div key={r.label} className="p-4 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-muted/20 hover:bg-muted/40 transition-colors">
+              {reminders.map(r => (
+                <div key={r.id} className="p-4 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-muted/20 hover:bg-muted/40 transition-colors">
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-sm font-semibold text-foreground">{r.label}</p>
-                    <button onClick={() => toast.success(`${r.label} ${r.active ? "disabled" : "enabled"}`)}
+                    <button onClick={() => toggleReminder(r.id)}
                       className={`w-10 h-5 rounded-full flex items-center px-0.5 transition-colors ${r.active ? "bg-[#0056D2]" : "bg-border"}`}>
                       <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${r.active ? "translate-x-5" : ""}`} />
                     </button>
@@ -153,7 +333,7 @@ export default function NotificationsPage() {
             </div>
 
             <div className="mt-6 pt-5 border-t border-border/40">
-              <Link to="/dashboard/notification-preferences" className="text-sm font-semibold text-[#0056D2] hover:underline flex items-center justify-between group">
+              <Link to="/dashboard/notification-preferences" className="text-sm font-semibold text-primary hover:text-primary/90 transition-colors flex items-center justify-between group">
                 Advanced notification settings
                 <span className="group-hover:translate-x-1 transition-transform">→</span>
               </Link>

@@ -348,7 +348,7 @@ export default function ProgramBuilderPage() {
                           <img src={p.logoUrl} alt={p.name} className="w-6 h-6 object-contain rounded" />
                         ) : (
                           <div className="w-6 h-6 rounded bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground">
-                            {p.name.charAt(0)}
+                            {(p.name ?? "").charAt(0)}
                           </div>
                         )}
                         <span className="text-xs font-medium text-foreground">{p.name}</span>

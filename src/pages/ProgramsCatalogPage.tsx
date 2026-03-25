@@ -139,7 +139,7 @@ export default function ProgramsCatalogPage() {
   }, []);
 
   const filtered = programs.filter(p => {
-    const matchSearch = p.title.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = (p.title ?? "").toLowerCase().includes(search.toLowerCase());
     const matchCat = category === "All" || p.category === category;
     return matchSearch && matchCat;
   });

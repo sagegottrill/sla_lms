@@ -6,9 +6,6 @@ interface Placement {
   id: number; studentName: string; avatar: string; program: string; company: string; role: string; location: string; startDate: string; status: "placed" | "interviewing" | "searching"; salary: string; feedback: number;
 }
 
-// Awaiting Supabase hook for real placement data
-const placements: Placement[] = [];
-
 const statusConfig = {
   placed: { label: "Placed", bg: "bg-accent text-secondary" },
   interviewing: { label: "Interviewing", bg: "bg-amber-100 text-amber-700" },
@@ -16,8 +13,21 @@ const statusConfig = {
 };
 
 export default function PlacementTrackingPage() {
+  const [placements, setPlacements] = useState<Placement[]>([]);
   const [filter, setFilter] = useState<"all" | "placed" | "interviewing" | "searching">("all");
   const [programFilter, setProgramFilter] = useState("All");
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({
+    studentName: "",
+    program: "",
+    company: "",
+    role: "",
+    location: "",
+    startDate: "",
+    status: "interviewing" as "placed" | "interviewing" | "searching",
+    salary: "",
+    feedback: 0,
+  });
 
   const placedCount = placements.filter(p => p.status === "placed").length;
   const interviewingCount = placements.filter(p => p.status === "interviewing").length;
@@ -41,6 +51,12 @@ export default function PlacementTrackingPage() {
             Track graduate employment and career outcomes.
           </p>
         </div>
+        <Button
+          onClick={() => setShowAdd(true)}
+          className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors"
+        >
+          <Briefcase className="w-3.5 h-3.5 mr-2" /> Log Outcome
+        </Button>
       </div>
 
       {/* KPI Summary — Dynamic */}
@@ -92,6 +108,163 @@ export default function PlacementTrackingPage() {
 
       {/* Placement List */}
       <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden">
+        {showAdd && (
+          <div className="p-6 border-b border-border/40 bg-card/50">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+              <div>
+                <h3 className="font-display text-lg font-semibold text-foreground">Log Placement Outcome</h3>
+                <p className="text-sm text-muted-foreground mt-1">This is local until your placements API is wired.</p>
+              </div>
+              <Button variant="outline" className="rounded-full h-9 px-5 text-xs font-semibold" onClick={() => setShowAdd(false)}>
+                Cancel
+              </Button>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Student Name *</label>
+                <input
+                  value={form.studentName}
+                  onChange={(e) => setForm((p) => ({ ...p, studentName: e.target.value }))}
+                  placeholder="e.g. Jane Doe"
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Program *</label>
+                <input
+                  value={form.program}
+                  onChange={(e) => setForm((p) => ({ ...p, program: e.target.value }))}
+                  placeholder="e.g. Data Leadership Accelerator"
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Status *</label>
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as any }))}
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  <option value="placed">Placed</option>
+                  <option value="interviewing">Interviewing</option>
+                  <option value="searching">Job Searching</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Company</label>
+                <input
+                  value={form.company}
+                  onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))}
+                  placeholder="e.g. Orange Careers"
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Role</label>
+                <input
+                  value={form.role}
+                  onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}
+                  placeholder="e.g. Data Analyst"
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Location</label>
+                <input
+                  value={form.location}
+                  onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))}
+                  placeholder="e.g. Lagos, Nigeria"
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Start Date</label>
+                <input
+                  type="date"
+                  value={form.startDate}
+                  onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Salary</label>
+                <input
+                  value={form.salary}
+                  onChange={(e) => setForm((p) => ({ ...p, salary: e.target.value }))}
+                  placeholder="e.g. ₦300,000 / month"
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Feedback (0-5)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={5}
+                  value={form.feedback}
+                  onChange={(e) => setForm((p) => ({ ...p, feedback: Math.max(0, Math.min(5, Number(e.target.value) || 0)) }))}
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-5">
+              <Button
+                onClick={() => {
+                  if (!form.studentName.trim() || !form.program.trim()) return;
+
+                  const avatar =
+                    (form.studentName ?? "").trim().charAt(0).toUpperCase() || "?";
+
+                  setPlacements((prev) => [
+                    {
+                      id: Date.now(),
+                      avatar,
+                      studentName: form.studentName.trim(),
+                      program: form.program.trim(),
+                      company: form.company.trim(),
+                      role: form.role.trim(),
+                      location: form.location.trim(),
+                      startDate: form.startDate || "",
+                      status: form.status,
+                      salary: form.salary.trim(),
+                      feedback: form.feedback,
+                    },
+                    ...prev,
+                  ]);
+
+                  setShowAdd(false);
+                  setForm({
+                    studentName: "",
+                    program: "",
+                    company: "",
+                    role: "",
+                    location: "",
+                    startDate: "",
+                    status: "interviewing",
+                    salary: "",
+                    feedback: 0,
+                  });
+                }}
+                className="rounded-full h-9 px-6 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors"
+              >
+                Save Outcome
+              </Button>
+              <Button variant="outline" onClick={() => setShowAdd(false)} className="rounded-full h-9 px-5 text-xs font-semibold">
+                Done
+              </Button>
+            </div>
+          </div>
+        )}
+
         {filtered.length === 0 ? (
           <div className="text-center py-20 bg-card/20">
             <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />

@@ -48,8 +48,8 @@ export default function JobsAdminPage() {
   const [skillInput, setSkillInput] = useState("");
 
   const filtered = jobs.filter(j =>
-    j.title.toLowerCase().includes(search.toLowerCase()) ||
-    j.company.toLowerCase().includes(search.toLowerCase())
+    (j.title ?? "").toLowerCase().includes(search.toLowerCase()) ||
+    (j.company ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
   const openAdd = () => { setModal({ mode: "add", job: { ...EMPTY_JOB } }); setSkillInput(""); };
@@ -169,7 +169,7 @@ export default function JobsAdminPage() {
                   <div className="flex gap-2 shrink-0">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground opacity-0 group-hover:opacity-100">
+                        <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                       </DropdownMenuTrigger>

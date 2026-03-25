@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { Camera, Save, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { api } from "@/services/api";
+import { supabase } from "@/lib/supabase";
 
 const tabs = ["Profile", "Account", "Notifications", "Privacy", "Appearance"];
 
@@ -16,7 +18,15 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [theme, setTheme] = useState("Light");
   const [language, setLanguage] = useState("English");
-  const [twoFA, setTwoFA] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(appUser?.avatar ?? null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const [notificationPrefsRow, setNotificationPrefsRow] = useState<any | null>(null);
+
+  useEffect(() => {
+    setAvatarUrl(appUser?.avatar ?? null);
+  }, [appUser?.avatar]);
 
   const [notifications, setNotifications] = useState({
     courseUpdates: true,
@@ -32,12 +42,53 @@ export default function SettingsPage() {
     jobMatching: false,
   });
 
+  useEffect(() => {
+    const load = async () => {
+      if (!appUser?.id) return;
+      const row = await api.getNotificationPreferences(appUser.id);
+      setNotificationPrefsRow(row);
+
+      const p = (row?.prefs ?? {}) as Record<string, any>;
+      setNotifications((prev) => ({
+        ...prev,
+        courseUpdates: Boolean(p.course_updates?.email ?? prev.courseUpdates),
+        deadlineReminders: Boolean(p.deadlines?.email ?? prev.deadlineReminders),
+        programAnnouncements: Boolean(p.program_updates?.email ?? prev.programAnnouncements),
+        jobAlerts: Boolean(p.job_matches?.email ?? prev.jobAlerts),
+        marketingEmails: Boolean(p.promotions?.email ?? prev.marketingEmails),
+      }));
+
+      const privacyRow = (p.privacy ?? {}) as Record<string, any>;
+      setPrivacy((prev) => ({
+        publicProfile: Boolean(privacyRow.publicProfile ?? prev.publicProfile),
+        showProgress: Boolean(privacyRow.showProgress ?? prev.showProgress),
+        jobMatching: Boolean(privacyRow.jobMatching ?? prev.jobMatching),
+      }));
+    };
+    load();
+  }, [appUser?.id]);
+
   const [passwords, setPasswords] = useState({ current: "", newPass: "", confirm: "" });
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!appUser?.id) return;
     setSaved(true);
-    toast.success("Profile saved successfully!");
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      const result = await api.updateProfile(appUser.id, {
+        name,
+        bio,
+        career_goal: careerGoal,
+      });
+      if (!result) {
+        toast.error("Save failed — check your Supabase connection.");
+        return;
+      }
+      toast.success("Profile saved successfully!");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save profile.");
+    } finally {
+      setTimeout(() => setSaved(false), 600);
+    }
   };
 
   const handlePasswordUpdate = () => {
@@ -53,14 +104,50 @@ export default function SettingsPage() {
       toast.error("Password must be at least 8 characters.");
       return;
     }
-    toast.success("Password updated successfully!");
-    setPasswords({ current: "", newPass: "", confirm: "" });
+    supabase.auth
+      .updateUser({ password: passwords.newPass })
+      .then(({ error }) => {
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+        toast.success("Password updated successfully!");
+        setPasswords({ current: "", newPass: "", confirm: "" });
+      })
+      .catch((e: any) => toast.error(e?.message || "Password update failed."));
   };
 
   const toggleNotification = (key: keyof typeof notifications) => {
     setNotifications((prev) => {
       const updated = { ...prev, [key]: !prev[key] };
       toast.info(`${key.replace(/([A-Z])/g, " $1").trim()} ${updated[key] ? "enabled" : "disabled"}`);
+
+      // Persist to notification_preferences.prefs (email channel only).
+      if (appUser?.id && notificationPrefsRow) {
+        const existingPrefs = (notificationPrefsRow?.prefs ?? {}) as Record<string, any>;
+        const nextPrefs = { ...existingPrefs };
+
+        const setEmailForCategory = (categoryKey: string, value: boolean) => {
+          const current = nextPrefs[categoryKey] ?? { email: true, sms: false, push: true };
+          nextPrefs[categoryKey] = { ...current, email: value };
+        };
+
+        if (key === "courseUpdates") setEmailForCategory("course_updates", updated.courseUpdates);
+        if (key === "deadlineReminders") setEmailForCategory("deadlines", updated.deadlineReminders);
+        if (key === "programAnnouncements") setEmailForCategory("program_updates", updated.programAnnouncements);
+        if (key === "jobAlerts") setEmailForCategory("job_matches", updated.jobAlerts);
+        if (key === "marketingEmails") setEmailForCategory("promotions", updated.marketingEmails);
+
+        api.upsertNotificationPreferences({
+          userId: appUser.id,
+          frequency: notificationPrefsRow?.frequency ?? "instant",
+          quietStart: notificationPrefsRow?.quiet_start ?? "22:00",
+          quietEnd: notificationPrefsRow?.quiet_end ?? "07:00",
+          prefs: nextPrefs,
+        }).then((r) => {
+          if (r) setNotificationPrefsRow(r);
+        });
+      }
       return updated;
     });
   };
@@ -69,6 +156,29 @@ export default function SettingsPage() {
     setPrivacy((prev) => {
       const updated = { ...prev, [key]: !prev[key] };
       toast.info(`${key.replace(/([A-Z])/g, " $1").trim()} ${updated[key] ? "enabled" : "disabled"}`);
+
+      // Persist to notification_preferences.prefs.privacy.
+      if (appUser?.id && notificationPrefsRow) {
+        const existingPrefs = (notificationPrefsRow?.prefs ?? {}) as Record<string, any>;
+        const nextPrefs = { ...existingPrefs, privacy: { ...(existingPrefs.privacy ?? {}) } };
+        nextPrefs.privacy = {
+          ...nextPrefs.privacy,
+          publicProfile: updated.publicProfile,
+          showProgress: updated.showProgress,
+          jobMatching: updated.jobMatching,
+        };
+
+        api.upsertNotificationPreferences({
+          userId: appUser.id,
+          frequency: notificationPrefsRow?.frequency ?? "instant",
+          quietStart: notificationPrefsRow?.quiet_start ?? "22:00",
+          quietEnd: notificationPrefsRow?.quiet_end ?? "07:00",
+          prefs: nextPrefs,
+        }).then((r) => {
+          if (r) setNotificationPrefsRow(r);
+        });
+      }
+
       return updated;
     });
   };
@@ -85,6 +195,32 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full min-h-[80vh]">
+      <input
+        ref={avatarInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={async (e) => {
+          if (!appUser?.id) return;
+          const file = e.target.files?.[0];
+          if (!file) return;
+          setUploadingAvatar(true);
+          try {
+            const publicUrl = await api.uploadAvatar(appUser.id, file);
+            if (publicUrl) {
+              setAvatarUrl(publicUrl);
+              toast.success("Profile photo updated!");
+            } else {
+              toast.error("Photo upload failed — check Supabase storage bucket 'avatars'.");
+            }
+          } catch (err: any) {
+            toast.error(err?.message || "Photo upload failed.");
+          } finally {
+            setUploadingAvatar(false);
+            if (avatarInputRef.current) avatarInputRef.current.value = "";
+          }
+        }}
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-6 mb-8">
         <div>
@@ -114,17 +250,27 @@ export default function SettingsPage() {
                 <h2 className="font-display text-lg font-bold text-foreground">Profile Information</h2>
                 <div className="flex items-center gap-6">
                   <div className="relative">
-                    <div className="w-20 h-20 rounded-2xl gradient-card flex items-center justify-center text-3xl font-bold text-primary-foreground">
-                      {appUser?.name?.charAt(0)}
+                    <div className="w-20 h-20 rounded-2xl gradient-card flex items-center justify-center text-3xl font-bold text-primary-foreground overflow-hidden">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        appUser?.name?.charAt(0)
+                      )}
                     </div>
-                    <button onClick={() => toast.info("Photo upload coming soon!")} className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-secondary text-primary flex items-center justify-center shadow-brand-sm hover:opacity-90">
+                    <button
+                      onClick={() => avatarInputRef.current?.click()}
+                      disabled={uploadingAvatar}
+                      className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-secondary text-primary flex items-center justify-center shadow-brand-sm hover:opacity-90 disabled:opacity-50"
+                    >
                       <Camera className="w-3.5 h-3.5" />
                     </button>
                   </div>
                   <div>
                     <p className="font-semibold text-foreground">{appUser?.name}</p>
                     <p className="text-sm text-muted-foreground capitalize">{appUser?.role?.replace("_", " ")}</p>
-                    <button onClick={() => toast.info("Photo upload coming soon!")} className="text-xs text-primary hover:underline mt-1">Change photo</button>
+                    <button onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar} className="text-xs text-primary hover:underline mt-1 disabled:opacity-50">
+                      Change photo
+                    </button>
                   </div>
                 </div>
                 {[
@@ -176,8 +322,14 @@ export default function SettingsPage() {
                 <div className="pt-4 border-t border-border">
                   <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2"><Shield className="w-4 h-4 text-primary" /> Two-Factor Authentication</h3>
                   <p className="text-sm text-muted-foreground mb-3">Add an extra layer of security to your account.</p>
-                  <Button variant="outline" className="rounded-xl" onClick={() => { setTwoFA(!twoFA); toast.success(twoFA ? "2FA disabled" : "2FA enabled! (simulated)"); }}>
-                    {twoFA ? "Disable 2FA" : "Enable 2FA"}
+                  <Button
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() =>
+                      toast.info("2FA enrollment is not configured yet. Enable MFA in Supabase to use this feature.")
+                    }
+                  >
+                    Enable 2FA
                   </Button>
                 </div>
                 <div className="pt-4 border-t border-border">

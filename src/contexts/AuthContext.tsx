@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "../lib/supabase";
+import { isUsingSupabasePlaceholders, supabase } from "../lib/supabase";
 
 export type UserRole = "student" | "instructor" | "program_manager" | "admin";
 
@@ -169,12 +169,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
+    if (isUsingSupabasePlaceholders) {
+      return {
+        error: new Error(
+          "Supabase is not configured. Please set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in your `.env`."
+        ),
+      };
+    }
     // Real Supabase auth
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
   };
 
   const signup = async (name: string, email: string, password: string, role: UserRole) => {
+    if (isUsingSupabasePlaceholders) {
+      return {
+        error: new Error(
+          "Supabase is not configured. Please set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in your `.env`."
+        ),
+      };
+    }
     const { data, error } = await supabase.auth.signUp({
       email,
       password,

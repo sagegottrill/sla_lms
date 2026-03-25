@@ -2,17 +2,32 @@ import { useState } from "react";
 import { Users, Search, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-
-// Awaiting Supabase hook for real enrolled-student data
-const students: any[] = [];
+import { useInstructorStudents } from "@/hooks/useQueries";
 
 export default function StudentsPage() {
+  const { appUser } = useAuth();
+  const { data: students = [], isLoading } = useInstructorStudents(appUser?.id);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
 
-  const filtered = students.filter(s =>
-    s.name?.toLowerCase().includes(search.toLowerCase()) || s.course?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = students.filter((s) => {
+    const q = search.toLowerCase();
+    const matchSearch =
+      (s.name ?? "").toLowerCase().includes(q) || (s.course ?? "").toLowerCase().includes(q);
+
+    const matchStatus =
+      filter === "All"
+        ? true
+        : filter === "Active"
+          ? s.status === "active"
+          : filter === "At Risk"
+            ? s.status === "at-risk"
+            : filter === "Completed"
+              ? s.status === "completed"
+              : true;
+
+    return matchSearch && matchStatus;
+  });
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
@@ -22,7 +37,7 @@ export default function StudentsPage() {
         <div>
           <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">My Students</h1>
           <p className="text-muted-foreground text-sm">
-            Tracking {students.length} enrolled learners across your courses.
+            {isLoading ? "Syncing students…" : `Tracking ${students.length} enrolled learners across your courses.`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -75,7 +90,13 @@ export default function StudentsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
-              {filtered.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-20 text-center bg-card/20 text-muted-foreground">
+                    Loading students…
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-20 text-center bg-card/20">
                     <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />

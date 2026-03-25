@@ -1,19 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageSquare, ThumbsUp, Pin, Search, Plus, ChevronDown, ChevronUp, Send, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/services/api";
 
 const categories = ["All", "General", "Career Advice", "Technical Help", "Programs", "Networking"];
 
-// Awaiting Supabase hook for real forum threads
-const initialThreads: any[] = [];
-
 export default function ForumsPage() {
-  const [threads, setThreads] = useState(initialThreads);
+  const { appUser } = useAuth();
+  const [threads, setThreads] = useState<any[]>([]);
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
-  const [openThread, setOpenThread] = useState<number | null>(null);
+  const [openThread, setOpenThread] = useState<string | null>(null);
   const [newReply, setNewReply] = useState<Record<number, string>>({});
   const [showNew, setShowNew] = useState(false);
   const [newThread, setNewThread] = useState({ title: "", body: "", category: "General" });
@@ -24,14 +24,37 @@ export default function ForumsPage() {
     return matchCat && matchSearch;
   });
 
-  const toggleThread = (id: number) => setOpenThread(prev => prev === id ? null : id);
+  const toggleThread = (id: string) => setOpenThread(prev => prev === id ? null : id);
 
-  const submitThread = () => {
+  useEffect(() => {
+    const load = async () => {
+      const data = await api.getForumThreads();
+      setThreads(data);
+    };
+    if (appUser?.id) load();
+  }, [appUser?.id]);
+
+  const submitThread = async () => {
+    if (!appUser?.id) {
+      toast.error("Please log in to post a thread.");
+      return;
+    }
     if (!newThread.title.trim()) return;
-    setThreads(prev => [{
-      id: Date.now(), ...newThread, author: "You", avatar: "Y", date: "Just now",
-      replies: 0, likes: 0, pinned: false, solved: false, replyList: [],
-    }, ...prev]);
+
+    const created = await api.createForumThread({
+      userId: appUser.id,
+      title: newThread.title.trim(),
+      body: newThread.body.trim(),
+      category: newThread.category,
+      authorName: appUser.name ?? "User",
+    });
+
+    if (!created) {
+      toast.error("Failed to post thread. Check Supabase connection/RLS.");
+      return;
+    }
+
+    setThreads((prev) => [created, ...prev]);
     setNewThread({ title: "", body: "", category: "General" });
     setShowNew(false);
     toast.success("Thread posted!");
@@ -112,7 +135,7 @@ export default function ForumsPage() {
                 <button className="w-full text-left px-6 py-4 hover:bg-muted/10 transition-colors" onClick={() => toggleThread(thread.id)}>
                   <div className="flex items-start gap-4">
                     <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0 mt-0.5">
-                      {thread.avatar}
+                      {(thread.author_name ?? thread.author ?? "U").charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -122,11 +145,16 @@ export default function ForumsPage() {
                         </span>
                       </div>
                       <h3 className="font-semibold text-foreground text-sm leading-snug">{thread.title}</h3>
-                      <p className="text-xs text-muted-foreground mt-1">by {thread.author} · {thread.date}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        by {thread.author_name ?? thread.author ?? "User"} ·{" "}
+                        {thread.created_at
+                          ? new Date(thread.created_at).toLocaleDateString("en-US")
+                          : thread.date ?? ""}
+                      </p>
                     </div>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0 ml-2">
                       <span className="flex items-center gap-1"><ThumbsUp className="w-3.5 h-3.5" />{thread.likes}</span>
-                      <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{thread.replies}</span>
+                      <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{thread.replies_count ?? thread.replies ?? 0}</span>
                       {openThread === thread.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </div>
                   </div>

@@ -12,7 +12,9 @@ export default function InstructorCoursesPage() {
   
   const { data: courses = [], isLoading } = useInstructorCourses(appUser?.id ?? "");
 
-  const filtered = courses.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
+  const filtered = courses.filter((c) =>
+    (c.title ?? "").toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">

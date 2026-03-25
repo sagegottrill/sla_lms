@@ -8,25 +8,29 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSystemStats } from "@/hooks/useQueries";
+import { useProgramParticipants, useSystemStats } from "@/hooks/useQueries";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import UserProfileSlideout, { SlideoutUser } from "../../components/dashboard/UserProfileSlideout";
 import BulkActionBar from "../../components/dashboard/BulkActionBar";
 import TranscriptSlip from "../../components/dashboard/TranscriptSlip";
-
-// Awaiting Supabase hook for real participant data
-const participants: { name: string; email: string; program: string; progress: number; status: string; lastActive: string }[] = [];
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 export default function ProgramManagerDashboard() {
   const { appUser } = useAuth();
   const { data: stats, isLoading: statsLoading } = useSystemStats();
+  const { data: participants = [], isLoading: participantsLoading } = useProgramParticipants();
   const [activeTab, setActiveTab] = useState<"participants" | "programs" | "applications">("participants");
   const [searchQuery, setSearchQuery] = useState("");
   
   const [selectedParticipant, setSelectedParticipant] = useState<any>(null);
-  const [selectedParticipantEmails, setSelectedParticipantEmails] = useState<Set<string>>(new Set());
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<Set<string>>(new Set());
   const [transcriptUser, setTranscriptUser] = useState<any>(null);
 
   const handleSlideoutAction = (action: string, user: SlideoutUser) => {
@@ -42,32 +46,32 @@ export default function ProgramManagerDashboard() {
   };
 
   const filteredParticipants = participants.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.program.toLowerCase().includes(searchQuery.toLowerCase())
+    (p.name ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (p.program ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const toggleSelection = (email: string) => {
-    const newDocs = new Set(selectedParticipantEmails);
-    if (newDocs.has(email)) newDocs.delete(email);
-    else newDocs.add(email);
-    setSelectedParticipantEmails(newDocs);
+  const toggleSelection = (id: string) => {
+    const next = new Set(selectedParticipantIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedParticipantIds(next);
   };
 
   const toggleAll = () => {
-    if (selectedParticipantEmails.size === filteredParticipants.length) setSelectedParticipantEmails(new Set());
-    else setSelectedParticipantEmails(new Set(filteredParticipants.map(p => p.email)));
+    if (selectedParticipantIds.size === filteredParticipants.length) setSelectedParticipantIds(new Set());
+    else setSelectedParticipantIds(new Set(filteredParticipants.map((p: any) => p.id)));
   };
 
   const bulkActions = [
-    { icon: Mail, label: "Remind All", onClick: () => toast.success(`Sending reminder to ${selectedParticipantEmails.size} participants.`) },
-    { icon: Award, label: "Issue Certificates", onClick: () => toast.success(`Issued ${selectedParticipantEmails.size} certificates.`) },
+    { icon: Mail, label: "Remind All", onClick: () => toast.success(`Sending reminder to ${selectedParticipantIds.size} participants.`) },
+    { icon: Award, label: "Issue Certificates", onClick: () => toast.success(`Issued ${selectedParticipantIds.size} certificates.`) },
   ];
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
+    <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 py-6 pb-16 sm:pb-20">
       
       {/* Header — Spacious and Clean */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-4 sm:pb-6">
         <div>
           <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">Program Management</h1>
           <p className="text-muted-foreground text-sm">
@@ -78,17 +82,17 @@ export default function ProgramManagerDashboard() {
           <Button variant="outline" className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
             <RefreshCw className="w-3.5 h-3.5 mr-2" /> Sync
           </Button>
-          <Button className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0">
-            Create Cohort
+          <Button asChild className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0">
+            <Link to="/dashboard/programs/new">Create Cohort</Link>
           </Button>
         </div>
       </div>
 
       {/* Main Grid: 1/3 Left (Stats/Filters), 2/3 Right (Lists) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10">
         
         {/* ———— LEFT COLUMN WIDGETS ———— */}
-        <div className="lg:col-span-4 xl:col-span-3 space-y-8">
+        <div className="hidden lg:block lg:col-span-4 xl:col-span-3 space-y-8">
           {/* Core Analytics Widget (Minimalist) */}
           <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
             <h2 className="font-display font-semibold text-lg text-foreground mb-4">Cohort Health</h2>
@@ -121,7 +125,7 @@ export default function ProgramManagerDashboard() {
         <div className="lg:col-span-8 xl:col-span-9 space-y-6">
           
           {/* Pill Tabs & Search Row */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 hide-scrollbar border-b border-border/40">
               {["participants", "programs", "applications"].map(f => (
                 <button 
@@ -157,7 +161,12 @@ export default function ProgramManagerDashboard() {
                   <thead className="bg-muted/20 border-b border-border/40">
                     <tr>
                       <th className="px-6 py-4 w-10">
-                        <input type="checkbox" checked={selectedParticipantEmails.size === filteredParticipants.length && filteredParticipants.length > 0} onChange={toggleAll} className="rounded border-border/50 text-primary focus:ring-primary/30" />
+                        <input
+                          type="checkbox"
+                          checked={selectedParticipantIds.size === filteredParticipants.length && filteredParticipants.length > 0}
+                          onChange={toggleAll}
+                          className="rounded border-border/50 text-primary focus:ring-primary/30"
+                        />
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Learner</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Program</th>
@@ -166,7 +175,13 @@ export default function ProgramManagerDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
-                    {filteredParticipants.length === 0 ? (
+                    {participantsLoading ? (
+                      <tr>
+                        <td colSpan={5} className="py-20 text-center text-muted-foreground">
+                          Syncing participants…
+                        </td>
+                      </tr>
+                    ) : filteredParticipants.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="py-20 text-center text-muted-foreground">
                           <p className="text-sm">No participants found matching criteria.</p>
@@ -174,14 +189,19 @@ export default function ProgramManagerDashboard() {
                       </tr>
                     ) : (
                       filteredParticipants.map((p) => (
-                        <tr key={p.email} className={`transition-colors group ${selectedParticipantEmails.has(p.email) ? "bg-primary/5" : "hover:bg-muted/10"}`}>
+                        <tr key={p.id} className={`transition-colors group ${selectedParticipantIds.has(p.id) ? "bg-primary/5" : "hover:bg-muted/10"}`}>
                           <td className="px-6 py-4">
-                            <input type="checkbox" checked={selectedParticipantEmails.has(p.email)} onChange={() => toggleSelection(p.email)} className="rounded border-border/50 text-primary focus:ring-primary/30" />
+                            <input
+                              type="checkbox"
+                              checked={selectedParticipantIds.has(p.id)}
+                              onChange={() => toggleSelection(p.id)}
+                              className="rounded border-border/50 text-primary focus:ring-primary/30"
+                            />
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex items-center gap-4 cursor-pointer" onClick={() => setSelectedParticipant({ id: p.email, name: p.name, email: p.email, role: "student", status: p.status, joined: "", classes: [] })}>
-                              <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-600 dark:text-slate-300 shrink-0">
-                                {p.name.charAt(0)}
+                            <div className="flex items-center gap-4 cursor-pointer" onClick={() => setSelectedParticipant({ id: p.id, name: p.name, email: p.email, role: "student", status: p.status, joined: "", classes: [] })}>
+                              <div className="w-9 h-9 rounded-full bg-muted/40 ring-1 ring-border/60 dark:bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground shrink-0">
+                                {(p.name ?? "").charAt(0)}
                               </div>
                               <div>
                                 <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{p.name}</p>
@@ -190,22 +210,47 @@ export default function ProgramManagerDashboard() {
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="text-xs font-semibold text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-md">
+                            <span className="text-xs font-semibold text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md">
                                {p.program}
                             </span>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className="flex-1 max-w-[100px] h-1.5 bg-muted/60 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full ${p.progress > 50 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${p.progress}%` }} />
+                                <div className={`h-full rounded-full ${p.progress > 50 ? "bg-emerald-500/70" : "bg-amber-500/70"}`} style={{ width: `${p.progress}%` }} />
                               </div>
                               <span className="text-xs font-semibold text-muted-foreground w-8">{p.progress}%</span>
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <button onClick={() => setSelectedParticipant({ id: p.email, name: p.name, email: p.email, role: "student", status: p.status, joined: "", classes: [] })} className="text-sm font-semibold text-primary hover:text-primary/80 opacity-0 group-hover:opacity-100 transition-opacity">
-                              Manage
-                            </button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+                                  aria-label={`Open actions for ${p.name}`}
+                                >
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-40 rounded-xl">
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    setSelectedParticipant({
+                                      id: p.id,
+                                      name: p.name,
+                                      email: p.email,
+                                      role: "student",
+                                      status: p.status,
+                                      joined: "",
+                                      classes: [],
+                                    })
+                                  }
+                                  className="cursor-pointer font-medium text-xs py-2"
+                                >
+                                  Manage
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </td>
                         </tr>
                       ))
@@ -229,7 +274,13 @@ export default function ProgramManagerDashboard() {
 
       {/* Slideouts & Bulk Actions */}
       <AnimatePresence>
-        {selectedParticipantEmails.size > 0 && <BulkActionBar selectedCount={selectedParticipantEmails.size} actions={bulkActions} onClear={() => setSelectedParticipantEmails(new Set())} />}
+        {selectedParticipantIds.size > 0 && (
+          <BulkActionBar
+            selectedCount={selectedParticipantIds.size}
+            actions={bulkActions}
+            onClear={() => setSelectedParticipantIds(new Set())}
+          />
+        )}
       </AnimatePresence>
       <UserProfileSlideout user={selectedParticipant} onClose={() => setSelectedParticipant(null)} onAction={handleSlideoutAction} />
       <TranscriptSlip user={transcriptUser} onClose={() => setTranscriptUser(null)} />

@@ -3,10 +3,11 @@ import { motion } from "framer-motion";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, CreditCard, Smartphone, Building2, Lock, Shield, CheckCircle2, Clock, Download, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useCourse } from "@/hooks/useQueries";
+import { useCourse, useEnrollUserMutation, useUserEnrollments } from "@/hooks/useQueries";
 import type { Course } from "@/types";
-import { useEnrollment } from "@/contexts/EnrollmentContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { initializePaystackPayment } from "@/lib/paystack";
 
 type PaymentMethod = "card" | "mobile_money" | "bank_transfer";
 
@@ -22,9 +23,13 @@ const currencies = [
 export default function CheckoutPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { enroll, isEnrolled } = useEnrollment();
+  const { appUser } = useAuth();
 
   const { data: course, isLoading: loading } = useCourse(Number(id));
+  const { data: enrollments = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
+  const enrollMutation = useEnrollUserMutation();
+
+  const enrolled = !!course && enrollments.some((e: any) => e.course_id === course.id);
 
   const [step, setStep] = useState<"details" | "payment" | "success">("details");
   const [method, setMethod] = useState<PaymentMethod>("card");
@@ -100,7 +105,7 @@ export default function CheckoutPage() {
 
   const update = (key: string, val: string) => setForm((p) => ({ ...p, [key]: val }));
 
-  if (loading) {
+  if (loading || loadingEnrollments) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
@@ -119,7 +124,7 @@ export default function CheckoutPage() {
     );
   }
 
-  if (isEnrolled(course.id)) {
+  if (enrolled) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md">
@@ -145,21 +150,85 @@ export default function CheckoutPage() {
   };
 
   const handlePay = () => {
-    if (method === "card" && (!form.cardNumber || !form.expiry || !form.cvv)) {
-      toast.error("Please fill in all card details.");
+    if (!course || !appUser) {
+      toast.error("Please log in to complete payment.");
       return;
     }
-    if (method === "mobile_money" && !form.mobileNumber) {
-      toast.error("Please enter your mobile money number.");
+    if (!Number.isFinite(course.price)) {
+      toast.error("Invalid course price.");
+      return;
+    }
+
+    // Free course: enrol immediately (no Paystack).
+    if (course.price === 0) {
+      setProcessing(true);
+      enrollMutation.mutate(
+        { userId: appUser.id, courseId: course.id },
+        {
+          onSuccess: () => {
+            setProcessing(false);
+            setStep("success");
+          },
+          onError: () => {
+            setProcessing(false);
+            toast.error("Failed to enrol for free. Please try again.");
+          },
+        }
+      );
+      return;
+    }
+
+    // Paystack checkout (NGN only in this client).
+    if (currency.code !== "NGN") {
+      toast.error("Paystack checkout currently supports NGN only.");
+      return;
+    }
+
+    const amountKobo = Math.max(0, Math.round(course.price * 100));
+    if (!amountKobo) {
+      toast.error("Invalid payment amount.");
       return;
     }
 
     setProcessing(true);
-    setTimeout(() => {
-      setProcessing(false);
-      enroll(course.id, course.curriculum[0]?.items[0] ?? "Module 1");
-      setStep("success");
-    }, 2500);
+
+    const reference = `ref_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+    const channels =
+      method === "card"
+        ? ["card"]
+        : method === "mobile_money"
+          ? ["mobile_money"]
+          : ["bank_transfer"];
+
+    initializePaystackPayment({
+      email: form.email,
+      amount: amountKobo,
+      currency: "NGN",
+      reference,
+      channels,
+      metadata: {
+        // Webhook reads `metadata.custom_fields?.[0]`
+        custom_fields: [{ user_id: appUser.id, course_id: course.id, program_id: null }],
+      },
+      onSuccess: async () => {
+        try {
+          await enrollMutation.mutateAsync({ userId: appUser.id, courseId: course.id });
+          setProcessing(false);
+          setStep("success");
+        } catch {
+          setProcessing(false);
+          toast.error("Payment succeeded, but enrollment failed to finalize.");
+        }
+      },
+      onClose: () => {
+        setProcessing(false);
+        toast.info("Payment window closed.");
+      },
+      onError: (err) => {
+        setProcessing(false);
+        toast.error(err.message || "Payment failed.");
+      },
+    });
   };
 
   if (step === "success") {
@@ -197,7 +266,9 @@ export default function CheckoutPage() {
             <Button onClick={downloadInvoice} variant="outline" className="w-full sm:w-auto rounded-xl gap-2 mb-4">
               <Download className="w-4 h-4" /> Download Receipt
             </Button>
-            <p className="text-xs text-muted-foreground mb-6">A confirmation email has been sent to {form.email} with your receipt and course access details.</p>
+            <p className="text-xs text-muted-foreground mb-6">
+              Enrollment is being confirmed. Use your downloaded receipt as proof of payment.
+            </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link to={`/courses/${course.id}`}>
                 <Button className="gradient-card text-primary-foreground rounded-xl px-8">Start Learning</Button>

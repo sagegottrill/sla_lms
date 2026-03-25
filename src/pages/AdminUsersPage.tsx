@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useProfiles, useUpdateProfileMutation, useDeleteProfileMutation } from "@/hooks/useQueries";
+import { FilterChips } from "@/components/dashboard/FilterChips";
 import { 
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, 
   DropdownMenuItem, DropdownMenuSeparator 
@@ -45,19 +46,33 @@ export default function AdminUsersPage() {
   const deleteProfile = useDeleteProfileMutation();
 
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("All");
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   
   const [editUser, setEditUser] = useState<Profile | null>(null);
   const [saving, setSaving] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "student" as Role });
 
+  const normalizeRoleLabel = (role: Role) =>
+    role.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const ROLE_OPTIONS = ROLES.map((role) => ({
+    label: normalizeRoleLabel(role),
+    value: role,
+  }));
+
   const filtered = users.filter((u: Profile) => {
     const q = search.toLowerCase();
     const matchSearch = (u.name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q);
-    const matchRole = roleFilter === "All" || u.role === roleFilter;
+    const matchRole = selectedRoles.length === 0 || selectedRoles.includes(u.role);
     return matchSearch && matchRole;
   });
+
+  const handleToggleRole = (value: string) => {
+    setSelectedRoles((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
+  };
+
+  const handleClearRoles = () => setSelectedRoles([]);
 
   const handleDeleteUser = async (userId: string) => {
     if (!confirm("Are you sure you want to delete this user? This cannot be undone.")) return;
@@ -145,21 +160,15 @@ export default function AdminUsersPage() {
 
       {/* Toolbar: Horizontal Pill Tabs & Search */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        {/* Pill Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
-          {["All", ...ROLES].map(f => (
-            <button 
-              key={f} 
-              onClick={() => setRoleFilter(f === "All" ? "All" : f as Role)}
-              className={`px-5 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${
-                roleFilter === f 
-                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-sm" 
-                  : "text-foreground bg-transparent hover:bg-muted/60"
-              }`}
-            >
-              {f.replace("_", " ").replace(/\b\w/g, c => c.toUpperCase())}
-            </button>
-          ))}
+        <div className="pb-2 md:pb-0 w-full">
+          <FilterChips
+            options={ROLE_OPTIONS}
+            selectedValues={selectedRoles}
+            onToggle={handleToggleRole}
+            onClear={handleClearRoles}
+            allLabel="All Roles"
+            resetAriaLabel="Clear role filters"
+          />
         </div>
 
         {/* Search */}
@@ -229,7 +238,7 @@ export default function AdminUsersPage() {
                       <td className="px-6 py-4 text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground opacity-0 group-hover:opacity-100">
+                            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                               <MoreHorizontal className="w-4 h-4" />
                             </button>
                           </DropdownMenuTrigger>

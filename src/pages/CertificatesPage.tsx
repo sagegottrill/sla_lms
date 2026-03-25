@@ -10,7 +10,7 @@ import { api } from "@/services/api";
 function generateCertificatePDF(cert: {
   course_title: string; credential_id: string; instructor?: string;
   completed_at?: string; duration?: string;
-}, userName: string) {
+}, userName: string, opts?: { open?: boolean }) {
   const canvas = document.createElement("canvas");
   canvas.width = 1200; canvas.height = 850;
   const ctx = canvas.getContext("2d")!;
@@ -63,8 +63,17 @@ function generateCertificatePDF(cert: {
   canvas.toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
+    if (opts?.open) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      toast.success("Certificate opened.");
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      return;
+    }
+
     const a = document.createElement("a");
-    a.href = url; a.download = `SLA-Certificate-${cert.credential_id}.png`; a.click();
+    a.href = url;
+    a.download = `SLA-Certificate-${cert.credential_id}.png`;
+    a.click();
     URL.revokeObjectURL(url);
     toast.success("Certificate downloaded!");
   }, "image/png");
@@ -170,7 +179,7 @@ export default function CertificatesPage() {
                     <Share2 className="w-3.5 h-3.5" />
                   </Button>
                   <Button size="sm" variant="outline" className="rounded-xl text-xs"
-                    onClick={() => toast.info("Certificate viewer coming soon")}>
+                    onClick={() => generateCertificatePDF(cert, appUser?.name ?? "Student", { open: true })}>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </Button>
                 </div>

@@ -1,21 +1,23 @@
 import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCourses, useUserEnrollments } from "@/hooks/useQueries";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Star, Clock, CalendarDays, HelpCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star, Clock, GraduationCap, HelpCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StudentDashboard() {
   const { appUser } = useAuth();
   const [activeTab, setActiveTab] = useState<"in_progress" | "completed">("in_progress");
+  const navigate = useNavigate();
+  const [monthOffset, setMonthOffset] = useState(0);
 
   const { data: enrollmentsRaw = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
   const { data: allCourses = [], isLoading: loadingCourses } = useCourses();
 
   const enrollments = enrollmentsRaw.map((e: any) => ({
     courseId: e.course_id,
-    progress: e.progress,
+    progress: Number(e.progress ?? 0),
   }));
 
   const inProgressCourses = useMemo(() => {
@@ -40,21 +42,39 @@ export default function StudentDashboard() {
   const timeOfDay = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
   const firstName = appUser?.name?.split(" ")[0] || "Professional";
 
-  // Derive estimated completion (fake math for UI parity with screenshot)
-  const getSimulatedDate = (offsetDays: number) => {
+  // Estimate remaining time based on real progress (no fabricated timeseries required).
+  const getEstimatedCompletionDate = (progress: number) => {
+    const safe = Number.isFinite(progress) ? Math.max(0, Math.min(100, progress)) : 0;
+    const remainingRatio = (100 - safe) / 100; // 0..1
+    const estimatedDays = Math.max(3, Math.round(remainingRatio * 90)); // 3..90
     const d = new Date();
-    d.setDate(d.getDate() + offsetDays);
+    d.setDate(d.getDate() + estimatedDays);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
+
+  // Learning plan calendar: browse months
+  const now = new Date();
+  const todayMonth = now.getMonth(); // 0..11
+  const todayYear = now.getFullYear();
+
+  const displayDate = new Date(now);
+  displayDate.setMonth(displayDate.getMonth() + monthOffset);
+
+  const currentMonthLabel = displayDate.toLocaleString("en-US", { month: "long", year: "numeric" });
+  const currentMonth = displayDate.getMonth(); // 0..11
+  const currentYear = displayDate.getFullYear();
+  const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  // Convert JS weekday (Sun=0) into Monday-based index (Mon=0 ... Sun=6)
+  const firstWeekdayIndex = (new Date(currentYear, currentMonth, 1).getDay() + 6) % 7;
 
   const currentCourses = activeTab === "in_progress" ? inProgressCourses : completedCourses;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full min-h-[80vh]">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 h-full min-h-[80vh]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10">
         
         {/* ————— LEFT COLUMN (WIDGETS) ————— */}
-        <div className="lg:col-span-4 xl:col-span-3 space-y-8">
+        <div className="hidden lg:block lg:col-span-4 xl:col-span-3 space-y-8">
           
           {/* Today's Goals Widget */}
           <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
@@ -62,19 +82,22 @@ export default function StudentDashboard() {
             <div className="space-y-4 pl-1">
               <div className="flex items-start gap-3 group cursor-pointer">
                 <Star className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
-                <p className="text-sm text-primary font-medium underline decoration-primary/30 underline-offset-4 group-hover:decoration-primary transition-all">
-                  Complete any 3 learning items <span className="text-muted-foreground ml-1 no-underline font-normal">0/3</span>
+                <p className="text-sm text-primary font-medium transition-colors group-hover:text-primary/90">
+                  Complete any 3 learning items{" "}
+                  <span className="text-muted-foreground ml-1 no-underline font-normal">
+                    {Math.min(3, inProgressCourses.length)}/3
+                  </span>
                 </p>
               </div>
               <div className="flex items-start gap-3 group cursor-pointer">
                 <Star className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
-                <p className="text-sm text-foreground font-medium underline decoration-border underline-offset-4 group-hover:decoration-foreground transition-all">
+                <p className="text-sm text-foreground font-medium transition-colors group-hover:text-primary">
                   Practice with Coach
                 </p>
               </div>
               <div className="flex items-start gap-3 group cursor-pointer">
                 <Star className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
-                <p className="text-sm text-foreground font-medium underline decoration-border underline-offset-4 group-hover:decoration-foreground transition-all">
+                <p className="text-sm text-foreground font-medium transition-colors group-hover:text-primary">
                   Set up a learning plan
                 </p>
               </div>
@@ -95,15 +118,29 @@ export default function StudentDashboard() {
               ))}
             </div>
 
-            <p className="text-sm text-foreground font-medium underline decoration-border underline-offset-4 hover:decoration-foreground cursor-pointer transition-all mb-6 inline-block">
+            <p onClick={() => navigate("/dashboard/calendar")} className="text-sm text-foreground font-medium hover:text-primary cursor-pointer transition-colors mb-6 inline-block">
               Set your learning plan
             </p>
 
             <div className="flex items-center justify-between mb-4">
-              <span className="font-semibold text-sm text-foreground">March 2026</span>
+              <span className="font-semibold text-sm text-foreground">{currentMonthLabel}</span>
               <div className="flex gap-2">
-                <button className="p-1 hover:bg-muted rounded-md"><ChevronLeft className="w-4 h-4 text-muted-foreground" /></button>
-                <button className="p-1 hover:bg-muted rounded-md"><ChevronRight className="w-4 h-4 text-muted-foreground" /></button>
+                <button
+                  type="button"
+                  onClick={() => setMonthOffset((v) => v - 1)}
+                  className="p-1 rounded-md hover:bg-muted transition-colors"
+                  aria-label="Previous month"
+                >
+                  <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMonthOffset((v) => v + 1)}
+                  className="p-1 rounded-md hover:bg-muted transition-colors"
+                  aria-label="Next month"
+                >
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </button>
               </div>
             </div>
 
@@ -115,22 +152,28 @@ export default function StudentDashboard() {
               <div className="text-[10px] font-semibold text-muted-foreground uppercase">Fr</div>
               <div className="text-[10px] font-semibold text-muted-foreground uppercase">Sa</div>
               <div className="text-[10px] font-semibold text-muted-foreground uppercase">Su</div>
-              
-              <div className="p-1.5 text-muted-foreground/40">23</div>
-              <div className="p-1.5 text-muted-foreground/40">24</div>
-              <div className="p-1.5 text-muted-foreground/40">25</div>
-              <div className="p-1.5 text-muted-foreground/40">26</div>
-              <div className="p-1.5 text-muted-foreground/40">27</div>
-              <div className="p-1.5 text-muted-foreground/40">28</div>
-              <div className="p-1.5 text-foreground">1</div>
-              
-              <div className="p-1.5 text-foreground">2</div>
-              <div className="p-1.5 text-foreground">3</div>
-              <div className="p-1.5 text-foreground">4</div>
-              <div className="p-1.5 text-foreground">5</div>
-              <div className="p-1.5 text-foreground">6</div>
-              <div className="p-1.5 text-foreground">7</div>
-              <div className="p-1.5 text-foreground">8</div>
+
+              {Array.from({ length: 42 }).map((_, idx) => {
+                const dayNumber = idx - firstWeekdayIndex + 1;
+                const isInMonth = dayNumber >= 1 && dayNumber <= daysInCurrentMonth;
+                const isToday =
+                  isInMonth &&
+                  dayNumber === now.getDate() &&
+                  currentMonth === todayMonth &&
+                  currentYear === todayYear;
+
+                return (
+                  <div
+                    key={idx}
+                    className={`p-1.5 ${
+                      isInMonth ? (isToday ? "text-primary font-semibold" : "text-foreground") : "text-muted-foreground/30"
+                    }`}
+                    aria-hidden={!isInMonth}
+                  >
+                    {isInMonth ? dayNumber : ""}
+                  </div>
+                );
+              })}
             </div>
           </div>
           
@@ -140,23 +183,26 @@ export default function StudentDashboard() {
         <div className="lg:col-span-8 xl:col-span-9">
           
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-6 sm:mb-8">
             <h1 className="text-3xl sm:text-4xl font-display text-foreground font-semibold tracking-tight">
               Good {timeOfDay}, {firstName}
             </h1>
             <p className="mt-2 text-foreground/80 text-base">
-              Your career goal is to <span className="font-bold text-foreground">change roles</span> <button className="ml-2 text-sm text-primary font-semibold hover:underline">Edit goal</button>
+              Your career goal is to <span className="font-bold text-foreground">change roles</span>{" "}
+              <button onClick={() => navigate("/onboarding")} className="ml-2 text-sm text-primary font-semibold hover:text-primary/90 transition-colors">
+                Edit goal
+              </button>
             </p>
           </div>
 
           {/* Prompt Banner */}
-          <div className="bg-[#f0f4f9]/60 dark:bg-muted/30 border border-transparent rounded-2xl p-4 sm:p-6 flex items-center gap-4 mb-8">
+          <div className="bg-[#f0f4f9]/60 dark:bg-muted/30 border border-transparent rounded-2xl p-4 sm:p-6 flex items-center gap-4 mb-6 sm:mb-8">
             <div className="w-10 h-10 rounded-full bg-[#e8f0fe] text-primary flex items-center justify-center shrink-0">
-               <span className="text-xl">🎓</span>
+               <GraduationCap className="w-5 h-5" />
             </div>
             <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <span className="text-foreground font-medium text-sm sm:text-base">Let's get started! Which role(s) are you interested in?</span>
-              <button className="text-sm font-semibold text-primary hover:underline whitespace-nowrap">Select role</button>
+              <button onClick={() => navigate("/onboarding")} className="text-sm font-semibold text-primary hover:text-primary/90 whitespace-nowrap transition-colors">Select role</button>
             </div>
           </div>
 
@@ -219,7 +265,7 @@ export default function StudentDashboard() {
                       </div>
                       
                       <Link to={`/courses/${c.id}`} className="block">
-                        <h3 className="text-lg sm:text-xl font-bold font-display text-foreground group-hover:underline underline-offset-4 decoration-primary/50 transition-all mb-2">
+                        <h3 className="text-lg sm:text-xl font-bold font-display text-foreground group-hover:text-primary transition-colors mb-2">
                           {c.title}
                         </h3>
                       </Link>
@@ -229,7 +275,7 @@ export default function StudentDashboard() {
                         <span>·</span>
                         <span>{c.progress}% complete</span>
                         <span>·</span>
-                        <span className="truncate">Estimated completion: {getSimulatedDate(index * 12 + 4)}</span>
+                        <span className="truncate">Estimated completion: {getEstimatedCompletionDate(c.progress)}</span>
                       </div>
 
                       <div className="h-2 w-full bg-muted/60 rounded-full overflow-hidden">
@@ -243,7 +289,7 @@ export default function StudentDashboard() {
                         <h4 className="text-sm font-semibold text-foreground mb-1 line-clamp-2">Next: {c.title.split(":")[0] || "Module 1"} Fundamentals</h4>
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Clock className="w-3.5 h-3.5" />
-                          <span>Video ({Math.floor(Math.random() * 10) + 2} minutes)</span>
+                          <span>Video</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -265,7 +311,7 @@ export default function StudentDashboard() {
       </div>
       
       {/* Help bubble overlay */}
-      <div className="fixed bottom-6 right-6">
+      <div className="hidden md:block fixed bottom-6 right-6">
         <button className="w-10 h-10 bg-white ring-1 ring-black/5 dark:ring-white/10 border-0 shadow-md rounded-full flex items-center justify-center text-primary hover:bg-muted/50 transition-colors">
           <HelpCircle className="w-5 h-5" />
         </button>

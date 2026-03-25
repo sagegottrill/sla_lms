@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Bell, Mail, Smartphone, Clock, Save, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/services/api";
 
 interface NotifPref {
   key: string; label: string; description: string; email: boolean; sms: boolean; push: boolean;
@@ -20,20 +22,77 @@ const defaultPrefs: NotifPref[] = [
 ];
 
 export default function NotificationPrefsPage() {
+  const { appUser } = useAuth();
   const [prefs, setPrefs] = useState(defaultPrefs);
   const [frequency, setFrequency] = useState<"instant" | "hourly" | "daily">("instant");
   const [quietStart, setQuietStart] = useState("22:00");
   const [quietEnd, setQuietEnd] = useState("07:00");
   const [saved, setSaved] = useState(false);
+  const [extraPrefs, setExtraPrefs] = useState<Record<string, any>>({});
+
+  const prefsPayload = useMemo(() => {
+    const out: Record<string, { email: boolean; sms: boolean; push: boolean }> = {};
+    for (const p of prefs) out[p.key] = { email: p.email, sms: p.sms, push: p.push };
+    return out;
+  }, [prefs]);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!appUser?.id) return;
+      const row = await api.getNotificationPreferences(appUser.id);
+      if (!row) return;
+
+      const loadedPrefs = (row.prefs ?? {}) as Record<string, any>;
+
+      setExtraPrefs(loadedPrefs);
+
+      setFrequency((row.frequency as any) || "instant");
+      setQuietStart(row.quiet_start ?? "22:00");
+      setQuietEnd(row.quiet_end ?? "07:00");
+
+      setPrefs((prev) =>
+        prev.map((p) => {
+          const cfg = loadedPrefs[p.key];
+          if (!cfg) return p;
+          return {
+            ...p,
+            email: Boolean(cfg.email),
+            sms: Boolean(cfg.sms),
+            push: Boolean(cfg.push),
+          };
+        })
+      );
+    };
+    load();
+  }, [appUser?.id]);
 
   const toggle = (key: string, channel: "email" | "sms" | "push") => {
     setPrefs(prev => prev.map(p => p.key === key ? { ...p, [channel]: !p[channel] } : p));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!appUser?.id) {
+      toast.error("Please log in.");
+      return;
+    }
+
     setSaved(true);
+    const ok = await api.upsertNotificationPreferences({
+      userId: appUser.id,
+      frequency,
+      quietStart,
+      quietEnd,
+      prefs: { ...extraPrefs, ...prefsPayload },
+    });
+
+    if (!ok) {
+      toast.error("Failed to save notification preferences.");
+      setSaved(false);
+      return;
+    }
+
     toast.success("Notification preferences saved!");
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => setSaved(false), 1000);
   };
 
   return (

@@ -1,60 +1,58 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
-type Role = "student" | "instructor" | "program_manager" | "admin" | "";
+type Role = "student" | "instructor" | "program_manager" | "admin" | null;
 
-interface OnboardingState {
-  hasCompletedOnboarding: boolean;
-  
-  // Wizard Steps State
-  roleChoice: Role;
+interface OnboardingData {
+  // Matches the onboarding wizard selections we capture across steps.
+  role: Role;
   skills: string[];
   interests: string[];
   avatarUrl: string | null;
 
-  // Actions
-  setRoleChoice: (role: Role) => void;
-  addSkill: (skill: string) => void;
-  removeSkill: (skill: string) => void;
-  toggleInterest: (interest: string) => void;
-  setAvatarUrl: (url: string) => void;
-  completeOnboarding: () => void;
-  resetOnboarding: () => void;
+  // Spec keys that we don't currently collect in the UI.
+  // Keeping them optional means the store can still be strict about shape
+  // without forcing UI changes.
+  organization?: string;
+  experienceLevel?: string;
+  professionalGoals?: string;
+}
+
+interface OnboardingState {
+  currentStep: number;
+  direction: number; // used for directional step transition animations
+
+  formData: Partial<OnboardingData>;
+  setFormData: (data: Partial<OnboardingData>) => void;
+
+  nextStep: () => void;
+  prevStep: () => void;
+  resetForm: () => void;
 }
 
 export const useOnboardingStore = create<OnboardingState>()(
   persist(
     (set) => ({
-      hasCompletedOnboarding: false,
-      roleChoice: "",
-      skills: [],
-      interests: [],
-      avatarUrl: null,
-
-      setRoleChoice: (role) => set({ roleChoice: role }),
-      addSkill: (skill) => set((state) => ({ 
-        skills: state.skills.includes(skill) ? state.skills : [...state.skills, skill] 
-      })),
-      removeSkill: (skill) => set((state) => ({ 
-        skills: state.skills.filter((s) => s !== skill) 
-      })),
-      toggleInterest: (interest) => set((state) => ({
-        interests: state.interests.includes(interest)
-          ? state.interests.filter((i) => i !== interest)
-          : [...state.interests, interest]
-      })),
-      setAvatarUrl: (url) => set({ avatarUrl: url }),
-      completeOnboarding: () => set({ hasCompletedOnboarding: true }),
-      resetOnboarding: () => set({ 
-        hasCompletedOnboarding: false, 
-        roleChoice: "", 
-        skills: [], 
-        interests: [], 
-        avatarUrl: null 
-      }),
+      currentStep: 0,
+      direction: 0,
+      formData: {},
+      setFormData: (data) => set((state) => ({ formData: { ...state.formData, ...data } })),
+      nextStep: () => set((state) => ({ currentStep: state.currentStep + 1, direction: 1 })),
+      prevStep: () => set((state) => ({ currentStep: Math.max(0, state.currentStep - 1), direction: -1 })),
+      resetForm: () =>
+        set({
+          currentStep: 0,
+          direction: 0,
+          formData: {},
+        }),
     }),
     {
       name: 'connecta-onboarding-storage',
+      // Persist only formData; animation-only state should be ephemeral.
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        formData: state.formData,
+      }),
     }
   )
 );

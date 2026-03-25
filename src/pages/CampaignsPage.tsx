@@ -1,19 +1,31 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Mail, Smartphone, Send, Plus, Calendar, Users, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-
-// Awaiting Supabase hook for real campaign management
-const initialCampaigns: any[] = [];
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/services/api";
 
 export default function CampaignsPage() {
-  const [campaigns] = useState(initialCampaigns);
+  const { appUser } = useAuth();
+  const [campaigns, setCampaigns] = useState<any[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [channelFilter, setChannelFilter] = useState<"all" | "email" | "sms" | "both">("all");
   const [form, setForm] = useState({ name: "", subject: "", audience: "", channel: "email" as "email" | "sms" | "both", scheduledDate: "", body: "" });
 
-  const filtered = campaigns.filter(c => channelFilter === "all" || c.channel === channelFilter);
+  useEffect(() => {
+    const load = async () => {
+      if (!appUser) return;
+      const data = await api.getCampaigns();
+      setCampaigns(data);
+    };
+    load();
+  }, [appUser]);
+
+  const filtered = useMemo(
+    () => campaigns.filter((c) => channelFilter === "all" || c.channel === channelFilter),
+    [campaigns, channelFilter]
+  );
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
@@ -81,7 +93,29 @@ export default function CampaignsPage() {
               </div>
             </div>
             <div className="flex gap-3">
-              <Button onClick={() => { if (!form.name.trim()) { toast.error("Name your campaign"); return; } toast.success("Campaign created!"); setShowCreate(false); }}
+              <Button onClick={() => {
+                if (!form.name.trim()) { toast.error("Name your campaign"); return; }
+                if (!appUser?.id) { toast.error("Please log in."); return; }
+
+                api.createCampaign({
+                  userId: appUser.id,
+                  name: form.name.trim(),
+                  subject: form.subject.trim(),
+                  audience: form.audience.trim(),
+                  channel: form.channel,
+                  scheduledAt: form.scheduledDate || null,
+                  body: form.body,
+                }).then((created) => {
+                  if (!created) {
+                    toast.error("Failed to create campaign. Check Supabase connection/RLS.");
+                    return;
+                  }
+                  toast.success("Campaign created!");
+                  setShowCreate(false);
+                  setForm({ name: "", subject: "", audience: "", channel: "email", scheduledDate: "", body: "" });
+                  setCampaigns((prev: any[]) => [created, ...prev]);
+                });
+              }}
                 className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0">
                 <Send className="w-3.5 h-3.5 mr-2" /> Create
               </Button>
@@ -113,7 +147,19 @@ export default function CampaignsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
-                {/* Rows dynamic from filtered */}
+                {filtered.map((c: any) => (
+                  <tr key={c.id} className="hover:bg-muted/10 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-semibold text-foreground">{c.name ?? "Untitled"}</div>
+                      {c.subject ? <div className="text-xs text-muted-foreground mt-1">{c.subject}</div> : null}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground font-medium">{String(c.channel ?? "").toUpperCase()}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground font-medium">{c.status ?? "Draft"}</td>
+                    <td className="px-6 py-4 text-right text-sm text-muted-foreground font-medium">
+                      {c.sent_at || c.scheduled_at || "—"}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

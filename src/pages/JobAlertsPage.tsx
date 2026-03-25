@@ -1,24 +1,27 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Bell, BellOff, MapPin, Briefcase, Clock, Trash2, Plus, Star, Mail, Smartphone, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useJobs } from "@/hooks/useQueries";
 
 interface JobAlert {
   id: string; title: string; keywords: string[]; location: string; type: string; frequency: "instant" | "daily" | "weekly"; channel: "email" | "sms" | "both"; active: boolean; matchCount: number; created: string;
 }
 
-const initialAlerts: JobAlert[] = [];
-
 export default function JobAlertsPage() {
-  const [alerts, setAlerts] = useState(initialAlerts);
+  const [alerts, setAlerts] = useState<JobAlert[]>([]);
+  const { data: jobs = [], isLoading: jobsLoading } = useJobs();
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ title: "", keywords: "", location: "", type: "Full-time", frequency: "daily" as const, channel: "email" as const });
 
   const toggleActive = (id: string) => {
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, active: !a.active } : a));
-    const alert = alerts.find(a => a.id === id);
-    toast(alert?.active ? "Alert paused" : "Alert activated");
+    setAlerts((prev) => {
+      const target = prev.find((a) => a.id === id);
+      const nextActive = !(target?.active ?? false);
+      toast(nextActive ? "Alert activated" : "Alert paused");
+      return prev.map((a) => (a.id === id ? { ...a, active: nextActive } : a));
+    });
   };
 
   const deleteAlert = (id: string) => {
@@ -38,12 +41,52 @@ export default function JobAlertsPage() {
     toast.success("Job alert created! You'll receive matches soon.");
   };
 
+  const alertsWithCounts = useMemo(() => {
+    if (jobsLoading) return alerts;
+
+    const matchesForAlert = (alert: JobAlert) => {
+      const keywords = (alert.keywords ?? []).map((k) => k.toLowerCase().trim()).filter(Boolean);
+      const locationTerm = (alert.location ?? "").toLowerCase().trim();
+      const typeTerm = (alert.type ?? "").toLowerCase().trim();
+
+      return jobs.filter((j: any) => {
+        const jobTitle = (j.title ?? "").toLowerCase();
+        const jobCompany = (j.company ?? "").toLowerCase();
+        const jobLocation = (j.location ?? "").toLowerCase();
+        const jobSkills = Array.isArray(j.skills) ? j.skills.join(" ").toLowerCase() : "";
+        const jobType = (j.type ?? "").toLowerCase();
+
+        const keywordMatch =
+          keywords.length === 0
+            ? true
+            : keywords.some((kw) => `${jobTitle} ${jobCompany} ${jobSkills}`.includes(kw));
+
+        const locationMatch =
+          !locationTerm || locationTerm === "any"
+            ? true
+            : jobLocation.includes(locationTerm) || jobLocation.split(",").some((p: string) => p.trim() === locationTerm);
+
+        const typeMatch =
+          !typeTerm
+            ? true
+            : jobType === typeTerm || jobType.includes(typeTerm);
+
+        return keywordMatch && locationMatch && typeMatch;
+      }).length;
+    };
+
+    return alerts.map((a) => ({
+      ...a,
+      matchCount: matchesForAlert(a),
+    }));
+  }, [alerts, jobs, jobsLoading]);
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">Job Alerts</h1>
-          <p className="text-muted-foreground text-sm mt-1">{alerts.filter(a => a.active).length} active alerts</p>
+          <p className="text-muted-foreground text-sm mt-1">{alertsWithCounts.filter(a => a.active).length} active alerts</p>
         </div>
         <Button onClick={() => setShowCreate(!showCreate)} className="gradient-card text-primary-foreground rounded-xl gap-2 text-sm hover:opacity-90">
           <Plus className="w-4 h-4" /> Create Alert
@@ -100,7 +143,7 @@ export default function JobAlertsPage() {
       )}
 
       <div className="space-y-3">
-        {alerts.map((alert, i) => (
+        {alertsWithCounts.map((alert, i) => (
           <motion.div key={alert.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
             className={`bg-card rounded-2xl border p-6 transition-all ${alert.active ? "border-border" : "border-border opacity-60"}`}>
             <div className="flex items-start justify-between gap-4">

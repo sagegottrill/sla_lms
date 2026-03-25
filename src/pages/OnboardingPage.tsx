@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, Navigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -10,9 +10,13 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { supabase } from "@/lib/supabase";
+import { api } from "@/services/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/react-query";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 const ROLES = [
   { id: "student", label: "Student Learner", desc: "I want to take courses and build skills", icon: BookOpen },
@@ -33,37 +37,133 @@ const INTEREST_CATEGORIES = [
   { id: "Health", label: "Health & Wellness", icon: Heart },
 ];
 
+const allowedRoles = ["student", "instructor", "program_manager", "admin"] as const;
+
+const roleStepSchema = z.object({
+  roleChoice: z
+    .string()
+    .min(1, "Please select a role")
+    .refine((v) => (allowedRoles as readonly string[]).includes(v), "Please select a valid role"),
+});
+
+const skillsStepSchema = z.object({
+  skills: z.array(z.string().min(1)).min(1, "Add at least one skill"),
+});
+
+const interestsStepSchema = z.object({
+  interests: z.array(z.string().min(1)).min(1, "Select at least one interest"),
+});
+
+const avatarStepSchema = z.object({
+  avatarUrl: z.string().url("Please upload a photo to finish setup"),
+});
+
 export default function OnboardingPage() {
   const { user, needsOnboarding, completeOnboarding } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const store = useOnboardingStore();
-  
-  const [step, setStep] = useState(0);
+  const role = store.formData.role ?? null;
+  const skills = useMemo(() => store.formData.skills ?? [], [store.formData.skills]);
+  const interests = useMemo(() => store.formData.interests ?? [], [store.formData.interests]);
+  const avatarUrl = store.formData.avatarUrl ?? null;
+
   const [finishing, setFinishing] = useState(false);
   const [skillInput, setSkillInput] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!user) return <Navigate to="/login" replace />;
-  if (!needsOnboarding) return <Navigate to="/dashboard" replace />;
-
   const totalSteps = 5;
+  const step = Math.max(0, Math.min(store.currentStep, totalSteps - 1));
+  const prevStepRef = useRef(step);
   const progress = ((step + 1) / totalSteps) * 100;
+
+  const roleForm = useForm<z.infer<typeof roleStepSchema>>({
+    resolver: zodResolver(roleStepSchema),
+    mode: "onChange",
+    defaultValues: { roleChoice: role ?? "" },
+  });
+
+  const skillsForm = useForm<z.infer<typeof skillsStepSchema>>({
+    resolver: zodResolver(skillsStepSchema),
+    mode: "onChange",
+    defaultValues: { skills },
+  });
+
+  const interestsForm = useForm<z.infer<typeof interestsStepSchema>>({
+    resolver: zodResolver(interestsStepSchema),
+    mode: "onChange",
+    defaultValues: { interests },
+  });
+
+  const avatarForm = useForm<z.infer<typeof avatarStepSchema>>({
+    resolver: zodResolver(avatarStepSchema),
+    mode: "onChange",
+    defaultValues: { avatarUrl: avatarUrl ?? "" },
+  });
+
+  // Keep the current step forms synchronized with persisted Zustand state.
+  useEffect(() => {
+    if (step !== 1) return;
+    roleForm.reset({ roleChoice: role ?? "" });
+    void roleForm.trigger();
+  }, [step, role, roleForm]);
+
+  useEffect(() => {
+    const prev = prevStepRef.current;
+    prevStepRef.current = step;
+    if (step !== 2) return;
+    // Only reset the form when *entering* step 2, not on every skills change (avoids fighting the text input).
+    if (prev === 2) return;
+    skillsForm.reset({ skills });
+    void skillsForm.trigger();
+  }, [step, skills, skillsForm]);
+
+  useEffect(() => {
+    if (step !== 3) return;
+    interestsForm.reset({ interests });
+    void interestsForm.trigger();
+  }, [step, interests, interestsForm]);
+
+  useEffect(() => {
+    if (step !== 4) return;
+    avatarForm.reset({ avatarUrl: avatarUrl ?? "" });
+    void avatarForm.trigger();
+  }, [step, avatarUrl, avatarForm]);
 
   const canContinue = () => {
     if (step === 0) return true;
-    if (step === 1) return store.roleChoice !== "";
-    if (step === 2) return store.skills.length > 0;
-    if (step === 3) return store.interests.length > 0;
-    return true;
+    if (step === 1) return roleForm.formState.isValid;
+    if (step === 2) return skillsForm.formState.isValid;
+    if (step === 3) return interestsForm.formState.isValid;
+    return avatarForm.formState.isValid;
   };
 
-  const handleAddSkill = (e?: React.KeyboardEvent) => {
-    if (e && e.key !== "Enter") return;
+  const roleError = roleForm.formState.errors.roleChoice?.message;
+  const skillsError = skillsForm.formState.errors.skills?.message;
+  const interestsError = interestsForm.formState.errors.interests?.message;
+  const avatarError = avatarForm.formState.errors.avatarUrl?.message;
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (!needsOnboarding) return <Navigate to="/dashboard" replace />;
+
+  const enterX = store.direction > 0 ? 20 : store.direction < 0 ? -20 : 0;
+  const exitX = store.direction > 0 ? -20 : store.direction < 0 ? 20 : 0;
+
+  const addSkillFromInput = () => {
     if (!skillInput.trim()) return;
-    store.addSkill(skillInput.trim());
+    const newSkill = skillInput.trim();
+    const nextSkills = skills.includes(newSkill) ? skills : [...skills, newSkill];
+    store.setFormData({ skills: nextSkills });
+    skillsForm.setValue("skills", nextSkills, { shouldValidate: true });
     setSkillInput("");
+  };
+
+  const handleSkillKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addSkillFromInput();
+    }
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,22 +172,13 @@ export default function OnboardingPage() {
 
     setUploadingAvatar(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const filePath = `avatars/${user.id}_${Math.random()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('profiles')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('profiles')
-        .getPublicUrl(filePath);
-
-      store.setAvatarUrl(publicUrl);
-    } catch (err: any) {
-      toast.error("Avatar upload failed");
+      const publicUrl = await api.uploadAvatar(user.id, file);
+      if (!publicUrl) throw new Error("Upload failed");
+      store.setFormData({ avatarUrl: publicUrl });
+      avatarForm.setValue("avatarUrl", publicUrl, { shouldValidate: true });
+      toast.success("Photo uploaded");
+    } catch {
+      toast.error("Avatar upload failed. Try a smaller JPG or PNG.");
     } finally {
       setUploadingAvatar(false);
     }
@@ -100,8 +191,8 @@ export default function OnboardingPage() {
       await supabase
         .from('profiles')
         .update({
-          role: store.roleChoice,
-          avatar_url: store.avatarUrl,
+          role: role,
+          avatar_url: avatarUrl,
           onboarding_completed: true,
           // interests and skills mapping would go here if columns existed
         })
@@ -112,10 +203,7 @@ export default function OnboardingPage() {
 
       // 3. Mark auth context as complete
       await completeOnboarding({ completed: true });
-      
-      // 4. Update local Zustand persistent state
-      store.completeOnboarding();
-      
+
       toast.success("Profile setup complete! Welcome aboard.");
       navigate("/dashboard");
     } catch (error) {
@@ -141,10 +229,16 @@ export default function OnboardingPage() {
              </div>
           </div>
 
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" initial={false}>
             {/* Step 0: Welcome */}
             {step === 0 && (
-              <motion.div key="welcome" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, y: -20 }}>
+              <motion.div
+                key="welcome"
+                initial={{ opacity: 0, x: enterX, scale: 0.98 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: exitX, scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 350, damping: 35 }}
+              >
                 <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 ring-1 ring-primary/20">
                   <BookOpen className="w-8 h-8 text-primary" />
                 </div>
@@ -159,16 +253,28 @@ export default function OnboardingPage() {
 
             {/* Step 1: Role Choice */}
             {step === 1 && (
-              <motion.div key="role" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <motion.div
+                key="role"
+                initial={{ opacity: 0, x: enterX, scale: 0.98 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: exitX, scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 350, damping: 35 }}
+              >
                 <h1 className="font-display text-3xl font-bold text-foreground mb-2">Select your primary role</h1>
                 <p className="text-muted-foreground mb-8">This determines your dashboard layout and system permissions.</p>
+                {roleError && <p className="text-sm text-destructive mb-4">{roleError}</p>}
                 <div className="grid gap-3">
                   {ROLES.map(({ id, label, desc, icon: Icon }) => (
-                    <button key={id} onClick={() => store.setRoleChoice(id as any)}
+                    <button
+                      key={id}
+                      onClick={() => {
+                        store.setFormData({ role: id as any });
+                        roleForm.setValue("roleChoice", id as any, { shouldValidate: true, shouldDirty: true });
+                      }}
                       className={`flex items-start gap-4 p-5 rounded-2xl border text-left transition-all ${
-                        store.roleChoice === id ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/40 bg-card"
+                        role === id ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/40 bg-card"
                       }`}>
-                      <div className={`p-3 rounded-xl flex shrink-0 ${store.roleChoice === id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                      <div className={`p-3 rounded-xl flex shrink-0 ${role === id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
                         <Icon className="w-6 h-6" />
                       </div>
                       <div className="flex-1">
@@ -183,35 +289,72 @@ export default function OnboardingPage() {
 
             {/* Step 2: Skills */}
             {step === 2 && (
-              <motion.div key="skills" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <motion.div
+                key="skills"
+                initial={{ opacity: 0, x: enterX, scale: 0.98 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: exitX, scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 350, damping: 35 }}
+              >
                 <h1 className="font-display text-3xl font-bold text-foreground mb-2">What are your skills?</h1>
-                <p className="text-muted-foreground mb-8">Add skills you have or want to develop. Press Enter to add.</p>
+                <p className="text-muted-foreground mb-8">Add skills you have or want to develop. Press Enter or click Add.</p>
                 
-                <div className="mb-6">
-                  <input 
+                <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                  <input
+                    type="text"
+                    autoComplete="off"
                     value={skillInput}
                     onChange={(e) => setSkillInput(e.target.value)}
-                    onKeyDown={handleAddSkill}
-                    placeholder="e.g. Project Management" 
-                    className="w-full px-5 py-4 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 text-lg shadow-sm"
+                    onKeyDown={handleSkillKeyDown}
+                    onBlur={() => {
+                      if (skillInput.trim()) addSkillFromInput();
+                    }}
+                    placeholder="e.g. Project Management"
+                    className="w-full px-5 py-4 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 text-lg shadow-sm sm:flex-1"
                   />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="shrink-0 rounded-xl px-6"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={addSkillFromInput}
+                  >
+                    Add
+                  </Button>
                 </div>
 
+                {skillsError && <p className="text-sm text-destructive mb-6">{skillsError}</p>}
+
                 <div className="flex flex-wrap gap-2 mb-8 min-h-[100px] content-start">
-                  {store.skills.map((skill) => (
+                  {skills.map((skill) => (
                     <span key={skill} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium shadow-sm">
                       {skill}
-                      <button onClick={() => store.removeSkill(skill)} className="hover:text-primary-foreground/70"><X className="w-4 h-4" /></button>
+                      <button
+                        onClick={() => {
+                          const nextSkills = skills.filter((s) => s !== skill);
+                          store.setFormData({ skills: nextSkills });
+                          skillsForm.setValue("skills", nextSkills, { shouldValidate: true });
+                        }}
+                        className="hover:text-primary-foreground/70"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </span>
                   ))}
-                  {store.skills.length === 0 && <span className="text-muted-foreground text-sm italic py-2">No skills added yet.</span>}
+                  {skills.length === 0 && <span className="text-muted-foreground text-sm italic py-2">No skills added yet.</span>}
                 </div>
 
                 <div className="pt-6 border-t border-border/40">
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Popular Skills</p>
                   <div className="flex flex-wrap gap-2">
-                    {COMMON_SKILLS.filter(s => !store.skills.includes(s)).map((skill) => (
-                      <button key={skill} onClick={() => store.addSkill(skill)}
+                    {COMMON_SKILLS.filter(s => !skills.includes(s)).map((skill) => (
+                      <button
+                        key={skill}
+                        onClick={() => {
+                          const nextSkills = skills.includes(skill) ? skills : [...skills, skill];
+                          store.setFormData({ skills: nextSkills });
+                          skillsForm.setValue("skills", nextSkills, { shouldValidate: true });
+                        }}
                         className="px-3 py-1.5 rounded-full ring-1 ring-black/5 dark:ring-white/10 border-0 bg-muted/40 text-muted-foreground text-xs font-semibold hover:bg-muted hover:text-foreground transition-colors">
                         + {skill}
                       </button>
@@ -223,19 +366,34 @@ export default function OnboardingPage() {
 
             {/* Step 3: Interests */}
             {step === 3 && (
-              <motion.div key="interests" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <motion.div
+                key="interests"
+                initial={{ opacity: 0, x: enterX, scale: 0.98 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: exitX, scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 350, damping: 35 }}
+              >
                 <h1 className="font-display text-3xl font-bold text-foreground mb-2">Your learning interests</h1>
                 <p className="text-muted-foreground mb-8">Select categories to personalize your course recommendations.</p>
+                {interestsError && <p className="text-sm text-destructive mb-4">{interestsError}</p>}
                 
                 <div className="grid grid-cols-2 gap-3">
                   {INTEREST_CATEGORIES.map(({ id, label, icon: Icon }) => (
-                    <button key={id} onClick={() => store.toggleInterest(id)}
+                    <button
+                      key={id}
+                      onClick={() => {
+                        const nextInterests = interests.includes(id)
+                          ? interests.filter((i) => i !== id)
+                          : [...interests, id];
+                        store.setFormData({ interests: nextInterests });
+                        interestsForm.setValue("interests", nextInterests, { shouldValidate: true, shouldDirty: true });
+                      }}
                       className={`flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
-                        store.interests.includes(id) ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/40 bg-card"
+                        interests.includes(id) ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/40 bg-card"
                       }`}>
-                      <Icon className={`w-5 h-5 ${store.interests.includes(id) ? "text-primary" : "text-muted-foreground"}`} />
+                      <Icon className={`w-5 h-5 ${interests.includes(id) ? "text-primary" : "text-muted-foreground"}`} />
                       <span className="font-semibold text-sm">{label}</span>
-                      {store.interests.includes(id) && <Check className="w-4 h-4 text-primary ml-auto" />}
+                      {interests.includes(id) && <Check className="w-4 h-4 text-primary ml-auto" />}
                     </button>
                   ))}
                 </div>
@@ -244,15 +402,21 @@ export default function OnboardingPage() {
 
             {/* Step 4: Avatar */}
             {step === 4 && (
-              <motion.div key="avatar" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <motion.div
+                key="avatar"
+                initial={{ opacity: 0, x: enterX, scale: 0.98 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: exitX, scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 350, damping: 35 }}
+              >
                 <h1 className="font-display text-3xl font-bold text-foreground mb-2">Almost done! Add a photo</h1>
                 <p className="text-muted-foreground mb-8">Complete your profile by uploading a professional headshot.</p>
                 
                 <div className="flex flex-col items-center justify-center p-12 ring-1 ring-black/5 dark:ring-white/10 border-0 bg-card rounded-3xl shadow-sm text-center">
                   <div className="relative mb-6">
                     <div className="w-32 h-32 rounded-full overflow-hidden bg-muted flex items-center justify-center ring-4 ring-background shadow-xl">
-                      {store.avatarUrl ? (
-                        <img src={store.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
                         <User className="w-12 h-12 text-muted-foreground/40" />
                       )}
@@ -270,6 +434,7 @@ export default function OnboardingPage() {
                     <Upload className="w-4 h-4 mr-2" /> Upload Photo
                   </Button>
                   <p className="text-xs text-muted-foreground max-w-[200px]">JPG, PNG or WEBP. Max 2MB.</p>
+                  {avatarError && <p className="text-sm text-destructive mt-3">{avatarError}</p>}
                 </div>
               </motion.div>
             )}
@@ -277,18 +442,64 @@ export default function OnboardingPage() {
 
           {/* Bottom Navigation */}
           <div className="flex items-center justify-between mt-12 pt-6 border-t border-border/40">
-             <Button variant="ghost" onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}
+             <Button variant="ghost" onClick={() => store.prevStep()} disabled={step === 0}
                className={`rounded-full px-6 font-semibold ${step === 0 ? "opacity-0 pointer-events-none" : ""}`}>
                <ArrowLeft className="w-4 h-4 mr-2" /> Back
              </Button>
 
              {step < totalSteps - 1 ? (
-               <Button onClick={() => setStep(s => s + 1)} disabled={!canContinue()} 
+               <Button
+                 onClick={() => {
+                   if (step === 0) return store.nextStep();
+
+                   if (step === 1) {
+                     roleForm.handleSubmit(
+                       (values) => {
+                        store.setFormData({ role: values.roleChoice as any });
+                         store.nextStep();
+                       },
+                       () => toast.error("Please select a role to continue.")
+                     )();
+                     return;
+                   }
+
+                   if (step === 2) {
+                     skillsForm.handleSubmit(
+                      (values) => {
+                        store.setFormData({ skills: values.skills });
+                        store.nextStep();
+                      },
+                       () => toast.error("Add at least one skill to continue.")
+                     )();
+                     return;
+                   }
+
+                   if (step === 3) {
+                     interestsForm.handleSubmit(
+                      (values) => {
+                        store.setFormData({ interests: values.interests });
+                        store.nextStep();
+                      },
+                       () => toast.error("Select at least one interest to continue.")
+                     )();
+                     return;
+                   }
+
+                   store.nextStep();
+                 }}
+                 disabled={!canContinue()}
                  className="rounded-full px-8 font-bold bg-[#0056D2] hover:bg-[#00419e] text-white shadow-brand">
                  Continue <ArrowRight className="w-4 h-4 ml-2" />
                </Button>
              ) : (
-               <Button onClick={handleFinish} disabled={finishing || !canContinue()} 
+               <Button
+                 onClick={() => {
+                   avatarForm.handleSubmit(
+                     () => handleFinish(),
+                     () => toast.error("Please upload a photo to finish setup.")
+                   )();
+                 }}
+                 disabled={finishing || !canContinue()}
                  className="rounded-full px-10 font-bold bg-[#0056D2] hover:bg-[#00419e] text-white shadow-brand">
                  {finishing ? (
                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Finalizing...</>

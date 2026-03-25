@@ -1,5 +1,7 @@
 export interface Course {
   id: number;
+  /** Set on create; links course to authoring user in Supabase */
+  instructor_id?: string;
   title: string;
   subtitle: string;
   instructor: string;

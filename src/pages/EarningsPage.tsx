@@ -1,10 +1,12 @@
 import { Download, DollarSign, ArrowUpRight, CheckCircle2, Info, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// Awaiting Supabase hook implementation for real payout tracking
-const payouts: any[] = [];
+import { useSystemStats } from "@/hooks/useQueries";
 
 export default function EarningsPage() {
+  const { data: stats, isLoading } = useSystemStats();
+  const totalRevenue = stats?.totalRevenue ?? 0;
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
       
@@ -13,7 +15,7 @@ export default function EarningsPage() {
         <div>
           <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">Earnings & Payouts</h1>
           <p className="text-muted-foreground text-sm">
-            Your compensation tracking across {payouts.length} cycles.
+            {isLoading ? "Syncing earnings…" : "Your compensation tracking across settlement cycles."}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -37,7 +39,9 @@ export default function EarningsPage() {
                   <CheckCircle2 className="w-3.5 h-3.5" /> Total Paid
                 </p>
                 <div className="flex items-end gap-2">
-                  <p className="text-3xl font-light text-foreground">₦0</p>
+                  <p className="text-3xl font-light text-foreground">
+                    ₦{isLoading ? "—" : totalRevenue.toLocaleString()}
+                  </p>
                   <span className="text-[10px] font-bold text-muted-foreground mb-1">—</span>
                 </div>
               </div>
@@ -47,7 +51,7 @@ export default function EarningsPage() {
                   <Clock className="w-3.5 h-3.5" /> Pending
                 </p>
                 <div className="flex items-end gap-2">
-                  <p className="text-3xl font-light text-foreground">₦0</p>
+                  <p className="text-3xl font-light text-foreground">₦{isLoading ? "—" : "0"}</p>
                   <span className="text-[10px] font-bold text-muted-foreground mb-1">Due 25th</span>
                 </div>
               </div>
@@ -57,7 +61,7 @@ export default function EarningsPage() {
                   <ArrowUpRight className="w-3.5 h-3.5" /> Monthly Velocity
                 </p>
                 <div className="flex items-end gap-2">
-                  <p className="text-3xl font-bold text-[#0056D2]">₦0</p>
+                  <p className="text-3xl font-bold text-[#0056D2]">₦{isLoading ? "—" : totalRevenue.toLocaleString()}</p>
                   <span className="text-[10px] font-bold text-muted-foreground mb-1">—</span>
                 </div>
               </div>
@@ -99,7 +103,13 @@ export default function EarningsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
-                  {payouts.length === 0 ? (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-20 text-center bg-card/20 text-muted-foreground">
+                        Loading payouts…
+                      </td>
+                    </tr>
+                  ) : (
                     <tr>
                       <td colSpan={5} className="px-6 py-20 text-center bg-card/20">
                         <DollarSign className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
@@ -107,16 +117,6 @@ export default function EarningsPage() {
                         <p className="text-sm text-muted-foreground">Payout histories will render here following your first settlement.</p>
                       </td>
                     </tr>
-                  ) : (
-                    payouts.map((p, i) => (
-                      <tr key={i} className="hover:bg-muted/10 transition-colors">
-                        <td className="px-6 py-4">{p.cycle}</td>
-                        <td className="px-6 py-4">{p.volume}</td>
-                        <td className="px-6 py-4 font-semibold text-[#0056D2]">{p.payout}</td>
-                        <td className="px-6 py-4 text-xs font-medium">{p.status}</td>
-                        <td className="px-6 py-4 text-right text-xs text-muted-foreground">{p.settled}</td>
-                      </tr>
-                    ))
                   )}
                 </tbody>
               </table>

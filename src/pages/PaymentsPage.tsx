@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Download, CreditCard, Filter, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-// Awaiting Supabase hook implementation for real transaction tracking
-const transactions: any[] = [];
+import { useSystemStats } from "@/hooks/useQueries";
 
 export default function PaymentsPage() {
   const [filter, setFilter] = useState("All");
+  const { data: stats, isLoading } = useSystemStats();
+  const totalRevenue = stats?.totalRevenue ?? 0;
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
@@ -16,7 +16,7 @@ export default function PaymentsPage() {
         <div>
           <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">Revenue & Transactions</h1>
           <p className="text-muted-foreground text-sm">
-            Tracking {transactions.length} captured payments.
+            {isLoading ? "Syncing revenue…" : "Revenue overview from your Supabase payments data."}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -40,7 +40,9 @@ export default function PaymentsPage() {
                   <CheckCircle2 className="w-3.5 h-3.5" /> Total Revenue
                 </p>
                 <div className="flex items-end gap-2">
-                  <p className="text-3xl font-light text-foreground">₦0</p>
+                  <p className="text-3xl font-light text-foreground">
+                    ₦{isLoading ? "—" : totalRevenue.toLocaleString()}
+                  </p>
                   <span className="text-[10px] font-bold text-muted-foreground mb-1">—</span>
                 </div>
               </div>
@@ -60,7 +62,7 @@ export default function PaymentsPage() {
                   <ArrowUpRight className="w-3.5 h-3.5" /> Net MRR
                 </p>
                 <div className="flex items-end gap-2">
-                  <p className="text-3xl font-bold text-[#0056D2]">₦0</p>
+                  <p className="text-3xl font-bold text-[#0056D2]">₦{isLoading ? "—" : totalRevenue.toLocaleString()}</p>
                   <span className="text-[10px] font-bold text-muted-foreground mb-1">—</span>
                 </div>
               </div>
@@ -101,7 +103,13 @@ export default function PaymentsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
-                  {transactions.length === 0 ? (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-20 text-center bg-card/20 text-muted-foreground">
+                        Loading transactions…
+                      </td>
+                    </tr>
+                  ) : (
                     <tr>
                       <td colSpan={5} className="px-6 py-20 text-center bg-card/20">
                         <CreditCard className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
@@ -109,9 +117,6 @@ export default function PaymentsPage() {
                         <p className="text-sm text-muted-foreground">Ledgers will populate when Stripe/Paystack Webhooks fire.</p>
                       </td>
                     </tr>
-                  ) : (
-                    // {transactions.map... }
-                    null
                   )}
                 </tbody>
               </table>

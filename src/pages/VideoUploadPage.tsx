@@ -6,8 +6,6 @@ import * as tus from "tus-js-client";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
-const initialVideos: VideoItem[] = [];
-
 type VideoStatus = "ready" | "processing" | "error" | "uploading";
 
 interface VideoItem {
@@ -37,7 +35,7 @@ const statusLabel: Record<VideoStatus, string> = {
 };
 
 export default function VideoUploadPage() {
-  const [videos, setVideos] = useState<VideoItem[]>(initialVideos);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
   const [dragging, setDragging] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [newVideo, setNewVideo] = useState({ title: "", course: "Women in Data Science" });

@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { FileText, Plus, Trash2, Download, Eye, GripVertical, Briefcase, GraduationCap, Award, Star, Mail, Phone, MapPin, Linkedin, Globe, Loader2 } from "lucide-react";
+import { FileText, Plus, Trash2, Download, Eye, GripVertical, Briefcase, GraduationCap, Award, Star, Mail, Phone, MapPin, Linkedin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { api } from "@/services/api";
 
 interface Experience {
   id: string; role: string; company: string; start: string; end: string; current: boolean; description: string;
@@ -33,6 +34,78 @@ export default function ResumeBuilderPage() {
   const [newCert, setNewCert] = useState("");
 
   const [template, setTemplate] = useState<"modern" | "classic" | "minimal">("modern");
+
+  const [resumeLoaded, setResumeLoaded] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveRunRef = useRef(0);
+
+  // Load server draft once per signed-in user (by id only — avoid refetch when name/email updates elsewhere).
+  useEffect(() => {
+    if (!appUser?.id) {
+      setResumeLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    setResumeLoaded(false);
+    (async () => {
+      const raw = await api.getResumeDraft(appUser.id);
+      if (cancelled) return;
+      if (raw && typeof raw === "object") {
+        const d = raw as Record<string, unknown>;
+        const p = d.personal as Record<string, string> | undefined;
+        if (p && typeof p === "object") {
+          setPersonal({
+            fullName: typeof p.fullName === "string" ? p.fullName : appUser.name ?? "",
+            headline: typeof p.headline === "string" ? p.headline : "",
+            email: typeof p.email === "string" ? p.email : appUser.email ?? "",
+            phone: typeof p.phone === "string" ? p.phone : "",
+            location: typeof p.location === "string" ? p.location : "",
+            linkedin: typeof p.linkedin === "string" ? p.linkedin : "",
+            website: typeof p.website === "string" ? p.website : "",
+            summary: typeof p.summary === "string" ? p.summary : "",
+          });
+        }
+        if (Array.isArray(d.skills)) setSkills(d.skills as string[]);
+        if (Array.isArray(d.experience)) setExperience(d.experience as Experience[]);
+        if (Array.isArray(d.education)) setEducation(d.education as Education[]);
+        if (Array.isArray(d.certifications)) setCertifications(d.certifications as string[]);
+        if (d.template === "modern" || d.template === "classic" || d.template === "minimal") {
+          setTemplate(d.template);
+        }
+      }
+      setResumeLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only reload draft when auth user id changes
+  }, [appUser?.id]);
+
+  useEffect(() => {
+    if (!resumeLoaded || !appUser?.id) return;
+    saveRunRef.current += 1;
+    const runId = saveRunRef.current;
+    setSaveStatus("saving");
+    const t = setTimeout(async () => {
+      const ok = await api.upsertResumeDraft(appUser.id, {
+        personal,
+        skills,
+        experience,
+        education,
+        certifications,
+        template,
+      });
+      if (runId !== saveRunRef.current) return;
+      if (ok) {
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus((s) => (s === "saved" ? "idle" : s)), 2000);
+      } else {
+        setSaveStatus("error");
+        toast.error("Could not save resume draft. Check your connection and try again.");
+      }
+    }, 1400);
+    return () => clearTimeout(t);
+  }, [personal, skills, experience, education, certifications, template, resumeLoaded, appUser?.id]);
 
   const addSkill = () => {
     if (newSkill.trim() && !skills.includes(newSkill.trim())) {
@@ -119,6 +192,21 @@ export default function ResumeBuilderPage() {
         <div>
           <h1 className="font-display text-4xl font-bold text-foreground tracking-tight">Resume Builder</h1>
           <p className="text-muted-foreground text-base mt-2">Create a professional, ATS-friendly resume to share with employers</p>
+          {appUser?.id ? (
+            <p className="text-xs text-muted-foreground mt-2">
+              {!resumeLoaded
+                ? "Loading your saved resume…"
+                : saveStatus === "saving"
+                  ? "Saving draft…"
+                  : saveStatus === "saved"
+                    ? "Draft saved to your account."
+                    : saveStatus === "error"
+                      ? "Save failed — try again."
+                      : "Changes save automatically while you edit."}
+            </p>
+          ) : (
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">Sign in to save your resume to your account.</p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" className="rounded-xl gap-2 h-11 px-5 shadow-sm border-border/80 text-foreground" onClick={handlePreview}>

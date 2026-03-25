@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,21 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
   const [loading, setLoading] = useState(false);
   const [roleHint, setRoleHint] = useState<"admin" | "program_manager" | null>(null);
 
+  // IMPORTANT:
+  // `initialMode` can change while the modal is already mounted/open
+  // (e.g., user tried login, then clicked "Join for Free" again).
+  // Keep internal UI synced with the parent intent.
+  useEffect(() => {
+    if (!isOpen) return;
+    setMode(initialMode);
+    setEmail("");
+    setPassword("");
+    setName("");
+    setShowPass(false);
+    setLoading(false);
+    setRoleHint(null);
+  }, [initialMode, isOpen]);
+
   // Reset state when mode changes
   const switchMode = (newMode: "login" | "signup") => {
     setMode(newMode);
@@ -58,13 +73,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
       toast.success("Welcome back!");
       onClose();
       // Wait up to 1.5s for appUser to load from Supabase, then route by real role
-      const routeByRole = (role: string | undefined) => {
-        if (role === "admin") return navigate("/admin");
-        if (role === "program_manager") return navigate("/program-manager");
-        if (role === "instructor") return navigate("/dashboard");
-        // Fallback: use roleHint only if DB role not yet available
-        if (roleHint === "admin") return navigate("/admin");
-        if (roleHint === "program_manager") return navigate("/program-manager");
+      // All roles share the unified /dashboard endpoint which internally routes them
+      const routeByRole = (role?: string) => {
         navigate("/dashboard");
       };
       if (appUser?.role) {
@@ -84,7 +94,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
         }, 250);
       }
     } else {
-      toast.error("Invalid email or password.");
+      toast.error(error?.message || "Invalid email or password.");
     }
   };
 
@@ -129,7 +139,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
             <X className="w-5 h-5" />
           </button>
 
-          <div className="p-8">
+          <div className="p-6 sm:p-8 max-h-[90vh] overflow-y-auto w-full">
             {/* Header */}
             <h2 className="font-display text-2xl font-bold text-foreground mb-1">
               {mode === "login" ? "Log in or create account" : "Create your account"}
@@ -273,14 +283,20 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
               {mode === "login" ? (
                 <>
                   Don't have an account?{" "}
-                  <button onClick={() => switchMode("signup")} className="text-primary font-semibold hover:underline">
+                  <button
+                    onClick={() => switchMode("signup")}
+                    className="text-primary font-semibold hover:text-primary/90 transition-colors"
+                  >
                     Sign up free
                   </button>
                 </>
               ) : (
                 <>
                   Already have an account?{" "}
-                  <button onClick={() => switchMode("login")} className="text-primary font-semibold hover:underline">
+                  <button
+                    onClick={() => switchMode("login")}
+                    className="text-primary font-semibold hover:text-primary/90 transition-colors"
+                  >
                     Log in
                   </button>
                 </>

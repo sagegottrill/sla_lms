@@ -30,7 +30,7 @@ export default function CategoriesSection() {
             <span className="text-xs font-bold text-secondary uppercase tracking-[0.12em] block mb-2">Explore Topics</span>
             <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground">Our Online Courses</h2>
           </div>
-          <Link to="/courses" className="text-sm font-semibold text-primary hover:underline shrink-0">
+          <Link to="/courses" className="text-sm font-semibold text-primary hover:text-primary/90 transition-colors shrink-0">
             All Categories →
           </Link>
         </motion.div>

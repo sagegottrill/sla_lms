@@ -1,11 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Briefcase, Building2, Plus, Search, Users, Star, ChevronRight, ExternalLink, MapPin, DollarSign, Filter, CheckCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-// Future Supabase Integration
-const employers: any[] = [];
-const jobs: any[] = [];
+import { useJobs } from "@/hooks/useQueries";
 
 // The pipeline stages should always exist, even if candidate lists are empty
 const pipelineStages = [
@@ -20,6 +17,29 @@ const tabs = ["Job Postings", "Employers", "Candidate Pipeline"];
 export default function EmployerPortalPage() {
   const [activeTab, setActiveTab] = useState("Job Postings");
   const [search, setSearch] = useState("");
+  const { data: jobs = [], isLoading: jobsLoading } = useJobs();
+
+  const employers = useMemo(() => {
+    const byCompany = new Map<string, { jobs: number; placements: number }>();
+    for (const j of jobs) {
+      const company = j.company ?? "Unknown";
+      const entry = byCompany.get(company) ?? { jobs: 0, placements: 0 };
+      entry.jobs += 1;
+      byCompany.set(company, entry);
+    }
+
+    return Array.from(byCompany.entries()).map(([company, stats], i) => ({
+      id: i + 1,
+      logo: (company ?? "").trim().slice(0, 2).toUpperCase() || "EM",
+      name: company,
+      verified: true,
+      industry: "Employer",
+      jobs: stats.jobs,
+      placements: stats.placements,
+    }));
+  }, [jobs]);
+
+  const totalCandidates = pipelineStages.reduce((acc, s) => acc + (s.candidates?.length ?? 0), 0);
 
   const filteredJobs = jobs.filter(j => 
     j.title?.toLowerCase().includes(search.toLowerCase()) || 
@@ -46,9 +66,9 @@ export default function EmployerPortalPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "Partner Employers", value: employers.length, icon: Building2 },
-          { label: "Open Positions", value: jobs.length, icon: Briefcase },
-          { label: "Candidates Available", value: pipelineStages.reduce((acc, s) => acc + s.candidates.length, 0), icon: Users },
-          { label: "Total Placements", value: pipelineStages.find(s => s.stage === "Placed")?.candidates.length || 0, icon: CheckCircle },
+          { label: "Open Positions", value: jobsLoading ? "…" : jobs.length, icon: Briefcase },
+          { label: "Candidates Available", value: totalCandidates === 0 ? "—" : totalCandidates, icon: Users },
+          { label: "Total Placements", value: totalCandidates === 0 ? "—" : (pipelineStages.find(s => s.stage === "Placed")?.candidates.length || 0), icon: CheckCircle },
         ].map((stat) => (
           <div key={stat.label} className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 text-center">
             <div className="flex items-center justify-center gap-1.5 mb-2">
@@ -90,7 +110,11 @@ export default function EmployerPortalPage() {
               </button>
             </div>
 
-            {filteredJobs.length === 0 ? (
+            {jobsLoading ? (
+              <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card p-12 text-center text-muted-foreground">
+                Loading job postings…
+              </div>
+            ) : filteredJobs.length === 0 ? (
               <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card p-12 text-center">
                 <Briefcase className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-foreground font-medium mb-1">No job postings found</p>
@@ -186,52 +210,67 @@ export default function EmployerPortalPage() {
         {/* Tab: Pipeline (Kanban) */}
         {activeTab === "Candidate Pipeline" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar snap-x">
-            {pipelineStages.map((stage) => (
-              <div key={stage.stage} className="min-w-[280px] w-[280px] shrink-0 snap-start">
-                <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold mb-3 ${stage.color}`}>
-                  <stage.icon className="w-4 h-4" />
-                  {stage.stage} <span className="opacity-60 ml-auto font-bold">{stage.candidates.length}</span>
-                </div>
-                
-                <div className="space-y-3 min-h-[150px] rounded-xl bg-muted/20 p-2 ring-1 ring-black/5 dark:ring-white/10 border-0">
-                  {stage.candidates.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center py-8 text-center px-4">
-                      <p className="text-xs text-muted-foreground font-medium">No candidates</p>
-                      <p className="text-[10px] text-muted-foreground/60 mt-1">Empty stage</p>
-                    </div>
-                  ) : (
-                    stage.candidates.map((c: any) => (
-                      <div key={c.name} className="bg-card rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-3 cursor-pointer hover:border-border transition-colors">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0">
-                            {c.name.charAt(0)}
-                          </div>
-                          <p className="text-sm font-semibold text-foreground line-clamp-1">{c.name}</p>
-                        </div>
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {c.skills?.slice(0, 3).map((s: string) => (
-                            <span key={s} className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium whitespace-nowrap">{s}</span>
-                          ))}
-                          {c.skills?.length > 3 && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">+{c.skills.length - 3}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                          <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{c.courses} courses</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            c.match >= 90 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400" : 
-                            c.match >= 75 ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : 
-                            "bg-muted text-muted-foreground"
-                          }`}>
-                            {c.match}% match
-                          </span>
-                        </div>
-                      </div>
-                    ))
-                  )}
+            {totalCandidates === 0 ? (
+              <div className="w-full">
+                <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card p-10 text-center">
+                  <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                  <h3 className="font-display font-semibold text-lg text-foreground mb-2">Candidate pipeline not connected yet</h3>
+                  <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+                    Applications/candidate tracking isn’t wired to the dashboard schema yet, so this kanban is currently empty.
+                    Once your `applications`/`candidates` tables are available, I’ll hook it up so these cards populate automatically.
+                  </p>
                 </div>
               </div>
-            ))}
+            ) : (
+              pipelineStages.map((stage) => (
+                <div key={stage.stage} className="min-w-[280px] w-[280px] shrink-0 snap-start">
+                  <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold mb-3 ${stage.color}`}>
+                    <stage.icon className="w-4 h-4" />
+                    {stage.stage} <span className="opacity-60 ml-auto font-bold">{stage.candidates.length}</span>
+                  </div>
+                  
+                  <div className="space-y-3 min-h-[150px] rounded-xl bg-muted/20 p-2 ring-1 ring-black/5 dark:ring-white/10 border-0">
+                    {stage.candidates.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center py-8 text-center px-4">
+                        <p className="text-xs text-muted-foreground font-medium">No candidates</p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-1">Empty stage</p>
+                      </div>
+                    ) : (
+                      stage.candidates.map((c: any) => (
+                        <div key={c.name} className="bg-card rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-3 cursor-pointer hover:border-border transition-colors">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0">
+                              {(c.name ?? "").charAt(0)}
+                            </div>
+                            <p className="text-sm font-semibold text-foreground line-clamp-1">{c.name}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {c.skills?.slice(0, 3).map((s: string) => (
+                              <span key={s} className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium whitespace-nowrap">{s}</span>
+                            ))}
+                            {c.skills?.length > 3 && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">+{c.skills.length - 3}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{c.courses} courses</span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              c.match >= 90
+                                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+                                : c.match >= 75
+                                  ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
+                                  : "bg-muted text-muted-foreground"
+                            }`}>
+                              {c.match}% match
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </motion.div>
         )}
       </div>

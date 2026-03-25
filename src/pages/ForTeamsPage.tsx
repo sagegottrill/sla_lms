@@ -32,7 +32,7 @@ export default function ForTeamsPage() {
                         <div className="max-w-3xl">
                             <div>
                                 <span className="inline-flex items-center gap-2 text-xs font-bold text-secondary uppercase tracking-[0.15em] mb-6">
-                                    <Building2 className="w-4 h-4" /> For Teams & Enterprise
+                                    <Building2 className="w-4 h-4" /> For Employers & Enterprise
                                 </span>
                                 <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground mb-6 leading-tight">
                                     Upskill your workforce.<br />Measurably.

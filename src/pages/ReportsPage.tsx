@@ -1,14 +1,16 @@
-import { useState } from "react";
 import { Download, FileText, CheckCircle2, TrendingUp, Users, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-// Awaiting Supabase hook implementation for real program aggregates
-const programStats: any[] = [];
+import { useSystemStats } from "@/hooks/useQueries";
 
 export default function ReportsPage() {
-  const [filter, setFilter] = useState("All Programs");
-  
-  const filteredStats = filter === "All Programs" ? programStats : programStats.filter((p) => p.program === filter);
+  const { data: stats, isLoading } = useSystemStats();
+
+  const totalUsers = stats?.totalUsers ?? 0;
+  const totalCertificates = stats?.totalCertificates ?? 0;
+  const atRiskLearners = Math.max(totalUsers - totalCertificates, 0);
+
+  const completionRate = stats?.completionRate ?? 0;
+  const activeHours = stats?.totalHours ?? 0;
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
@@ -33,16 +35,9 @@ export default function ReportsPage() {
 
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
-        <div className="relative w-full md:w-80 shrink-0">
-          <select 
-            value={filter} 
-            onChange={e => setFilter(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-full ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 appearance-none cursor-pointer" 
-          >
-            <option>All Programs</option>
-            {/* Populated from backend when ready */}
-          </select>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          System-wide analytics pulled from your Supabase data.
+        </p>
       </div>
 
       {/* Grid Layout (Async Coursera Style: 1/3 to 2/3) */}
@@ -58,21 +53,21 @@ export default function ReportsPage() {
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Completion Rate
                 </p>
-                <p className="text-3xl font-light text-foreground">0%</p>
+                <p className="text-3xl font-light text-foreground">{isLoading ? "—" : `${completionRate}%`}</p>
               </div>
 
               <div>
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1.5">
-                  <TrendingUp className="w-3.5 h-3.5 text-primary" /> Active Progression
+                  <TrendingUp className="w-3.5 h-3.5 text-primary" /> Active Hours
                 </p>
-                <p className="text-3xl font-light text-foreground">0%</p>
+                <p className="text-3xl font-light text-foreground">{isLoading ? "—" : activeHours}</p>
               </div>
 
               <div className="pt-4 border-t border-border/40">
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1.5">
                   <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> At Risk Learners
                 </p>
-                <p className="text-3xl font-bold text-amber-600">0</p>
+                <p className="text-3xl font-bold text-amber-600">{isLoading ? "—" : atRiskLearners}</p>
               </div>
             </div>
           </div>
@@ -83,11 +78,16 @@ export default function ReportsPage() {
         <div className="lg:col-span-8 xl:col-span-9">
 
           <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden">
-            {filteredStats.length === 0 ? (
+            {isLoading ? (
+              <div className="text-center py-20 bg-card/20 text-muted-foreground">
+                <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm">Loading performance reports…</p>
+              </div>
+            ) : totalUsers === 0 ? (
               <div className="text-center py-20 bg-card/20">
                 <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-foreground font-medium mb-1">No reports generated</p>
-                <p className="text-sm text-muted-foreground">Historical data will populate here as courses resolve.</p>
+                <p className="text-sm text-muted-foreground">Create enrollments and course completions to see live analytics.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -102,7 +102,13 @@ export default function ReportsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
-                    {/* Rows dynamic from filteredStats */}
+                    <tr>
+                      <td className="px-6 py-4 text-sm font-medium text-foreground">All Programs</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{totalUsers}</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{totalCertificates}</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{atRiskLearners}</td>
+                      <td className="px-6 py-4 text-right text-xs text-muted-foreground">—</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>

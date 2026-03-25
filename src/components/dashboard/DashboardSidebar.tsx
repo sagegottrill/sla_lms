@@ -197,13 +197,17 @@ const roleColors: Record<UserRole, string> = {
 export default function DashboardSidebar() {
   const { appUser, logout } = useAuth();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+  // Default to collapsed on smaller "laptop" widths to reduce visual density.
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 1280;
+  });
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   if (!appUser) return (
     <aside className="relative flex flex-col h-screen bg-background border-r border-border shrink-0 overflow-hidden w-[252px]">
       <div className="flex items-center gap-3 px-4 h-16 border-b border-border">
-        <img src="/sla_logo_transparent.png" alt="SLA" className="h-8 w-auto opacity-70" />
+        <img src="/sla_logo_transparent.png" alt="SLA" className="h-10 w-auto opacity-70" />
       </div>
       <div className="flex-1 p-3 space-y-1">
         {Array.from({ length: 8 }).map((_, i) => (
@@ -234,11 +238,11 @@ export default function DashboardSidebar() {
               exit={{ opacity: 0 }}
               src="/sla_logo_transparent.png"
               alt="Logo"
-              className="h-8 w-auto shrink-0"
+              className="h-10 w-auto shrink-0"
             />
           ) : (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-8 h-8 flex items-center justify-center shrink-0">
-               <img src="/sla_logo_transparent.png" alt="SLA" className="h-6 w-auto object-contain" />
+               <img src="/sla_logo_transparent.png" alt="SLA" className="h-8 w-auto object-contain" />
             </motion.div>
           )}
         </AnimatePresence>
@@ -263,7 +267,7 @@ export default function DashboardSidebar() {
               {!collapsed && (
                 <button
                   onClick={() => toggleGroup(group.group)}
-                  className="w-full flex items-center justify-between px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-1.25 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 hover:text-muted-foreground transition-colors"
                 >
                   {group.group}
                   <ChevronDown className={cn("w-3 h-3 transition-transform", isGroupCollapsed && "-rotate-90")} />
@@ -288,7 +292,7 @@ export default function DashboardSidebar() {
                           to={item.href}
                           title={collapsed ? item.label : undefined}
                           className={cn(
-                            "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
+                            "flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150",
                             collapsed && "justify-center px-2",
                             active
                               ? "bg-primary/8 text-primary font-semibold"

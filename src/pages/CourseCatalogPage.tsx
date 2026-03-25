@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Search, Star, Clock, Users, BookOpen, X, SlidersHorizontal,
   Database, Megaphone, Crown, TrendingUp, Code, Briefcase, Heart, Palette,
@@ -9,6 +9,7 @@ import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 
 import { useCourses } from "@/hooks/useQueries";
+import { FilterChips } from "@/components/dashboard/FilterChips";
 
 const categoryData = [
   { name: "All", icon: BookOpen, count: 9 },
@@ -29,20 +30,44 @@ const priceRanges = ["Any Price", "Free", 'Under ₦50,000', '₦50,000–₦100
 export default function CourseCatalogPage() {
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get("q") || "");
-  const [category, setCategory] = useState("All");
-  const [level, setLevel] = useState("All Levels");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
   const [sort, setSort] = useState("Most Popular");
-  const [priceRange, setPriceRange] = useState("Any Price");
+  const [selectedPrices, setSelectedPrices] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  const { data: allCourses = [], isLoading } = useCourses();
+  const { data: allCourses = [] } = useCourses();
+
+  const categoryOptions = useMemo(
+    () => categoryData.filter((c) => c.name !== "All").map((c) => ({ label: c.name, value: c.name })),
+    [],
+  );
+  const levelOptions = useMemo(() => levels.filter((l) => l !== "All Levels").map((l) => ({ label: l, value: l })), []);
+  const priceOptions = useMemo(() => {
+    const withoutAny = priceRanges.filter((p) => p !== "Any Price");
+    return withoutAny.map((p) => ({ label: p, value: p }));
+  }, []);
+
+  const toggleMulti = (arr: string[], value: string) => (arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]);
+
+  const matchesPriceRange = (course: any, range: string) => {
+    const price = Number(course?.price ?? 0);
+    if (!Number.isFinite(price)) return false;
+    if (range === "Free") return price === 0;
+    if (range === "Under ₦50,000") return price > 0 && price < 50000;
+    if (range === "₦50,000–₦100,000") return price >= 50000 && price <= 100000;
+    if (range === "Over ₦100,000") return price > 100000;
+    return false;
+  };
 
   const filtered = allCourses
     .filter(c => {
-      const matchSearch = c.title.toLowerCase().includes(search.toLowerCase()) || c.instructor.toLowerCase().includes(search.toLowerCase());
-      const matchCat = category === "All" || c.category === category;
-      const matchLevel = level === "All Levels" || c.level === level;
-      const matchPrice = priceRange === "Any Price" || (priceRange === "Free" && c.price === 0) || (priceRange === 'Under ₦50,000' && c.price < 50000) || (priceRange === '₦50,000–₦100,000' && c.price >= 50000 && c.price <= 100000) || (priceRange === 'Over ₦100,000' && c.price > 100000);
+      const matchSearch =
+        (c.title ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (c.instructor ?? "").toLowerCase().includes(search.toLowerCase());
+      const matchCat = selectedCategories.length === 0 || selectedCategories.includes(c.category);
+      const matchLevel = selectedLevels.length === 0 || selectedLevels.includes(c.level);
+      const matchPrice = selectedPrices.length === 0 || selectedPrices.some((r) => matchesPriceRange(c, r));
       return matchSearch && matchCat && matchLevel && matchPrice;
     })
     .sort((a, b) => {
@@ -52,84 +77,52 @@ export default function CourseCatalogPage() {
       return b.students - a.students;
     });
 
-  const activeFilterCount = [category !== "All", level !== "All Levels", priceRange !== "Any Price"].filter(Boolean).length;
+  const activeFilterCount = selectedCategories.length + selectedLevels.length + selectedPrices.length;
 
   const FilterSidebar = () => (
     <div className="space-y-6">
-      {/* Categories */}
       <div>
         <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">Category</h3>
-        <div className="space-y-0.5">
-          {categoryData.map(({ name, icon: Icon, count }) => (
-            <button
-              key={name}
-              onClick={() => setCategory(name)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${category === name
-                ? "bg-accent text-primary font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                }`}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span className="flex-1 text-left">{name}</span>
-              <span className="text-xs text-muted-foreground">{count}</span>
-            </button>
-          ))}
-        </div>
+        <FilterChips
+          options={categoryOptions}
+          selectedValues={selectedCategories}
+          onToggle={(v) => setSelectedCategories((prev) => toggleMulti(prev, v))}
+          onClear={() => setSelectedCategories([])}
+          allLabel="All Categories"
+        />
       </div>
 
       <div className="border-t border-border" />
 
-      {/* Level */}
       <div>
         <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">Level</h3>
-        <div className="space-y-0.5">
-          {levels.map(l => (
-            <button
-              key={l}
-              onClick={() => setLevel(l)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all ${level === l
-                ? "bg-accent text-primary font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                }`}
-            >
-              <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${level === l ? "border-primary" : "border-muted-foreground"}`}>
-                {level === l && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-              </div>
-              {l}
-            </button>
-          ))}
-        </div>
+        <FilterChips
+          options={levelOptions}
+          selectedValues={selectedLevels}
+          onToggle={(v) => setSelectedLevels((prev) => toggleMulti(prev, v))}
+          onClear={() => setSelectedLevels([])}
+          allLabel="All Levels"
+        />
       </div>
 
       <div className="border-t border-border" />
 
-      {/* Price */}
       <div>
         <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">Price</h3>
-        <div className="space-y-0.5">
-          {priceRanges.map(p => (
-            <button
-              key={p}
-              onClick={() => setPriceRange(p)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all ${priceRange === p
-                ? "bg-accent text-primary font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                }`}
-            >
-              <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${priceRange === p ? "border-primary" : "border-muted-foreground"}`}>
-                {priceRange === p && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-              </div>
-              {p}
-            </button>
-          ))}
-        </div>
+        <FilterChips
+          options={priceOptions}
+          selectedValues={selectedPrices}
+          onToggle={(v) => setSelectedPrices((prev) => toggleMulti(prev, v))}
+          onClear={() => setSelectedPrices([])}
+          allLabel="Any Price"
+        />
       </div>
 
       {activeFilterCount > 0 && (
         <>
           <div className="border-t border-border" />
           <button
-            onClick={() => { setCategory("All"); setLevel("All Levels"); setPriceRange("Any Price"); }}
+            onClick={() => { setSelectedCategories([]); setSelectedLevels([]); setSelectedPrices([]); }}
             className="w-full text-sm text-destructive hover:text-destructive/80 font-medium flex items-center gap-2 px-3 py-2"
           >
             <X className="w-4 h-4" /> Clear all filters
@@ -222,24 +215,39 @@ export default function CourseCatalogPage() {
             {/* Active filter chips */}
             {activeFilterCount > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
-                {category !== "All" && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent text-accent-foreground text-xs font-medium">
-                    {category}
-                    <button onClick={() => setCategory("All")} className="hover:text-destructive transition-colors"><X className="w-3 h-3" /></button>
+                {selectedCategories.map((cat) => (
+                  <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent text-accent-foreground text-xs font-medium">
+                    {cat}
+                    <button
+                      onClick={() => setSelectedCategories((prev) => prev.filter((v) => v !== cat))}
+                      className="hover:text-destructive transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   </span>
-                )}
-                {level !== "All Levels" && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent text-primary text-xs font-medium">
-                    {level}
-                    <button onClick={() => setLevel("All Levels")} className="hover:text-destructive transition-colors"><X className="w-3 h-3" /></button>
+                ))}
+                {selectedLevels.map((lvl) => (
+                  <span key={lvl} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent text-primary text-xs font-medium">
+                    {lvl}
+                    <button
+                      onClick={() => setSelectedLevels((prev) => prev.filter((v) => v !== lvl))}
+                      className="hover:text-destructive transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   </span>
-                )}
-                {priceRange !== "Any Price" && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-muted-foreground text-xs font-medium">
-                    {priceRange}
-                    <button onClick={() => setPriceRange("Any Price")} className="hover:text-destructive transition-colors"><X className="w-3 h-3" /></button>
+                ))}
+                {selectedPrices.map((pr) => (
+                  <span key={pr} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-muted-foreground text-xs font-medium">
+                    {pr}
+                    <button
+                      onClick={() => setSelectedPrices((prev) => prev.filter((v) => v !== pr))}
+                      className="hover:text-destructive transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   </span>
-                )}
+                ))}
               </div>
             )}
 
@@ -304,10 +312,27 @@ export default function CourseCatalogPage() {
             </div>
 
             {filtered.length === 0 && (
-              <div className="text-center py-24 max-w-sm mx-auto">
-                <BookOpen className="w-12 h-12 mx-auto text-primary/80 mb-4" />
-                <p className="font-display text-lg font-semibold text-foreground mb-1">Your learning journey starts here.</p>
-                <p className="text-sm text-muted-foreground">Don't wait until you're 'ready' to lead—the world needs your vision now. Pick your first course and start SLAying your professional goals!</p>
+              <div className="text-center py-24 max-w-sm mx-auto bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 mt-8">
+                <Search className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+                <p className="font-display text-lg font-semibold text-foreground mb-1">
+                  {search || activeFilterCount > 0 ? `No results found` : "No courses available yet"}
+                </p>
+                <p className="text-sm text-muted-foreground mb-6 px-4">
+                  {search || activeFilterCount > 0 ? "Try adjusting your filters or search terms." : "Check back later for new programs and courses designed for African professionals."}
+                </p>
+                {(search || activeFilterCount > 0) && (
+                  <button
+                    onClick={() => {
+                      setSearch("");
+                      setSelectedCategories([]);
+                      setSelectedLevels([]);
+                      setSelectedPrices([]);
+                    }}
+                    className="px-6 py-2 bg-primary/10 text-primary font-bold rounded-lg hover:bg-primary/20 transition-colors"
+                  >
+                    Clear search & filters
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const TIME_SLOTS = ["09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00"];
 
-const initialInterviews: any[] = [];
-
 const statusColors: Record<string, string> = {
   confirmed: "bg-accent text-accent-foreground",
   pending:   "bg-accent text-primary",
@@ -16,11 +14,12 @@ const statusColors: Record<string, string> = {
 };
 
 export default function InterviewSchedulingPage() {
-  const [interviews, setInterviews] = useState(initialInterviews);
+  const [interviews, setInterviews] = useState<any[]>([]);
   const [view, setView] = useState<"list" | "calendar">("list");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ candidate: "", role: "", date: "", time: "09:00", type: "video", interviewer: "", notes: "" });
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 2, 1)); // March 2026
+  const now = new Date();
+  const [currentMonth, setCurrentMonth] = useState(new Date(now.getFullYear(), now.getMonth(), 1));
 
   const addInterview = () => {
     if (!form.candidate || !form.date) return;
@@ -68,7 +67,18 @@ export default function InterviewSchedulingPage() {
           ["Total", interviews.length, "text-foreground"],
           ["Confirmed", interviews.filter(i => i.status === "confirmed").length, "text-primary"],
           ["Pending", interviews.filter(i => i.status === "pending").length, "text-primary"],
-          ["This Week", interviews.filter(i => new Date(i.date) >= new Date() && new Date(i.date) <= new Date(new Date().setDate(new Date().getDate() + 7))).length, "text-primary"],
+          [
+            "This Week",
+            interviews.filter((i) => {
+              if (!i.date) return false;
+              const d = new Date(i.date);
+              if (isNaN(d.getTime())) return false;
+              const start = new Date();
+              const end = new Date(new Date().setDate(new Date().getDate() + 7));
+              return d >= start && d <= end;
+            }).length,
+            "text-primary",
+          ],
         ].map(([label, val, cls]) => (
           <div key={label as string} className="bg-card rounded-2xl shadow-sm border-0 p-4 text-center">
             <div className={`font-display text-2xl font-bold ${cls}`}>{val}</div>
@@ -128,10 +138,14 @@ export default function InterviewSchedulingPage() {
           </div>
           <div className="grid grid-cols-7 gap-1">
             {Array.from({ length: getFirstDay(currentMonth) }).map((_, i) => <div key={i} />)}
-            {Array.from({ length: getDaysInMonth(currentMonth) }).map((_, i) => {
+          {Array.from({ length: getDaysInMonth(currentMonth) }).map((_, i) => {
               const day = i + 1;
               const dayInterviews = interviewsOnDay(day);
-              const isToday = day === 5 && currentMonth.getMonth() === 2;
+              const today = new Date();
+              const isToday =
+                day === today.getDate() &&
+                currentMonth.getMonth() === today.getMonth() &&
+                currentMonth.getFullYear() === today.getFullYear();
               return (
                 <div key={day} className={`min-h-[60px] p-1 rounded-xl border text-xs ${isToday ? "border-primary bg-primary/5" : "border-border"}`}>
                   <span className={`font-medium ${isToday ? "text-primary" : "text-foreground"}`}>{day}</span>
@@ -160,7 +174,7 @@ export default function InterviewSchedulingPage() {
               className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 flex flex-col md:flex-row md:items-start gap-6 hover:shadow-sm transition-shadow">
               <div className="flex items-start gap-4 flex-1">
                 <div className="w-12 h-12 rounded-full bg-[#f5f9ff] border border-blue-100 flex items-center justify-center text-sm font-bold text-[#0056D2] shrink-0">
-                  {iv.candidate.charAt(0)}
+                  {(iv.candidate ?? "").charAt(0)}
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-3 mb-1">

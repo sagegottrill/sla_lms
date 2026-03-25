@@ -76,5 +76,20 @@ export const queryKeys = {
     base: ['stats'] as const,
     system: (role: string = 'admin') => ['stats', role, 'analytics'] as const,
     instructor: (role: string = 'instructor', instructorId: string) => ['stats', role, 'metrics', { instructorId }] as const,
-  }
+  },
+
+  // Dashboard lists
+  participants: {
+    base: ['participants'] as const,
+    all: () => ['participants', 'all'] as const,
+  },
+  students: {
+    base: ['students'] as const,
+    instructor: (instructorId: string) => ['students', 'instructor', { instructorId }] as const,
+  },
+  
+  myPrograms: {
+    base: ['myPrograms'] as const,
+    user: (userId: string) => ['myPrograms', 'user', { userId }] as const,
+  },
 };

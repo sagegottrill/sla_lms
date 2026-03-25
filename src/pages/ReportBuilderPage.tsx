@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { FileText, Plus, Trash2, Download, BarChart3, PieChart, TrendingUp, Calendar, Filter, Play, Save, Settings, Eye, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from "recharts";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
+import { useSystemStats } from "@/hooks/useQueries";
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/services/api";
 
 const metricOptions = [
   "Total Enrollments", "Course Completions", "Revenue", "Active Users", "New Registrations",
@@ -22,15 +25,13 @@ interface ReportConfig {
   id: string; name: string; metric: string; dimension: string; chartType: "bar" | "line" | "area"; dateRange: string;
 }
 
-const sampleData: any[] = [];
-
-const savedReports: ReportConfig[] = [];
-
 export default function ReportBuilderPage() {
-  const [reports, setReports] = useState(savedReports);
+  const { appUser } = useAuth();
+  const [reports, setReports] = useState<ReportConfig[]>([]);
   const [editing, setEditing] = useState<ReportConfig | null>(null);
   const [preview, setPreview] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const { data: systemStats } = useSystemStats();
 
   const [form, setForm] = useState<ReportConfig>({
     id: "", name: "", metric: metricOptions[0], dimension: dimensionOptions[0], chartType: "bar", dateRange: "Last 6 months",
@@ -50,20 +51,120 @@ export default function ReportBuilderPage() {
 
   const saveReport = () => {
     if (!form.name.trim()) { toast.error("Give your report a name"); return; }
-    if (editing) {
-      setReports(prev => prev.map(r => r.id === editing.id ? form : r));
-    } else {
-      setReports(prev => [...prev, form]);
+    if (!appUser?.id) {
+      toast.error("Please log in to save reports.");
+      return;
     }
-    toast.success("Report saved!");
-    setEditing(null);
-    setPreview(true);
+
+    const payload = {
+      userId: appUser.id,
+      reportId: editing?.id,
+      name: form.name,
+      metric: form.metric,
+      dimension: form.dimension,
+      chartType: form.chartType,
+      dateRange: form.dateRange,
+    };
+
+    api.upsertSavedReport(payload).then((saved) => {
+      if (!saved) {
+        toast.error("Failed to save report. Check Supabase connection/RLS.");
+        return;
+      }
+
+      const normalized: ReportConfig = {
+        id: String(saved.id),
+        name: saved.name,
+        metric: saved.metric,
+        dimension: saved.dimension,
+        chartType: saved.chart_type,
+        dateRange: saved.date_range,
+      };
+
+      setReports((prev) => {
+        const exists = prev.some((r) => r.id === normalized.id);
+        return exists ? prev.map((r) => (r.id === normalized.id ? normalized : r)) : [normalized, ...prev];
+      });
+      toast.success("Report saved!");
+      setEditing(null);
+      setPreview(true);
+    });
   };
 
   const deleteReport = (id: string) => {
-    setReports(prev => prev.filter(r => r.id !== id));
-    toast.success("Report deleted");
+    if (!appUser?.id) return;
+    api.deleteSavedReport(id, appUser.id).then((ok) => {
+      if (!ok) {
+        toast.error("Failed to delete report.");
+        return;
+      }
+      setReports((prev) => prev.filter((r) => r.id !== id));
+      toast.success("Report deleted");
+    });
   };
+
+  useEffect(() => {
+    const load = async () => {
+      if (!appUser?.id) return;
+      const rows = await api.getSavedReports(appUser.id);
+      const mapped = (rows as any[]).map((r) => ({
+        id: String(r.id),
+        name: r.name ?? "",
+        metric: r.metric ?? metricOptions[0],
+        dimension: r.dimension ?? dimensionOptions[0],
+        chartType: r.chart_type as "bar" | "line" | "area",
+        dateRange: r.date_range ?? "All time",
+      }));
+      setReports(mapped);
+    };
+    load();
+  }, [appUser?.id]);
+
+  const previewData = useMemo(() => {
+    const totalRevenue = systemStats?.totalRevenue ?? 0;
+    const totalUsers = systemStats?.totalUsers ?? 0;
+    const totalCertificates = systemStats?.totalCertificates ?? 0;
+    const completionRate = systemStats?.completionRate ?? 0;
+    const satisfaction = Number(systemStats?.satisfactionScore ?? 0) || 0;
+
+    // We only have aggregates from the backend right now.
+    // To keep the UI functional without fabricating a fake trend,
+    // we show the same real aggregate value across two points.
+    const value = (() => {
+      switch (form.metric) {
+        case "Revenue":
+          return Math.round(Number(totalRevenue) || 0);
+        case "Total Enrollments":
+        case "Active Users":
+          return Math.round(Number(totalUsers) || 0);
+        case "Course Completions":
+        case "Certificate Issued":
+          return Math.round(Number(totalCertificates) || 0);
+        case "Retention Rate":
+          return Math.round(Number(completionRate) || 0);
+        case "Average Score":
+          return Math.round(Number(satisfaction) || 0);
+        case "Job Placements":
+        case "New Registrations":
+        case "Lead Conversions":
+          // Backend aggregate isn't available for these metrics yet.
+          // Show 0 rather than a made-up ratio.
+          return 0;
+        default:
+          return Math.round(Number(totalUsers) || 0);
+      }
+    })();
+
+    const labels = ["Start", "End"];
+    return labels.map((label) => ({ label, value }));
+  }, [
+    form.metric,
+    systemStats?.completionRate,
+    systemStats?.satisfactionScore,
+    systemStats?.totalCertificates,
+    systemStats?.totalRevenue,
+    systemStats?.totalUsers,
+  ]);
 
   const handleExport = async () => {
     const el = document.getElementById("report-preview-chart");
@@ -85,24 +186,24 @@ export default function ReportBuilderPage() {
     }
   };
 
-  const renderChart = (type: "bar" | "line" | "area") => (
+  const renderChart = (type: "bar" | "line" | "area", data: Array<{ label: string; value: number }>) => (
     <ResponsiveContainer width="100%" height={280}>
       {type === "bar" ? (
-        <BarChart data={sampleData}>
+        <BarChart data={data}>
           <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} />
           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} />
           <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 12 }} />
           <Bar dataKey="value" fill="#0C3B2E" radius={[6, 6, 0, 0]} />
         </BarChart>
       ) : type === "line" ? (
-        <LineChart data={sampleData}>
+        <LineChart data={data}>
           <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} />
           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} />
           <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 12 }} />
           <Line type="monotone" dataKey="value" stroke="#0C3B2E" strokeWidth={2} dot={{ fill: "#0C3B2E", r: 4 }} />
         </LineChart>
       ) : (
-        <AreaChart data={sampleData}>
+        <AreaChart data={data}>
           <defs>
             <linearGradient id="rpGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#0C3B2E" stopOpacity={0.15} />
@@ -198,13 +299,7 @@ export default function ReportBuilderPage() {
                 </Button>
               </div>
               <div id="report-preview-chart" className="p-4 bg-white rounded-xl">
-                {sampleData.length > 0 ? renderChart(form.chartType) : (
-                   <div className="flex flex-col items-center justify-center py-16 text-muted-foreground border border-dashed border-border/60 rounded-xl bg-slate-50">
-                      <BarChart3 className="w-8 h-8 opacity-20 mb-3" />
-                      <p className="text-sm font-medium">Insufficient Data points</p>
-                      <p className="text-xs mt-1">Select real telemetry dimensions to visualize data.</p>
-                   </div>
-                )}
+                {renderChart(form.chartType, previewData)}
               </div>
             </motion.div>
           )}

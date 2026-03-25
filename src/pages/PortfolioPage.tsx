@@ -123,7 +123,7 @@ export default function PortfolioPage() {
               className="w-full px-3 py-2 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
             <div className="border-2 border-dashed border-border rounded-xl p-4 text-center hover:border-primary/40 transition-all">
               <Upload className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
-              <p className="text-xs text-muted-foreground">File upload coming soon — paste a link above for now</p>
+              <p className="text-xs text-muted-foreground">Add a link above (file upload is not enabled here).</p>
             </div>
             <div className="flex gap-2">
               <Button onClick={addItem} disabled={adding} className="rounded-xl text-sm flex items-center gap-2">

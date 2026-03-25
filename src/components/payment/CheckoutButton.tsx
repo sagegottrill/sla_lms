@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { initializePaystackPayment } from '../../lib/paystack';
 import { Button } from '../ui/button';
+import { toast } from 'sonner';
 
 interface CheckoutButtonProps {
   email: string;
@@ -28,7 +29,11 @@ export function CheckoutButton({ email, amount, label = "Pay Now", onSuccess, cl
       onClose: () => {
         setIsProcessing(false);
         console.log("Payment window closed");
-      }
+      },
+      onError: (err) => {
+        setIsProcessing(false);
+        toast.error(err.message);
+      },
     });
   };
 

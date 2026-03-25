@@ -11,7 +11,7 @@ const features = [
     label: "For Instructors",
     description: "Build immersive courses with AI-powered assessment tools, live workshops, and automated grading.",
     points: ["SCORM & LTI Support", "Automated Quiz Generation", "Engagement Analytics"],
-    image: "/connecta_hero_learner_1773797906898.png" // Placeholder or specific mockup image
+    image: "/connecta_hero_learner_1773797906898.png"
   },
   {
     id: "learning",
@@ -103,7 +103,7 @@ export default function FeatureShowcase() {
                 transition={{ duration: 0.4, ease: "easeOut" }}
                 className="relative bg-white rounded-[2.5rem] p-4 sm:p-8 shadow-2xl border-2 border-border/50 overflow-hidden min-h-[400px]"
               >
-                {/* Mockup Top Bar */}
+  {/* Preview Top Bar */}
                 <div className="flex items-center justify-between mb-8 pb-4 border-b border-border/50">
                   <div className="flex items-center gap-4">
                     <div className="flex gap-1.5">
@@ -118,7 +118,7 @@ export default function FeatureShowcase() {
                   </div>
                 </div>
 
-                {/* Mockup Content */}
+                {/* Preview Content */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-6">
                     <div className="h-10 w-3/4 bg-primary/5 rounded-xl border border-primary/10 flex items-center px-4">

@@ -6,8 +6,8 @@ import { toast } from "sonner";
 import {
   Download, Users, BookOpen, FolderOpen, Award, BarChart3,
   Activity, ChevronRight, Server, Wifi, Database, Clock,
-  Bell, Zap, Shield, TrendingUp, DollarSign, Target,
-  AlertTriangle, CheckCircle2, Loader2
+  Shield, TrendingUp, DollarSign, Target,
+  Loader2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -56,10 +56,10 @@ export default function AdminDashboard() {
   const visibleMetrics = showAllMetrics ? secondaryMetrics : secondaryMetrics.slice(0, 4);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
+    <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 py-6 pb-16 sm:pb-20">
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-4 sm:pb-6">
         <div>
           <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">Admin Dashboard</h1>
           <p className="text-muted-foreground text-sm">
@@ -80,10 +80,10 @@ export default function AdminDashboard() {
       </div>
 
       {/* Grid Layout (Coursera Style: 1/3 to 2/3) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10">
 
         {/* ———— LEFT COLUMN (KPI Widgets) ———— */}
-        <div className="lg:col-span-4 xl:col-span-3 space-y-6">
+        <div className="hidden lg:block lg:col-span-4 xl:col-span-3 space-y-6">
 
           {/* Platform KPIs */}
           <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
@@ -158,7 +158,7 @@ export default function AdminDashboard() {
 
 
         {/* ———— RIGHT COLUMN (Content Area) ———— */}
-        <div className="lg:col-span-8 xl:col-span-9 space-y-8">
+        <div className="lg:col-span-8 xl:col-span-9 space-y-6">
 
           {/* Revenue Summary */}
           <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden p-6">
@@ -180,7 +180,7 @@ export default function AdminDashboard() {
               <h2 className="font-display font-semibold text-lg text-foreground">Platform Metrics</h2>
               <button
                 onClick={() => setShowAllMetrics(!showAllMetrics)}
-                className="text-xs font-semibold text-primary hover:underline transition-colors"
+                className="text-xs font-semibold text-primary hover:text-primary/90 transition-colors"
               >
                 {showAllMetrics ? "Show Less" : "View All Metrics"}
               </button>
@@ -195,62 +195,6 @@ export default function AdminDashboard() {
               ))}
             </div>
           </div>
-
-          {/* Nudge Engine */}
-          <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 rounded-lg bg-[#0056D2]/10 flex items-center justify-center">
-                <Zap className="w-4 h-4 text-[#0056D2]" />
-              </div>
-              <div>
-                <h2 className="font-display font-semibold text-lg text-foreground">Nudge Engine</h2>
-                <p className="text-xs text-muted-foreground">Automated engagement and re-engagement tools</p>
-              </div>
-            </div>
-            <div className="grid sm:grid-cols-3 gap-4">
-              <div className="bg-muted/20 rounded-xl p-4 ring-1 ring-black/5 dark:ring-white/10 border-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <Bell className="w-4 h-4 text-muted-foreground/60" />
-                  <span className="text-xs font-semibold text-foreground uppercase tracking-wider">Inactivity Alerts</span>
-                </div>
-                <p className="text-sm text-muted-foreground">Auto-remind users after 3 days of no activity.</p>
-                <div className="mt-3 flex items-center gap-2">
-                  <div className="w-8 h-4 rounded-full bg-emerald-500 relative">
-                    <div className="w-3 h-3 rounded-full bg-white absolute right-0.5 top-0.5" />
-                  </div>
-                  <span className="text-[10px] text-emerald-600 font-bold uppercase">Active</span>
-                </div>
-              </div>
-              <div className="bg-muted/20 rounded-xl p-4 ring-1 ring-black/5 dark:ring-white/10 border-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="w-4 h-4 text-muted-foreground/60" />
-                  <span className="text-xs font-semibold text-foreground uppercase tracking-wider">At-Risk Alerts</span>
-                </div>
-                <p className="text-sm text-muted-foreground">Flag learners falling below 30% progress.</p>
-                <div className="mt-3 flex items-center gap-2">
-                  <div className="w-8 h-4 rounded-full bg-emerald-500 relative">
-                    <div className="w-3 h-3 rounded-full bg-white absolute right-0.5 top-0.5" />
-                  </div>
-                  <span className="text-[10px] text-emerald-600 font-bold uppercase">Active</span>
-                </div>
-              </div>
-              <div className="bg-muted/20 rounded-xl p-4 ring-1 ring-black/5 dark:ring-white/10 border-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle2 className="w-4 h-4 text-muted-foreground/60" />
-                  <span className="text-xs font-semibold text-foreground uppercase tracking-wider">Completion Nudge</span>
-                </div>
-                <p className="text-sm text-muted-foreground">Encourage users at 80%+ to finish their course.</p>
-                <div className="mt-3 flex items-center gap-2">
-                  <div className="w-8 h-4 rounded-full bg-emerald-500 relative">
-                    <div className="w-3 h-3 rounded-full bg-white absolute right-0.5 top-0.5" />
-                  </div>
-                  <span className="text-[10px] text-emerald-600 font-bold uppercase">Active</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-
 
         </div>
       </div>

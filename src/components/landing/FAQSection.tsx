@@ -86,7 +86,7 @@ export default function FaqSection() {
             <HelpCircle className="w-10 h-10 text-primary/40 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-foreground mb-2">Still have questions?</h3>
             <p className="text-sm text-muted-foreground mb-6">Can't find the answer you're looking for? Please chat with our friendly team.</p>
-            <button className="text-sm font-bold text-primary hover:underline underline-offset-4">
+            <button className="text-sm font-bold text-primary hover:text-primary/90 transition-colors">
               Get in touch
             </button>
           </motion.div>

@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const navLinks = [
   { label: "Courses", href: "/courses", hasDropdown: true },
   { label: "Programs", href: "/programs" },
-  { label: "For Teams", href: "/for-teams" },
+  { label: "For Employers", href: "/for-teams" },
   { label: "About", href: "/about" },
 ];
 
@@ -65,7 +65,7 @@ export default function Navbar() {
 
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 shrink-0">
-            <img src="/sla_logo_transparent.png" alt="She Leads Africa" className="h-11 w-auto hover:opacity-80 transition-opacity" />
+            <img src="/sla_logo_transparent.png" alt="She Leads Africa" className="h-14 w-auto hover:opacity-80 transition-opacity" />
           </Link>
 
           {/* Desktop Nav links */}

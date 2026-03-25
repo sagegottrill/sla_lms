@@ -5,6 +5,7 @@ import { Camera, Plus, X, Briefcase, Award, BookOpen, Edit2, Save, ExternalLink,
 import { Button } from "@/components/ui/button";
 import { api } from "@/services/api";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 const skillCategories = {
   Technical: ["Python", "SQL", "Power BI", "Excel", "Tableau", "Machine Learning", "Data Analysis", "JavaScript", "React"],
@@ -26,6 +27,18 @@ export default function ProfilePage() {
   const [location, setLocation] = useState("");
   const [linkedin, setLinkedin] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [customSkill, setCustomSkill] = useState("");
+
+  const handleAddCustomSkill = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && customSkill.trim()) {
+      e.preventDefault();
+      const skill = customSkill.trim();
+      if (!selectedSkills.includes(skill)) {
+        setSelectedSkills(prev => [...prev, skill]);
+      }
+      setCustomSkill("");
+    }
+  };
 
   useEffect(() => {
     if (appUser) {
@@ -178,7 +191,12 @@ export default function ProfilePage() {
                 <input value={linkedin} onChange={e => setLinkedin(e.target.value)} placeholder="linkedin.com/in/yourname"
                   className="w-full p-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm" />
               ) : linkedin ? (
-                <a href={`https://${linkedin}`} target="_blank" rel="noreferrer" className="text-sm text-primary font-medium hover:underline inline-flex items-center gap-1.5">
+                <a
+                  href={`https://${linkedin}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-primary font-medium hover:text-primary/90 inline-flex items-center gap-1.5 transition-colors"
+                >
                   {linkedin} <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               ) : (
@@ -211,7 +229,37 @@ export default function ProfilePage() {
               </div>
             </div>
           ))}
+          {/* Custom Skills List (if user added any not in categories) */}
+          {selectedSkills.filter(s => !Object.values(skillCategories).flat().includes(s)).length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 border-b border-border/40 pb-2">Custom Skills</h3>
+              <div className="flex flex-wrap gap-2">
+                {selectedSkills.filter(s => !Object.values(skillCategories).flat().includes(s)).map(skill => (
+                  <button key={skill} onClick={() => editing && toggleSkill(skill)} className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors bg-primary text-white cursor-pointer hover:opacity-90">
+                    {skill} {editing && <span className="ml-1 opacity-80">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
+        
+        {editing && (
+          <div className="mt-8 max-w-sm">
+            <h3 className="text-sm font-semibold text-foreground mb-2">Add a custom skill</h3>
+            <div className="relative">
+              <Plus className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input 
+                value={customSkill}
+                onChange={e => setCustomSkill(e.target.value)}
+                onKeyDown={handleAddCustomSkill}
+                placeholder="Type skill and press Enter..."
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm"
+              />
+            </div>
+          </div>
+        )}
+
         {editing && <p className="text-xs text-muted-foreground mt-6 flex items-center gap-1.5 bg-muted/30 p-3 rounded-lg w-fit ring-1 ring-black/5 dark:ring-white/10 border-0"><Edit2 className="w-3.5 h-3.5" /> Click skills to add or remove them from your profile.</p>}
       </div>
 
@@ -229,7 +277,26 @@ export default function ProfilePage() {
               <p className="font-medium text-foreground capitalize">{appUser?.role?.replace("_", " ") || "—"}</p>
             </div>
             <div className="flex items-end">
-               <Button variant="link" className="text-primary h-auto p-0 font-semibold" onClick={() => toast.info("Password reset email sent (placeholder)")}>Reset Password</Button>
+               <Button
+                 variant="link"
+                 className="text-primary h-auto p-0 font-semibold no-underline hover:no-underline transition-colors"
+                 onClick={async () => {
+                   if (!appUser?.email) {
+                     toast.error("No email found on this account.");
+                     return;
+                   }
+                   const { error } = await supabase.auth.resetPasswordForEmail(appUser.email, {
+                     redirectTo: `${window.location.origin}/login`,
+                   });
+                   if (error) {
+                     toast.error(error.message);
+                     return;
+                   }
+                   toast.success("Password reset link sent. Check your email.");
+                 }}
+               >
+                 Reset Password
+               </Button>
             </div>
           </div>
         </div>

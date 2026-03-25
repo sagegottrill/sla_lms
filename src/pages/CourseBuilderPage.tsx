@@ -75,11 +75,54 @@ export default function CourseBuilderPage() {
   const removeWYL = (i: number) => setWhatYoullLearn(arr => arr.filter((_, idx) => idx !== i));
 
   const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
-    const items = Array.from(modules);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-    setModules(items);
+    const { destination, source, type } = result;
+    if (!destination) return;
+
+    // We only mutate local builder state (no DB sync during dragging).
+    if (type === "module") {
+      const items = Array.from(modules);
+      const [reorderedItem] = items.splice(source.index, 1);
+      items.splice(destination.index, 0, reorderedItem);
+      setModules(items);
+      return;
+    }
+
+    if (type === "lesson") {
+      const parseLessonsDroppableId = (droppableId: string) => {
+        const prefix = "lessons-";
+        if (!droppableId.startsWith(prefix)) return null;
+        const maybeId = Number(droppableId.slice(prefix.length));
+        return Number.isFinite(maybeId) ? maybeId : null;
+      };
+
+      const fromModuleId = parseLessonsDroppableId(source.droppableId);
+      const toModuleId = parseLessonsDroppableId(destination.droppableId);
+      if (fromModuleId == null || toModuleId == null) return;
+
+      const updated = Array.from(modules);
+      const fromModuleIndex = updated.findIndex((m) => m.id === fromModuleId);
+      const toModuleIndex = updated.findIndex((m) => m.id === toModuleId);
+      if (fromModuleIndex < 0 || toModuleIndex < 0) return;
+
+      const fromModule = updated[fromModuleIndex];
+      const toModule = updated[toModuleIndex];
+
+      const fromLessons = Array.from(fromModule.lessons);
+      const [movedLesson] = fromLessons.splice(source.index, 1);
+      if (!movedLesson) return;
+
+      if (fromModuleId === toModuleId) {
+        fromLessons.splice(destination.index, 0, movedLesson);
+        updated[fromModuleIndex] = { ...fromModule, lessons: fromLessons };
+      } else {
+        const toLessons = Array.from(toModule.lessons);
+        toLessons.splice(destination.index, 0, movedLesson);
+        updated[fromModuleIndex] = { ...fromModule, lessons: fromLessons };
+        updated[toModuleIndex] = { ...toModule, lessons: toLessons };
+      }
+
+      setModules(updated);
+    }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -364,7 +407,7 @@ export default function CourseBuilderPage() {
             </div>
 
             <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable droppableId="modules">
+              <Droppable droppableId="modules" type="module">
                 {(provided) => (
                   <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
                     {modules.map((mod, mi) => (
@@ -397,66 +440,117 @@ export default function CourseBuilderPage() {
                             </div>
 
                             {mod.open && (
-                              <div className="divide-y divide-border/50 bg-card">
-                                {mod.lessons.length === 0 && (
-                                  <p className="text-xs text-muted-foreground px-4 py-4 text-center">No lessons yet — click <span className="font-semibold text-primary">+ Lesson</span> above.</p>
+                              <Droppable droppableId={`lessons-${mod.id}`} type="lesson">
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.droppableProps}
+                                    className={`divide-y divide-border/50 bg-card transition-colors ${snapshot.isDraggingOver ? "ring-1 ring-primary/30" : ""}`}
+                                  >
+                                    {mod.lessons.length === 0 && (
+                                      <p className="text-xs text-muted-foreground px-4 py-4 text-center">
+                                        No lessons yet — click <span className="font-semibold text-primary">+ Lesson</span> above.
+                                      </p>
+                                    )}
+                                    {mod.lessons.map((lesson, li) => {
+                                      const Icon = lessonIcons[lesson.type];
+                                      return (
+                                        <Draggable
+                                          key={lesson.id.toString()}
+                                          draggableId={`lesson-${lesson.id}`}
+                                          index={li}
+                                        >
+                                          {(provided, lessonSnapshot) => (
+                                            <div
+                                              ref={provided.innerRef}
+                                              {...provided.draggableProps}
+                                              className={`px-5 py-3 space-y-2 ${lessonSnapshot.isDragging ? "bg-primary/5" : ""}`}
+                                            >
+                                              <div className="flex items-center gap-3">
+                                                <div
+                                                  {...provided.dragHandleProps}
+                                                  className="cursor-grab hover:text-primary p-1 rounded-md shrink-0"
+                                                >
+                                                  <GripVertical className="w-4 h-4 text-muted-foreground" />
+                                                </div>
+
+                                                <div className="flex items-center gap-1">
+                                                  {(["video", "text", "quiz"] as LessonType[]).map((t) => (
+                                                    <button
+                                                      key={t}
+                                                      onClick={() => updateLesson(mod.id, lesson.id, "type", t)}
+                                                      className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md transition-all ${
+                                                        lesson.type === t
+                                                          ? "bg-accent text-primary"
+                                                          : "text-muted-foreground hover:bg-muted"
+                                                      }`}
+                                                    >
+                                                      {t === "video" ? (
+                                                        <Video className="w-3 h-3" />
+                                                      ) : t === "text" ? (
+                                                        <FileText className="w-3 h-3" />
+                                                      ) : (
+                                                        <HelpCircle className="w-3 h-3" />
+                                                      )}
+                                                      {t === "quiz" ? "exam" : t}
+                                                    </button>
+                                                  ))}
+                                                </div>
+
+                                                <input
+                                                  value={lesson.title}
+                                                  onChange={(e) => updateLesson(mod.id, lesson.id, "title", e.target.value)}
+                                                  className="flex-1 text-sm text-foreground font-medium bg-transparent border-b border-transparent hover:border-border focus:outline-none focus:border-primary pb-0.5 px-1 transition-colors"
+                                                  placeholder="Lesson title..."
+                                                />
+
+                                                <input
+                                                  value={lesson.duration || ""}
+                                                  onChange={(e) => updateLesson(mod.id, lesson.id, "duration", e.target.value)}
+                                                  className="w-16 text-xs text-muted-foreground bg-transparent border-b border-transparent hover:border-border focus:outline-none focus:border-primary pb-0.5 px-1 text-center transition-colors"
+                                                  placeholder="e.g. 12m"
+                                                />
+
+                                                <button
+                                                  onClick={() => removeLesson(mod.id, lesson.id)}
+                                                  className="text-muted-foreground hover:text-destructive p-1 rounded-md hover:bg-destructive/5 transition-colors"
+                                                >
+                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
+
+                                              {lesson.type === "video" && (
+                                                <div className="flex flex-col gap-2 pl-2 border-l-2 border-primary/20 ml-2 w-full mt-2">
+                                                  <div className="flex items-center gap-2">
+                                                    <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                                    <input
+                                                      value={lesson.vimeo_url || ""}
+                                                      onChange={(e) => updateLesson(mod.id, lesson.id, "vimeo_url", e.target.value)}
+                                                      placeholder="Vimeo or YouTube URL (or Vimeo numeric ID)"
+                                                      className="flex-1 text-xs text-muted-foreground bg-transparent border-b border-transparent hover:border-border focus:outline-none focus:border-primary pb-0.5 transition-colors"
+                                                    />
+                                                  </div>
+                                                  <div className="flex items-center gap-2 mt-1">
+                                                    <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                                    <input
+                                                      value={lesson.transcript_url || ""}
+                                                      onChange={(e) => updateLesson(mod.id, lesson.id, "transcript_url", e.target.value)}
+                                                      placeholder="Transcript Document URL for accessibility..."
+                                                      className="flex-1 text-xs text-muted-foreground bg-transparent border-b border-transparent hover:border-border focus:outline-none focus:border-primary pb-0.5 transition-colors"
+                                                    />
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+                                        </Draggable>
+                                      );
+                                    })}
+
+                                    {provided.placeholder}
+                                  </div>
                                 )}
-                                {mod.lessons.map(lesson => {
-                                  const Icon = lessonIcons[lesson.type];
-                                  return (
-                                    <div key={lesson.id} className="px-5 py-3 space-y-2">
-                                      <div className="flex items-center gap-3">
-                                        <div className="flex items-center gap-1">
-                                          {(["video", "text", "quiz"] as LessonType[]).map(t => (
-                                            <button key={t} onClick={() => updateLesson(mod.id, lesson.id, "type", t)}
-                                              className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md transition-all ${lesson.type === t ? "bg-accent text-primary" : "text-muted-foreground hover:bg-muted"}`}>
-                                              {t === "video" ? <Video className="w-3 h-3" /> : t === "text" ? <FileText className="w-3 h-3" /> : <HelpCircle className="w-3 h-3" />}
-                                              {t === "quiz" ? "exam" : t}
-                                            </button>
-                                          ))}
-                                        </div>
-                                        <input
-                                          value={lesson.title}
-                                          onChange={e => updateLesson(mod.id, lesson.id, "title", e.target.value)}
-                                          className="flex-1 text-sm text-foreground font-medium bg-transparent border-b border-transparent hover:border-border focus:outline-none focus:border-primary pb-0.5 px-1 transition-colors"
-                                          placeholder="Lesson title..."
-                                        />
-                                        <input
-                                          value={lesson.duration || ""}
-                                          onChange={e => updateLesson(mod.id, lesson.id, "duration", e.target.value)}
-                                          className="w-16 text-xs text-muted-foreground bg-transparent border-b border-transparent hover:border-border focus:outline-none focus:border-primary pb-0.5 px-1 text-center transition-colors"
-                                          placeholder="e.g. 12m"
-                                        />
-                                        <button onClick={() => removeLesson(mod.id, lesson.id)} className="text-muted-foreground hover:text-destructive p-1 rounded-md hover:bg-destructive/5 transition-colors">
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                      {lesson.type === "video" && (
-                                        <div className="flex flex-col gap-2 pl-2 border-l-2 border-primary/20 ml-2 w-full mt-2">
-                                          <div className="flex items-center gap-2">
-                                            <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                            <input
-                                              value={lesson.vimeo_url || ""}
-                                              onChange={e => updateLesson(mod.id, lesson.id, "vimeo_url", e.target.value)}
-                                              placeholder="Vimeo URL or Video ID (e.g. https://vimeo.com/123456789)"
-                                              className="flex-1 text-xs text-muted-foreground bg-transparent border-b border-transparent hover:border-border focus:outline-none focus:border-primary pb-0.5 transition-colors"
-                                            />
-                                          </div>
-                                          <div className="flex items-center gap-2 mt-1">
-                                            <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                            <input
-                                              value={lesson.transcript_url || ""}
-                                              onChange={e => updateLesson(mod.id, lesson.id, "transcript_url", e.target.value)}
-                                              placeholder="Transcript Document URL for accessibility..."
-                                              className="flex-1 text-xs text-muted-foreground bg-transparent border-b border-transparent hover:border-border focus:outline-none focus:border-primary pb-0.5 transition-colors"
-                                            />
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
+                              </Droppable>
                             )}
                           </div>
                         )}

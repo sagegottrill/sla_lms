@@ -35,8 +35,8 @@ export default function MyCourses() {
       (activeTab === "Not Started" && c.status === "not-started") ||
       (activeTab === "Frozen" && c.status === "frozen");
     const matchSearch =
-      c.title.toLowerCase().includes(search.toLowerCase()) ||
-      c.category.toLowerCase().includes(search.toLowerCase());
+      (c.title ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.category ?? "").toLowerCase().includes(search.toLowerCase());
     return matchTab && matchSearch;
   });
 

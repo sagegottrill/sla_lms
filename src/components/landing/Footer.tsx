@@ -8,7 +8,7 @@ const footerLinks = {
     { label: "Browse Courses", href: "/courses" },
     { label: "Browse Programs", href: "/programs" },
     { label: "Certifications", href: "/courses" },
-    { label: "For Teams", href: "/for-teams" },
+    { label: "For Employers", href: "/for-teams" },
   ],
   "Company": [
     { label: "About Us", href: "/about" },

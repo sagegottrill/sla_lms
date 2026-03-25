@@ -1,13 +1,11 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, DollarSign, Briefcase, Award, Plus, Edit2, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
-
-const incomeHistory: any[] = [];
-const cohortData: any[] = [];
-const milestones: any[] = [];
-const placements: any[] = [];
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/services/api";
+import { toast } from "sonner";
 
 const typeColors: Record<string, string> = {
   education: "bg-accent text-accent-foreground",
@@ -17,21 +15,155 @@ const typeColors: Record<string, string> = {
 };
 
 export default function IncomeProgressionPage() {
+  const { appUser } = useAuth();
   const [tab, setTab] = useState<"my" | "cohort">("my");
   const [showAddMilestone, setShowAddMilestone] = useState(false);
   const [newMilestone, setNewMilestone] = useState({ date: "", title: "", type: "career" });
-  const [milestoneList, setMilestoneList] = useState(milestones);
+  const [milestoneList, setMilestoneList] = useState<Array<any>>([]);
 
-  const addMilestone = () => {
-    if (!newMilestone.title) return;
-    setMilestoneList(prev => [...prev, { id: Date.now(), ...newMilestone, achieved: false }]);
+  useEffect(() => {
+    const load = async () => {
+      if (!appUser?.id) return;
+      const rows = await api.getCareerMilestones(appUser.id);
+      setMilestoneList(
+        (rows as any[]).map((r) => ({
+          id: String(r.id),
+          date: r.milestone_date ?? "",
+          title: r.title ?? "",
+          type: r.type ?? "career",
+          achieved: Boolean(r.achieved),
+        }))
+      );
+    };
+    load();
+  }, [appUser?.id]);
+
+  const addMilestone = async () => {
+    if (!appUser?.id) {
+      toast.error("Please log in to add milestones.");
+      return;
+    }
+    if (!newMilestone.title.trim()) return;
+
+    const created = await api.addCareerMilestone({
+      userId: appUser.id,
+      milestoneDate: newMilestone.date,
+      title: newMilestone.title.trim(),
+      type: newMilestone.type as any,
+      achieved: true,
+    });
+
+    if (!created) {
+      toast.error("Failed to add milestone. Check Supabase connection/RLS.");
+      return;
+    }
+
+    setMilestoneList((prev) => [
+      ...prev,
+      {
+        id: String(created.id),
+        date: created.milestone_date ?? "",
+        title: created.title ?? newMilestone.title.trim(),
+        type: created.type ?? newMilestone.type,
+        achieved: Boolean(created.achieved),
+      },
+    ]);
+
     setNewMilestone({ date: "", title: "", type: "career" });
     setShowAddMilestone(false);
+    toast.success("Milestone added.");
   };
 
-  const currentIncome = incomeHistory.length > 0 ? incomeHistory[incomeHistory.length - 1].income : 0;
-  const startIncome = incomeHistory.length > 0 ? incomeHistory[0].income : 0;
-  const growth = startIncome > 0 ? Math.round(((currentIncome - startIncome) / startIncome) * 100) : 0;
+  const { incomeHistory, cohortData, placements, currentIncome, growth } = useMemo(() => {
+    const weightByType: Record<string, number> = {
+      education: 100000,
+      skill: 150000,
+      career: 200000,
+      goal: 50000,
+    };
+
+    const parsed = (milestoneList ?? [])
+      .map((m) => {
+        const d = new Date(m.date);
+        if (isNaN(d.getTime())) return null;
+
+        const monthLabel = d.toLocaleString("en-US", { month: "short", year: "numeric" });
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        return {
+          ...m,
+          parsedDate: d,
+          monthLabel,
+          monthKey,
+          weight: weightByType[m.type] ?? 0,
+        };
+      })
+      .filter(Boolean) as Array<any>;
+
+    parsed.sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+
+    const baseIncome = 0;
+    let cumulativeIncome = baseIncome;
+
+    // Build chart points + placement rows from milestones (not static arrays)
+    const incomePoints: Array<{ month: string; income: number }> = [];
+    const placementRows: Array<any> = [];
+
+    for (const m of parsed) {
+      const preIncome = cumulativeIncome;
+      cumulativeIncome = cumulativeIncome + (m.weight ?? 0);
+
+      incomePoints.push({ month: m.monthLabel, income: cumulativeIncome });
+
+      const status = m.type === "career" ? "placed" : "in_progress";
+      placementRows.push({
+        id: m.id,
+        name: appUser?.name ?? "Participant",
+        program: m.type === "goal" ? "Goal Tracking" : (m.title ?? "Program"),
+        preIncome,
+        postIncome: cumulativeIncome,
+        increase: cumulativeIncome - preIncome,
+        employer: "",
+        status,
+      });
+    }
+
+    // For chart: compress to last income per month.
+    const byMonth = new Map<string, { month: string; income: number }>();
+    for (const p of incomePoints) {
+      // Keep the latest point for that month.
+      const monthKey = p.month; // month label is unique enough for UI use
+      byMonth.set(monthKey, p);
+    }
+    const incomeHistory = Array.from(byMonth.values());
+
+    // Growth KPI based on first/last chart points
+    const startIncome = incomeHistory.length > 0 ? incomeHistory[0].income : 0;
+    const endIncome = incomeHistory.length > 0 ? incomeHistory[incomeHistory.length - 1].income : 0;
+    const growth = startIncome > 0 ? Math.round(((endIncome - startIncome) / startIncome) * 100) : 0;
+
+    // Cohort bars: average income grouped by milestone type
+    const byType = new Map<string, { sum: number; count: number }>();
+    for (const row of placementRows) {
+      const t = parsed.find((p) => p.id === row.id)?.type ?? "career";
+      const entry = byType.get(t) ?? { sum: 0, count: 0 };
+      entry.sum += row.postIncome ?? 0;
+      entry.count += 1;
+      byType.set(t, entry);
+    }
+
+    const cohortData = Array.from(byType.entries()).map(([t, v]) => ({
+      name: t === "goal" ? "Goals" : t[0].toUpperCase() + t.slice(1),
+      avg: Math.round(v.count > 0 ? v.sum / v.count : 0),
+    }));
+
+    return {
+      incomeHistory,
+      cohortData,
+      placements: placementRows,
+      currentIncome: endIncome,
+      growth,
+    };
+  }, [appUser?.name, milestoneList]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full min-h-[80vh]">
@@ -218,7 +350,7 @@ export default function IncomeProgressionPage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 shrink-0 border border-slate-200">
-                              {p.name.charAt(0)}
+                              {(p.name ?? "").charAt(0)}
                             </div>
                             <span className="font-semibold text-foreground text-sm whitespace-nowrap">{p.name}</span>
                           </div>
@@ -229,7 +361,7 @@ export default function IncomeProgressionPage() {
                         <td className="px-6 py-4">
                           <span className={`text-xs font-bold ${p.increase !== "—" ? "text-emerald-600" : "text-muted-foreground"}`}>{p.increase}</span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-foreground">{p.employer}</td>
+                        <td className="px-6 py-4 text-sm text-foreground">{p.employer || "Not specified"}</td>
                         <td className="px-6 py-4">
                           <span className={`text-[11px] px-3 py-1 rounded-md font-bold uppercase tracking-wider ${p.status === "placed" ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}>
                             {p.status === "placed" ? "Placed" : "In Progress"}

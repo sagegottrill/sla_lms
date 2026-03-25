@@ -6,8 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Plus, Users, DollarSign, Star, TrendingUp, HelpCircle, 
-  Settings, ChevronRight, Edit, LineChart
+  Settings, ChevronRight, Edit, LineChart, MoreHorizontal
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 export default function InstructorDashboard() {
   const { appUser } = useAuth();
@@ -26,11 +32,11 @@ export default function InstructorDashboard() {
   const firstName = appUser?.name?.split(" ")[0] || "Instructor";
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full min-h-[80vh]">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 h-full min-h-[80vh]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10">
         
         {/* ————— LEFT COLUMN (WIDGETS) ————— */}
-        <div className="lg:col-span-4 xl:col-span-3 space-y-8">
+        <div className="hidden lg:block lg:col-span-4 xl:col-span-3 space-y-8">
           
           {/* Action Center */}
           <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
@@ -38,19 +44,19 @@ export default function InstructorDashboard() {
             <div className="space-y-4 pl-1">
               <Link to="/dashboard/courses/new" className="flex items-start gap-3 group cursor-pointer block">
                 <Plus className="w-4 h-4 text-muted-foreground/50 shrink-0 mt-0.5 group-hover:text-[#0056D2] transition-colors" />
-                <p className="text-sm text-foreground font-medium underline decoration-border underline-offset-4 group-hover:decoration-foreground transition-all">
+                <p className="text-sm text-foreground font-medium transition-colors group-hover:text-primary">
                   Create a new course
                 </p>
               </Link>
               <div className="flex items-start gap-3 group cursor-pointer">
                 <LineChart className="w-4 h-4 text-muted-foreground/50 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
-                <p className="text-sm text-foreground font-medium underline decoration-border underline-offset-4 group-hover:decoration-foreground transition-all">
+                <p className="text-sm text-foreground font-medium transition-colors group-hover:text-primary">
                   View payout reports
                 </p>
               </div>
               <div className="flex items-start gap-3 group cursor-pointer">
                 <Settings className="w-4 h-4 text-muted-foreground/50 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
-                <p className="text-sm text-foreground font-medium underline decoration-border underline-offset-4 group-hover:decoration-foreground transition-all">
+                <p className="text-sm text-foreground font-medium transition-colors group-hover:text-primary">
                   Edit educator profile
                 </p>
               </div>
@@ -90,7 +96,7 @@ export default function InstructorDashboard() {
         <div className="lg:col-span-8 xl:col-span-9">
           
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-6 sm:mb-8">
             <h1 className="text-3xl sm:text-4xl font-display text-foreground font-semibold tracking-tight">
               Good {timeOfDay}, {firstName}
             </h1>
@@ -158,7 +164,7 @@ export default function InstructorDashboard() {
                     {/* Left: Course Metas */}
                     <div className="flex-1 min-w-0 flex flex-col justify-center">
                       <Link to={`/courses/${c.id}`} className="block">
-                        <h3 className="text-lg font-bold font-display text-foreground group-hover:underline underline-offset-4 decoration-primary/50 transition-all mb-1 line-clamp-1">
+                        <h3 className="text-lg font-bold font-display text-foreground group-hover:text-primary transition-colors mb-1 line-clamp-1">
                           {c.title}
                         </h3>
                       </Link>
@@ -181,11 +187,26 @@ export default function InstructorDashboard() {
 
                     {/* Right: Actions */}
                     <div className="shrink-0 flex items-center gap-3 sm:border-l sm:border-border sm:pl-6">
-                      <Link to={`/dashboard/courses/new?edit=${c.id}`}>
-                        <Button variant="outline" className="h-9 px-5 rounded-md font-semibold text-xs bg-transparent border-border hover:bg-muted">
-                           Manage
-                        </Button>
-                      </Link>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+                            aria-label={`Open actions for ${c.title}`}
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40 rounded-xl">
+                          <DropdownMenuItem asChild className="cursor-pointer font-medium text-xs py-2">
+                            <Link
+                              to={`/dashboard/courses/new?edit=${c.id}`}
+                              className="flex items-center justify-between gap-2"
+                            >
+                              Manage
+                            </Link>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
 
                   </div>
@@ -198,7 +219,7 @@ export default function InstructorDashboard() {
       </div>
       
       {/* Help bubble overlay */}
-      <div className="fixed bottom-6 right-6">
+      <div className="hidden md:block fixed bottom-6 right-6">
         <button className="w-10 h-10 bg-white ring-1 ring-black/5 dark:ring-white/10 border-0 shadow-md rounded-full flex items-center justify-center text-primary hover:bg-muted/50 transition-colors">
           <HelpCircle className="w-5 h-5" />
         </button>

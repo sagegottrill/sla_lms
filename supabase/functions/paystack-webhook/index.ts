@@ -123,9 +123,7 @@ Deno.serve(async (req) => {
 
   // PILLAR 3: Offload heavy background tasks
   // Use EdgeRuntime.waitUntil if available, or just fire-and-forget in Deno
-  // @ts-ignore: EdgeRuntime is available in Supabase environment
   if (typeof EdgeRuntime !== 'undefined') {
-    // @ts-ignore
     EdgeRuntime.waitUntil(processWebhook());
   } else {
     processWebhook(); 
