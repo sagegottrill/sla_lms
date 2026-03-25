@@ -596,7 +596,7 @@ export const api = {
   },
 
   // -------------------------
-  // AVATAR UPLOAD
+  // AVATAR UPLOAD (bucket `avatars`, path `<userId>/avatar.<ext>` — supabase/storage_setup.sql)
   // -------------------------
   uploadAvatar: async (userId: string, file: File): Promise<string | null> => {
     if (USE_SUPABASE) {

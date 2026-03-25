@@ -56,6 +56,7 @@ import SmoothScroll from "./components/SmoothScroll";
 import AboutPage from "./pages/AboutPage";
 import ForTeamsPage from "./pages/ForTeamsPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import AuthCallbackPage from "./pages/AuthCallbackPage";
 
 import JobsAdminPage from "./pages/JobsAdminPage";
 import ErrorBoundary from "./components/common/ErrorBoundary";
@@ -115,6 +116,7 @@ const App = () => (
               <Route path="/about" element={<AboutPage />} />
               <Route path="/for-teams" element={<ForTeamsPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/auth/callback" element={<AuthCallbackPage />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
 
               {/* Protected Dashboard */}

@@ -125,6 +125,7 @@ export default function CourseBuilderPage() {
     }
   };
 
+  /** Thumbnail → Supabase Storage bucket `courses` (see supabase/storage_setup.sql). */
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;

@@ -70,8 +70,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   const closeAuthModal = () => setIsAuthModalOpen(false);
 
+  /** Google/OAuth users need a profiles row; trigger usually creates it, but this covers gaps. */
+  const ensureProfileFromAuthUser = async (authUser: User) => {
+    if (isUsingSupabasePlaceholders) return;
+    const { data: existing } = await supabase.from("profiles").select("id").eq("id", authUser.id).maybeSingle();
+    if (existing) return;
+
+    const meta = authUser.user_metadata || {};
+    const name =
+      (typeof meta.full_name === "string" && meta.full_name) ||
+      (typeof meta.name === "string" && meta.name) ||
+      authUser.email?.split("@")[0] ||
+      "User";
+    const avatar =
+      (typeof meta.avatar_url === "string" && meta.avatar_url) ||
+      (typeof meta.picture === "string" && meta.picture) ||
+      undefined;
+
+    await supabase.from("profiles").upsert(
+      {
+        id: authUser.id,
+        name,
+        email: authUser.email ?? "",
+        role: "student" as UserRole,
+        avatar_url: avatar,
+        onboarding_completed: false,
+      },
+      { onConflict: "id" },
+    );
+  };
+
   // Load user profile from Supabase profiles table
-  const loadUserProfile = async (userId: string) => {
+  const loadUserProfile = async (userId: string, authUser?: User | null) => {
     try {
         const { data, error } = await supabase
             .from('profiles')
@@ -99,6 +129,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             };
             setAppUser(mappedUser);
         } else {
+            if (authUser) {
+              await ensureProfileFromAuthUser(authUser);
+              const { data: retry } = await supabase.from("profiles").select("*").eq("id", userId).single();
+              if (retry) {
+                const mappedUser: AppUser = {
+                  id: retry.id,
+                  name: retry.name || "User",
+                  email: retry.email,
+                  role: retry.role as UserRole,
+                  avatar: retry.avatar_url,
+                  careerGoal: retry.career_goal,
+                  bio: retry.bio,
+                  onboarding: {
+                    completed: retry.onboarding_completed || false,
+                    careerGoal: retry.career_goal || "",
+                    interests: [],
+                    selectedCourses: [],
+                    experienceLevel: "",
+                  },
+                };
+                setAppUser(mappedUser);
+                return;
+              }
+            }
             console.error("Could not load profile:", error?.message);
         }
     } catch (err) {
@@ -114,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (user && !error) {
           setUser(user);
-          loadUserProfile(user.id);
+          await loadUserProfile(user.id, user);
         }
       } catch (err) {
         console.error("Auth initialization failed:", err);
@@ -131,20 +185,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // Log event for audit (Blueprint Pillar 4)
         console.log(`Auth Event: ${event}`);
-        
-        // Guard: only process meaningful state changes to prevent flash
-        if (event === 'INITIAL_SESSION') {
-          // Skip — we already handled this in initializeAuth()
-          return;
-        }
         
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          loadUserProfile(session.user.id);
+          void loadUserProfile(session.user.id, session.user);
         } else {
           setAppUser(null);
         }

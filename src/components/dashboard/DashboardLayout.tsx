@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export default function DashboardLayout() {
-  const { isAuthenticated, appUser, logout, loading } = useAuth();
+  const { isAuthenticated, appUser, logout, loading, needsOnboarding } = useAuth();
   const { isTheaterMode } = useUIStore();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -31,6 +31,12 @@ export default function DashboardLayout() {
   }, []);
 
   useEffect(() => { setProfileOpen(false); }, [location.pathname]);
+
+  useEffect(() => {
+    if (!loading && isAuthenticated && appUser && needsOnboarding) {
+      navigate("/onboarding", { replace: true });
+    }
+  }, [loading, isAuthenticated, appUser, needsOnboarding, navigate]);
 
   if (loading) {
     return (

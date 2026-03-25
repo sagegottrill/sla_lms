@@ -41,6 +41,7 @@ export default function VideoUploadPage() {
   const [newVideo, setNewVideo] = useState({ title: "", course: "Women in Data Science" });
   const fileRef = useRef<HTMLInputElement>(null);
 
+  /** Resumable upload to bucket `courses` under videos/… — RLS in supabase/storage_setup.sql */
   const startTusUpload = async (file: File, title: string, course: string) => {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
