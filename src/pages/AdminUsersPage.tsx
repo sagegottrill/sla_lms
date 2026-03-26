@@ -88,14 +88,26 @@ export default function AdminUsersPage() {
   const handleSaveEdit = async () => {
     if (!editUser) return;
     setSaving(true);
-    updateProfile.mutate({ userId: editUser.id, updates: { name: editUser.name, role: editUser.role } }, {
+    updateProfile.mutate(
+      { userId: editUser.id, updates: { name: editUser.name, role: editUser.role } },
+      {
       onSuccess: () => {
         toast.success("User updated");
         setEditUser(null);
       },
-      onError: () => toast.error("Failed to save changes"),
-      onSettled: () => setSaving(false)
-    });
+      onError: (err: any) => {
+        // Surface the actual Postgres/RLS error when possible.
+        const msg =
+          err?.message ||
+          err?.error_description ||
+          err?.details ||
+          "Failed to save changes";
+        console.error("updateProfile failed:", err);
+        toast.error(msg);
+      },
+      onSettled: () => setSaving(false),
+      }
+    );
   };
 
   const handleAddUser = async () => {
