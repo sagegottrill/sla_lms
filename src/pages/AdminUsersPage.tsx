@@ -49,7 +49,9 @@ export default function AdminUsersPage() {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   
   const [editUser, setEditUser] = useState<Profile | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [savingAdd, setSavingAdd] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "student" as Role });
 
@@ -87,13 +89,24 @@ export default function AdminUsersPage() {
 
   const handleSaveEdit = async () => {
     if (!editUser) return;
-    setSaving(true);
+    const original = users.find((u) => u.id === editUser.id);
+    const nextName = editUser.name.trim();
+    if (!nextName) {
+      toast.error("Name is required.");
+      return;
+    }
+    if (original && original.name === nextName && original.role === editUser.role) {
+      toast.info("No changes to save.");
+      return;
+    }
+    setSavingEdit(true);
     updateProfile.mutate(
-      { userId: editUser.id, updates: { name: editUser.name, role: editUser.role } },
+      { userId: editUser.id, updates: { name: nextName, role: editUser.role } },
       {
       onSuccess: () => {
-        toast.success("User updated");
+        toast.success("Member updated. Access rules refreshed.");
         setEditUser(null);
+        void refetch();
       },
       onError: (err: any) => {
         // Surface the actual Postgres/RLS error when possible.
@@ -105,7 +118,7 @@ export default function AdminUsersPage() {
         console.error("updateProfile failed:", err);
         toast.error(msg);
       },
-      onSettled: () => setSaving(false),
+      onSettled: () => setSavingEdit(false),
       }
     );
   };
@@ -115,7 +128,7 @@ export default function AdminUsersPage() {
       toast.error("Please fill in all fields");
       return;
     }
-    setSaving(true);
+    setSavingAdd(true);
     const { error } = await supabase.auth.admin.createUser({
       email: newUser.email,
       password: newUser.password,
@@ -123,15 +136,25 @@ export default function AdminUsersPage() {
     });
     if (error) {
       toast.error("To create users, the Supabase Service Role key is needed. For now, have users sign up.");
-      setSaving(false);
+      setSavingAdd(false);
       return;
     }
     toast.success("User created!");
-    setSaving(false);
+    setSavingAdd(false);
     setShowAddModal(false);
     setNewUser({ name: "", email: "", password: "", role: "student" });
-    refetch();
+    void refetch();
   };
+
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      await refetch();
+      toast.success("User directory synced.");
+    } finally {
+      setSyncing(false);
+    }
+  }, [refetch]);
 
   const handleExport = () => {
     const csvRows = [
@@ -158,8 +181,8 @@ export default function AdminUsersPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => refetch()} className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
-            <RefreshCw className={`w-3.5 h-3.5 mr-2 ${loading ? 'animate-spin' : ''}`} /> Sync
+          <Button variant="outline" onClick={handleSync} disabled={syncing} className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
+            <RefreshCw className={`w-3.5 h-3.5 mr-2 ${loading || syncing ? 'animate-spin' : ''}`} /> {syncing ? "Syncing..." : "Sync"}
           </Button>
           <Button variant="outline" onClick={handleExport} className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
             <Download className="w-3.5 h-3.5 mr-2" /> Export
@@ -318,8 +341,8 @@ export default function AdminUsersPage() {
                 </button>
                 <div className="flex gap-3">
                   <Button variant="ghost" onClick={() => setEditUser(null)} className="rounded-full h-10 px-6 font-semibold">Cancel</Button>
-                  <Button onClick={handleSaveEdit} disabled={saving} className="bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 rounded-full h-10 px-8 font-semibold">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                  <Button onClick={handleSaveEdit} disabled={savingEdit} className="bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 rounded-full h-10 px-8 font-semibold">
+                    {savingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
                   </Button>
                 </div>
               </div>
@@ -364,8 +387,8 @@ export default function AdminUsersPage() {
 
               <div className="flex gap-3 justify-end pt-6 border-t border-border/40">
                 <Button variant="ghost" onClick={() => setShowAddModal(false)} className="rounded-full h-10 px-6 font-semibold">Cancel</Button>
-                <Button onClick={handleAddUser} disabled={saving} className="bg-[#0056D2] hover:bg-[#00419e] text-white rounded-full h-10 px-8 font-semibold">
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Invite"}
+                <Button onClick={handleAddUser} disabled={savingAdd} className="bg-[#0056D2] hover:bg-[#00419e] text-white rounded-full h-10 px-8 font-semibold">
+                  {savingAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Invite"}
                 </Button>
               </div>
             </motion.div>

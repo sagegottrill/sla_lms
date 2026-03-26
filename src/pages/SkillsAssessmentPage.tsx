@@ -45,6 +45,7 @@ export default function SkillsAssessmentPage() {
   const [showResults, setShowResults] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -80,12 +81,22 @@ export default function SkillsAssessmentPage() {
 
   const finishAssessment = async () => {
     if (!activeAssessment || !appUser) return;
+    if (Object.keys(answers).length < activeAssessment.questions.length) {
+      toast.error("Please answer all questions before submitting.");
+      return;
+    }
+    setSubmitting(true);
     const score = activeAssessment.questions.reduce((acc, q) => acc + (answers[q.id] === q.correct ? 1 : 0), 0);
     const pct = (score / activeAssessment.questions.length) * 100;
     const level = getLevel(pct);
     
     // Save to database
-    await api.saveSkillResult(appUser.id, activeAssessment.id, score, activeAssessment.questions.length, level);
+    const saved = await api.saveSkillResult(appUser.id, activeAssessment.id, score, activeAssessment.questions.length, level);
+    if (!saved) {
+      toast.error("Could not save assessment result. Please try again.");
+      setSubmitting(false);
+      return;
+    }
     
     setResults(prev => [...prev.filter(r => r.assessmentId !== activeAssessment.id), { 
       assessmentId: activeAssessment.id, 
@@ -95,6 +106,7 @@ export default function SkillsAssessmentPage() {
       level 
     }]);
     setShowResults(true);
+    setSubmitting(false);
     toast.success(`You scored ${score}/${activeAssessment.questions.length} — ${level} level!`);
   };
 
@@ -104,7 +116,7 @@ export default function SkillsAssessmentPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <button onClick={() => setActiveAssessment(null)} className="text-sm text-muted-foreground hover:text-foreground">&larr; Back</button>
-          <span className="text-xs text-muted-foreground">{currentQ + 1} of {activeAssessment.questions.length}</span>
+          <span className="text-xs text-muted-foreground">{currentQ + 1} of {activeAssessment.questions.length} · {Object.keys(answers).length} answered</span>
         </div>
         <div className="w-full h-1.5 bg-border rounded-full overflow-hidden">
           <motion.div className="h-full gradient-card rounded-full" animate={{ width: `${((currentQ + 1) / activeAssessment.questions.length) * 100}%` }} />
@@ -135,8 +147,8 @@ export default function SkillsAssessmentPage() {
               Next <ArrowRight className="w-4 h-4" />
             </Button>
           ) : (
-            <Button onClick={finishAssessment} disabled={answers[q.id] === undefined} className="gradient-card text-primary-foreground rounded-xl gap-2 hover:opacity-90">
-              Submit Assessment
+            <Button onClick={finishAssessment} disabled={answers[q.id] === undefined || submitting} className="gradient-card text-primary-foreground rounded-xl gap-2 hover:opacity-90">
+              {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</> : "Submit Assessment"}
             </Button>
           )}
         </div>

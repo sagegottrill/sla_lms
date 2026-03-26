@@ -24,8 +24,8 @@ import {
 
 export default function ProgramManagerDashboard() {
   const { appUser } = useAuth();
-  const { data: stats, isLoading: statsLoading } = useSystemStats();
-  const { data: participants = [], isLoading: participantsLoading } = useProgramParticipants();
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useSystemStats();
+  const { data: participants = [], isLoading: participantsLoading, refetch: refetchParticipants } = useProgramParticipants();
   const [activeTab, setActiveTab] = useState<"participants" | "programs" | "applications">("participants");
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -33,13 +33,26 @@ export default function ProgramManagerDashboard() {
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<Set<string>>(new Set());
   const [transcriptUser, setTranscriptUser] = useState<any>(null);
 
+  const selectedParticipants = participants.filter((p: any) => selectedParticipantIds.has(p.id));
+  const selectedEmails = selectedParticipants
+    .map((p: any) => p.email)
+    .filter((email: string | undefined) => !!email) as string[];
+
   const handleSlideoutAction = (action: string, user: SlideoutUser) => {
     switch (action) {
-      case "email": toast.success(`Opening email composer for ${user.email}`); break;
-      case "edit": toast.info(`Opening edit modal for ${user.name}`); break;
+      case "email":
+        if (!user.email) {
+          toast.info("No email available for this learner.");
+          break;
+        }
+        window.location.href = `mailto:${encodeURIComponent(user.email)}`;
+        break;
+      case "edit":
+        toast.info("Direct profile edit coming next update.");
+        break;
       case "transcript": setTranscriptUser(user); break;
       case "suspend": 
-        toast.error(`Removed from program: ${user.name}`); 
+        toast.error(`Removed from program: ${user.name}`);
         setSelectedParticipant(null); 
         break;
     }
@@ -63,9 +76,44 @@ export default function ProgramManagerDashboard() {
   };
 
   const bulkActions = [
-    { icon: Mail, label: "Remind All", onClick: () => toast.success(`Sending reminder to ${selectedParticipantIds.size} participants.`) },
-    { icon: Award, label: "Issue Certificates", onClick: () => toast.success(`Issued ${selectedParticipantIds.size} certificates.`) },
+    {
+      icon: Mail,
+      label: "Remind All",
+      onClick: async () => {
+        if (selectedParticipantIds.size === 0) {
+          toast.info("Select participants first.");
+          return;
+        }
+        if (selectedEmails.length === 0) {
+          toast.info("No email addresses found for selected participants.");
+          return;
+        }
+        const recipientList = selectedEmails.join("; ");
+        try {
+          await navigator.clipboard.writeText(recipientList);
+          toast.success("Recipient emails copied. Paste into your mail app.");
+        } catch {
+          toast.info("Clipboard blocked. Copy emails manually from selected rows.");
+        }
+      },
+    },
+    {
+      icon: Award,
+      label: "Issue Certificates",
+      onClick: async () => {
+        if (selectedParticipantIds.size === 0) {
+          toast.info("Select participants first.");
+          return;
+        }
+        toast.info("Bulk certificate issue queued. Final certificate pipeline integration pending.");
+      },
+    },
   ];
+
+  const handleSync = async () => {
+    await Promise.all([refetchStats(), refetchParticipants()]);
+    toast.success("Program data synced.");
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 py-6 pb-16 sm:pb-20">
@@ -79,7 +127,7 @@ export default function ProgramManagerDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
+          <Button onClick={handleSync} variant="outline" className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
             <RefreshCw className="w-3.5 h-3.5 mr-2" /> Sync
           </Button>
           <Button asChild className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0">

@@ -24,6 +24,12 @@ export default function PortfolioPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newItem, setNewItem] = useState({ title: "", type: "document", description: "", link_url: "", tags: "" });
+  const [formError, setFormError] = useState<string>("");
+
+  const safeOpenExternal = (url: string) => {
+    const normalized = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    window.open(normalized, "_blank", "noopener,noreferrer");
+  };
 
   const load = useCallback(async () => {
     if (!appUser?.id) return;
@@ -36,13 +42,38 @@ export default function PortfolioPage() {
   useEffect(() => { load(); }, [load]);
 
   const addItem = async () => {
-    if (!newItem.title || !appUser) return;
+    if (!appUser) return;
+    const title = newItem.title.trim();
+    const description = newItem.description.trim();
+    const linkValue = newItem.link_url.trim();
+    if (title.length < 3) {
+      setFormError("Title must be at least 3 characters.");
+      return;
+    }
+    if (description.length > 0 && description.length < 10) {
+      setFormError("Description should be at least 10 characters when provided.");
+      return;
+    }
+    if (linkValue) {
+      const normalized = /^https?:\/\//i.test(linkValue) ? linkValue : `https://${linkValue}`;
+      try {
+        const parsed = new URL(normalized);
+        if (!["http:", "https:"].includes(parsed.protocol)) {
+          setFormError("Link must start with http:// or https://.");
+          return;
+        }
+      } catch {
+        setFormError("Please enter a valid link URL.");
+        return;
+      }
+    }
+    setFormError("");
     setAdding(true);
     const result = await api.addPortfolioItem(appUser.id, {
-      title: newItem.title,
+      title,
       type: newItem.type,
-      description: newItem.description,
-      link_url: newItem.link_url || undefined,
+      description,
+      link_url: linkValue || undefined,
       tags: newItem.tags.split(",").map(t => t.trim()).filter(Boolean),
     });
     setAdding(false);
@@ -57,7 +88,11 @@ export default function PortfolioPage() {
   };
 
   const deleteItem = async (id: string) => {
-    await api.deletePortfolioItem(id);
+    const ok = await api.deletePortfolioItem(id);
+    if (!ok) {
+      toast.error("Failed to remove item. Check permissions and try again.");
+      return;
+    }
     setItems(prev => prev.filter(i => i.id !== id));
     toast.success("Item removed.");
   };
@@ -125,6 +160,11 @@ export default function PortfolioPage() {
               <Upload className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
               <p className="text-xs text-muted-foreground">Add a link above (file upload is not enabled here).</p>
             </div>
+            {formError ? (
+              <p className="text-xs text-destructive">{formError}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Tip: add a short description and valid public link for stronger portfolio credibility.</p>
+            )}
             <div className="flex gap-2">
               <Button onClick={addItem} disabled={adding} className="rounded-xl text-sm flex items-center gap-2">
                 {adding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
@@ -177,7 +217,10 @@ export default function PortfolioPage() {
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${typeColors[item.type]}`}>
                     <Icon className="w-5 h-5" />
                   </div>
-                  <button onClick={() => deleteItem(item.id)}
+                  <button onClick={() => {
+                    if (!confirm("Delete this portfolio item?")) return;
+                    void deleteItem(item.id);
+                  }}
                     className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all">
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -204,13 +247,13 @@ export default function PortfolioPage() {
                   <div className="flex gap-2 border-t border-border/40 pt-4">
                     {item.file_url && (
                       <Button size="sm" variant="outline" className="rounded-xl text-xs flex items-center gap-1.5 font-semibold h-9 px-4"
-                        onClick={() => window.open(item.file_url, "_blank")}>
+                        onClick={() => safeOpenExternal(item.file_url)}>
                         <FileText className="w-3.5 h-3.5" /> View File
                       </Button>
                     )}
                     {item.link_url && (
                       <Button size="sm" variant="outline" className="rounded-xl text-xs flex items-center gap-1.5 font-semibold h-9 px-4"
-                        onClick={() => window.open(item.link_url, "_blank")}>
+                        onClick={() => safeOpenExternal(item.link_url)}>
                         <ExternalLink className="w-3.5 h-3.5" /> Open Link
                       </Button>
                     )}

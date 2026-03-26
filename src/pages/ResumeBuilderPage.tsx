@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
 import { FileText, Plus, Trash2, Download, Eye, GripVertical, Briefcase, GraduationCap, Award, Star, Mail, Phone, MapPin, Linkedin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -136,9 +136,51 @@ export default function ResumeBuilderPage() {
 
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const quality = useMemo(() => {
+    const filledExperience = experience.filter((e) => e.role.trim() && e.company.trim() && e.description.trim());
+    const filledEducation = education.filter((e) => e.degree.trim() && e.school.trim());
+    const summaryLength = personal.summary.trim().length;
+
+    const checks = [
+      Boolean(personal.fullName.trim()),
+      Boolean(personal.email.trim()),
+      summaryLength >= 80,
+      filledExperience.length >= 1,
+      filledEducation.length >= 1,
+      skills.length >= 4,
+    ];
+
+    const score = Math.round((checks.filter(Boolean).length / checks.length) * 100);
+    return {
+      score,
+      summaryLength,
+      filledExperience: filledExperience.length,
+      filledEducation: filledEducation.length,
+      hasRequiredIdentity: Boolean(personal.fullName.trim() && personal.email.trim()),
+      hasMinimumContent:
+        summaryLength >= 80 &&
+        filledExperience.length >= 1 &&
+        filledEducation.length >= 1 &&
+        skills.length >= 4,
+    };
+  }, [personal.fullName, personal.email, personal.summary, experience, education, skills]);
+
   const handleDownload = async () => {
     const input = document.getElementById("resume-preview-content");
     if (!input) return;
+    if (!quality.hasRequiredIdentity) {
+      toast.error("Add your full name and email before downloading.");
+      setActiveSection("personal");
+      return;
+    }
+    if (!quality.hasMinimumContent) {
+      toast.error("Add more resume details first (summary, experience, education, and at least 4 skills).");
+      if (quality.summaryLength < 80) setActiveSection("summary");
+      else if (quality.filledExperience < 1) setActiveSection("experience");
+      else if (quality.filledEducation < 1) setActiveSection("education");
+      else setActiveSection("skills");
+      return;
+    }
 
     setIsGenerating(true);
     toast.info("Preparing PDF...");
@@ -158,9 +200,18 @@ export default function ResumeBuilderPage() {
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      let remainingHeight = imgHeight;
+      let y = 0;
 
-      pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
+      // Multi-page PDF handling for long resumes.
+      while (remainingHeight > 0) {
+        pdf.addImage(imgData, "JPEG", 0, y, pdfWidth, imgHeight);
+        remainingHeight -= pageHeight;
+        y -= pageHeight;
+        if (remainingHeight > 0) pdf.addPage();
+      }
       pdf.save(`${personal.fullName.replace(/\s+/g, '_') || "Resume"}.pdf`);
       toast.success("Resume downloaded successfully!");
     } catch (error) {
@@ -249,6 +300,30 @@ export default function ResumeBuilderPage() {
                     template === t ? "bg-muted text-foreground font-semibold ring-1 ring-black/5 dark:ring-white/10 border-0" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   }`}>{t}</button>
               ))}
+            </div>
+          </div>
+
+          <div className="pt-6 mt-6 border-t border-border/40">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-3">Resume Quality</h3>
+            <div className="px-3 space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">ATS readiness</span>
+                <span className={`font-semibold ${quality.score >= 80 ? "text-secondary" : quality.score >= 60 ? "text-primary" : "text-destructive"}`}>
+                  {quality.score}%
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${quality.score >= 80 ? "bg-secondary" : quality.score >= 60 ? "bg-primary" : "bg-destructive"}`}
+                  style={{ width: `${quality.score}%` }}
+                />
+              </div>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>{quality.summaryLength >= 80 ? "OK" : "Add"} summary ({quality.summaryLength}/80+ chars)</p>
+                <p>{quality.filledExperience >= 1 ? "OK" : "Add"} experience ({quality.filledExperience}/1+)</p>
+                <p>{quality.filledEducation >= 1 ? "OK" : "Add"} education ({quality.filledEducation}/1+)</p>
+                <p>{skills.length >= 4 ? "OK" : "Add"} skills ({skills.length}/4+)</p>
+              </div>
             </div>
           </div>
         </div>

@@ -691,8 +691,10 @@ export const api = {
   deletePortfolioItem: async (itemId: string) => {
     if (USE_SUPABASE) {
       const { error } = await supabase.from("portfolio_items").delete().eq("id", itemId);
-      if (error) { console.error("Supabase deletePortfolioItem error:", error.message); }
+      if (error) { console.error("Supabase deletePortfolioItem error:", error.message); return false; }
+      return true;
     }
+    return false;
   },
 
   // -------------------------
