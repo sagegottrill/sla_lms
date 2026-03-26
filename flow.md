@@ -1,11 +1,11 @@
-# CONNECTA_DATA_FLOW_ARCHITECTUR
+# CONNECT HER_DATA_FLOW_ARCHITECTUR
 
 # E.md
 
 ## System Architecture and Refactoring Directives
 
 The following document serves as the absolute, non-negotiable architectural blueprint for
-refactoring the "Connecta" Enterprise Learning Management System (LMS) frontend. The
+refactoring the "CONNECT HER" Enterprise Learning Management System (LMS) frontend. The
 target system is a multi-portal application built on React 18, Tailwind CSS, and Supabase,
 encompassing four distinct access tiers: Student, Instructor, Program Manager, and Super
 Admin.
@@ -19,7 +19,7 @@ rely heavily on deterministic data flow, robust caching mechanisms, and horizont
 separation to manage immense scale.^1 Canvas, for instance, segregates customer data
 through database sharding and utilizes sophisticated diffing synchronization modes to ensure
 that user data is updated efficiently without overwriting concurrent changes.^2 To achieve a
-similar level of enterprise resilience within the Connecta frontend, the Agentic AI must architect
+similar level of enterprise resilience within the CONNECT HER frontend, the Agentic AI must architect
 a client-side environment that natively supports local-first synchronization, transactional
 mutations, and robust multi-tenant data isolation. Global server state must strictly be managed
 by TanStack Query (React Query) v5, acting as the definitive bridge between the local cache
@@ -34,7 +34,7 @@ modular React Query Custom Hooks.^7
 
 ## Query)
 
-The Connecta architecture demands a centralized, highly deterministic data fetching layer.
+The CONNECT HER architecture demands a centralized, highly deterministic data fetching layer.
 TanStack Query serves as the sole intermediary between the React component tree and the
 Supabase PostgreSQL database. The AI must architect this layer to guarantee cache
 consistency, prevent redundant network requests, and ensure that mutations in one sector of
@@ -140,7 +140,7 @@ lists, platform configurations.
 Data never automatically
 refetches during the active
 session.
-By adhering to this tiered caching strategy, the AI ensures that the Connecta platform scales
+By adhering to this tiered caching strategy, the AI ensures that the CONNECT HER platform scales
 gracefully, preserving database compute resources while delivering a seamless, instantaneous
 user experience.^6 The AI must explicitly document these stale times within the queryOptions
 factory to maintain a single source of truth for caching logic.
@@ -188,7 +188,7 @@ concatenating real-time payloads into local state via setMessages(prev => [...pr
 newPayload]) creates devastating race conditions, entirely bypasses the TanStack caching
 layer, and leads to irreconcilable data drift between the server and the client.^9
 Instead, the AI must exclusively utilize the "Event-Driven Invalidation" pattern. Within the
-Connecta architecture, Supabase Realtime serves strictly as a lightweight notification bus.
+CONNECT HER architecture, Supabase Realtime serves strictly as a lightweight notification bus.
 
 
 When a postgres_changes event representing an INSERT, UPDATE, or DELETE operation is
@@ -202,7 +202,7 @@ portal creates a new record in the enrollments table via a React Query mutation.
 Supabase PostgreSQL database commits the transaction and subsequently fires a real-time
 broadcast trigger. Fourth, the useGlobalDashboardSync hook active on the Program Manager's
 browser receives an INSERT payload corresponding to the enrollments table. Fifth, the hook
-executes queryClient.invalidateQueries({ queryKey: connectaQueryKeys.enrollments.all }).^6
+executes queryClient.invalidateQueries({ queryKey: CONNECT HERQueryKeys.enrollments.all }).^6
 Sixth, TanStack Query detects that the active Program Manager dashboard is currently
 observing a subset of the invalidated key. Finally, React Query silently refetches the updated
 data from the Supabase REST API in the background and seamlessly updates the UI without
@@ -245,7 +245,7 @@ self-inflicted application programming interface storms.
 
 ## 3. Enterprise File & Media Upload Flow
 
-The Connecta LMS manages incredibly heavy asset workflows, including Instructor video
+The CONNECT HER LMS manages incredibly heavy asset workflows, including Instructor video
 module uploads, Student assignment submissions, and Program Manager resource
 distributions. Standard monolithic application programming interface uploads are entirely
 insufficient for this scale, as they are highly prone to timeout errors, UI freezing, and deeply
@@ -354,7 +354,7 @@ When an Instructor submits a new file, the AI must orchestrate the following exa
 
 ## Query Level)
 
-Connecta's complex multi-portal nature necessitates airtight Role-Based Access Control
+CONNECT HER's complex multi-portal nature necessitates airtight Role-Based Access Control
 (RBAC). A Super Admin possesses elevated rights to query sensitive system financials and
 platform-wide analytics, while a Student must be strictly confined to viewing their localized
 course enrollments and personal grades. The AI must implement a defense-in-depth strategy,
@@ -367,7 +367,7 @@ A critical security vulnerability prevalent in Single Page Applications (SPAs) i
 
 
 bleeding across browser tabs or subsequent authentication sessions.^33 If a Super Admin logs
-out of the Connecta application, and a Student subsequently logs in on the exact same
+out of the CONNECT HER application, and a Student subsequently logs in on the exact same
 browser session without initiating a hard page refresh, the React Query cache might
 temporarily leak highly classified Admin analytics into the Student view if the query keys are not
 cryptographically separated.
@@ -423,7 +423,7 @@ structure within the React codebase. Code organization fundamentally reflects ar
 boundaries, and poor organization inevitably leads to tangled dependencies.^37 The AI must
 avoid creating monolithic components or pages folders that carelessly mix Student, Instructor,
 and Admin views into a single directory.
-The AI is directed to restructure the Connecta repository using a feature-and-portal-based
+The AI is directed to restructure the CONNECT HER repository using a feature-and-portal-based
 routing architecture.
 **Directory Path Architectural Purpose**
 src/portals/student/ Contains all layouts, views, and specific
@@ -467,7 +467,7 @@ violating the single-responsibility principle of the React rendering cycle.^39
 
 ## Strict Execution Plan for the AI Coder
 
-The executing Agentic AI is mandated to process the refactoring of the Connecta LMS in the
+The executing Agentic AI is mandated to process the refactoring of the CONNECT HER LMS in the
 following chronological sequence to guarantee architectural stability during the transition.
 
 1. **Dependency Alignment and Package Auditing:** The AI must begin by auditing the
@@ -509,7 +509,7 @@ advanced media flow detailed in Pillar 3.
     boundaries of the multi-tenant system.^38
 By strictly adhering to this comprehensive, immutable blueprint, the Agentic AI will successfully
 deliver an enterprise-grade, highly resilient, and mathematically predictable frontend
-architecture for the Connecta LMS. All deviations from these instructions, regardless of intent,
+architecture for the CONNECT HER LMS. All deviations from these instructions, regardless of intent,
 will be classified as structural failures. The AI must proceed with the refactoring execution
 immediately based entirely on these strict rulesets.
 
@@ -746,9 +746,9 @@ immediately based entirely on these strict rulesets.
 
 #### eact-applications-7ba7f11d653b
 
-#### 40. connectaryal/rbac: React role and permission based access control - GitHub,
+#### 40. CONNECT HERryal/rbac: React role and permission based access control - GitHub,
 
-#### accessed on March 19, 2026, https://github.com/connectaryal/rbac
+#### accessed on March 19, 2026, https://github.com/CONNECT HERryal/rbac
 
 #### 41. Building Robust Role-Based Access Control (RBAC) in TypeScript with NestJS -
 
@@ -757,5 +757,6 @@ immediately based entirely on these strict rulesets.
 #### https://medium.com/@nwonahr/building-robust-role-based-access-control-rbac
 
 #### -in-typescript-with-nestjs-f96bd01f89ad
+
 
 

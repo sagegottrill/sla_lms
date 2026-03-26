@@ -1,5 +1,5 @@
 -- ============================================================
--- SLA CONNECTA LMS — Landing Page CMS Migration (NO MOCK INSERTS)
+-- SLA CONNECT HER LMS — Landing Page CMS Migration (NO MOCK INSERTS)
 -- ============================================================
 -- This repo previously included demo landing page copy.
 -- For real handover, insert your real CMS content manually.
@@ -31,4 +31,5 @@ create policy "Admins can update site config"
       where id = auth.uid() and role = 'admin'
     )
   );
+
 

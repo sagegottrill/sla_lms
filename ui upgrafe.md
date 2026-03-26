@@ -1,9 +1,9 @@
-# CONNECTA_UI_UPGRADE_SPEC.md
+# CONNECT HER_UI_UPGRADE_SPEC.md
 
 ## Master Execution Directives for the AI aCoder
 
 The following specification details a comprehensive, enterprise-grade architectural and user
-interface refactoring protocol for the "Connecta LMS" frontend environment. The existing
+interface refactoring protocol for the "CONNECT HER LMS" frontend environment. The existing
 infrastructure, constructed upon React 18, Tailwind CSS, Shadcn UI, and Supabase, currently
 possesses fully functional routing, authentication contexts, and database connections. The
 primary objective of this refactoring protocol is to elevate the existing user experience (UX) and
@@ -23,7 +23,7 @@ state mutations to ensure a frictionless user experience.^5
 
 ## 1. Upgrading to a Frictionless Onboarding Flow
 
-The current authentication and onboarding flow within Connecta LMS utilizes standard,
+The current authentication and onboarding flow within CONNECT HER LMS utilizes standard,
 monolithic sign-up forms that present users with an overwhelming array of input fields
 simultaneously. To align with enterprise-grade activation metrics and reduce cognitive load, the
 AI agent must refactor this singular form into a "Progressive Profiling" multi-step flow. This
@@ -95,7 +95,7 @@ resetForm: () =>
 set({ currentStep: 0 , direction: 0 , formData: {} }),
 }),
 {
-name: 'connecta-onboarding-storage',
+name: 'CONNECT HER-onboarding-storage',
 storage: createJSONStorage(() => localStorage),
 // Only persist the formData, not the ephemeral animation states
 partialize: (state) => ({ formData: state.formData }),
@@ -381,7 +381,7 @@ library) positioned prominently within the authoring header.^5
 
 ## Disclosure"
 
-The existing Admin Dashboards within the Connecta LMS are currently characterized by
+The existing Admin Dashboards within the CONNECT HER LMS are currently characterized by
 excessive cognitive load, presenting heavily populated data tables and an abundance of
 persistent action buttons. To align with Calm UI principles and modern enterprise dashboard
 standards, the AI agent must systematically implement the concept of "Progressive
@@ -980,5 +980,6 @@ upgrade specification.
 #### https://www.reddit.com/r/Supabase/comments/1l095x6/bug_deleting_a_record_do
 
 #### esnt_fail_but_also_doesnt/
+
 
 

@@ -233,7 +233,7 @@ export default function OnboardingPage() {
           {/* Progress Indication */}
           <div className="absolute top-0 left-6 right-6 lg:left-12 lg:right-12 mt-4 hidden sm:block">
              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Connecta Setup</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">CONNECT HER Setup</span>
                 <span className="text-xs font-bold text-primary">{Math.round(progress)}%</span>
              </div>
              <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
@@ -255,7 +255,7 @@ export default function OnboardingPage() {
                   <BookOpen className="w-8 h-8 text-primary" />
                 </div>
                 <h1 className="font-display text-4xl lg:text-5xl font-bold text-foreground mb-4 leading-tight">
-                  Welcome to Connecta LMS. <br/><span className="text-muted-foreground">Let's set you up.</span>
+                  Welcome to CONNECT HER LMS. <br/><span className="text-muted-foreground">Let's set you up.</span>
                 </h1>
                 <p className="text-muted-foreground text-lg mb-8 max-w-lg">
                   We need a few details to personalize your workspace, secure your permissions, and curate the best learning resources for your account.
@@ -518,7 +518,7 @@ export default function OnboardingPage() {
                  {finishing ? (
                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Finalizing...</>
                  ) : (
-                   <>Launch Connecta <ArrowRight className="w-4 h-4 ml-2" /></>
+                   <>Launch CONNECT HER <ArrowRight className="w-4 h-4 ml-2" /></>
                  )}
                </Button>
              )}
@@ -529,3 +529,4 @@ export default function OnboardingPage() {
     </div>
   );
 }
+

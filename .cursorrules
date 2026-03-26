@@ -1,4 +1,4 @@
-# Security-by-Design Rules for Connecta LMS
+# Security-by-Design Rules for CONNECT HER LMS
 
 Always follow these security guardrails to prevent hacks, data leaks, and insecure code.
 
@@ -32,3 +32,4 @@ Always follow these security guardrails to prevent hacks, data leaks, and insecu
 - "Is this user input validated and sanitized?"
 - "Are we building strings for DB calls or using parameterized queries?"
 - "Is this error message exposing technical details?"
+

@@ -1,4 +1,4 @@
-# Connecta LMS
+# CONNECT HER LMS
 
 A modern Learning Management System built with React, TypeScript, Vite, and shadcn/ui.
 
@@ -27,3 +27,4 @@ The app runs at `http://localhost:8080` by default.
 - **React Router** for navigation
 - **TanStack Query** for data fetching
 - **React Hook Form + Zod** for form validation
+

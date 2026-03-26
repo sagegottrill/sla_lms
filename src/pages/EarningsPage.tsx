@@ -74,7 +74,7 @@ export default function EarningsPage() {
               <div>
                 <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1.5">Payment Cycles</h3>
                 <p className="text-xs text-blue-700/80 dark:text-blue-300/80 leading-relaxed">
-                  Students pay Connecta directly. You are compensated via periodic payouts clearing on the 25th.
+                  Students pay CONNECT HER directly. You are compensated via periodic payouts clearing on the 25th.
                 </p>
               </div>
             </div>
@@ -128,3 +128,4 @@ export default function EarningsPage() {
     </div>
   );
 }
+

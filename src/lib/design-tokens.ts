@@ -1,4 +1,4 @@
-// SLA Connecta LMS - Core Design Tokens
+// SLA CONNECT HER LMS - Core Design Tokens
 // Automatically enforces consistent spacing and sizing across the application.
 
 export const space = {
@@ -14,3 +14,4 @@ export const radius = {
   lg: "rounded-2xl",    // 16px — medium cards, containers
   xl: "rounded-3xl",    // 24px — hero sections, modals
 } as const;
+

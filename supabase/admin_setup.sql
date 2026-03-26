@@ -1,5 +1,5 @@
 -- ============================================================
--- SLA CONNECTA LMS — Admin Setup SQL
+-- SLA CONNECT HER LMS — Admin Setup SQL
 -- Run this ONCE in Supabase SQL Editor after schema.sql + seed.sql
 -- ============================================================
 
@@ -74,3 +74,4 @@ order by role;
 -- update public.profiles
 -- set role = 'admin'
 -- where email = 'your-admin@email.com';
+

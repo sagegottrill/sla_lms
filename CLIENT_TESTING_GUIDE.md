@@ -1,7 +1,7 @@
-# Connecta LMS - Pre-Launch Testing Guide & System Audit
+# CONNECT HER LMS - Pre-Launch Testing Guide & System Audit
 **For: She Leads Africa (SLA)**
 
-Welcome to the **Connecta LMS** testing environment. The platform has been extensively refactored to support complex course structures, progressive user onboarding, real-time administrative dashboards, and scalable media management.
+Welcome to the **CONNECT HER LMS** testing environment. The platform has been extensively refactored to support complex course structures, progressive user onboarding, real-time administrative dashboards, and scalable media management.
 
 Please use this guide to seamlessly test the main user journeys and review the critical infrastructure requirements needed before we push the platform to the public. 
 
@@ -45,14 +45,14 @@ While the code is flawless and ready, the actual tools running in the background
 
 ### 1. Vimeo (Video Hosting constraints)
 - **The Problem:** Free Vimeo accounts only give you **1GB of storage per year**. Furthermore, you CANNOT hide your videos from the public internet. Free accounts only let you mark videos as "Unlisted", meaning anyone with the link can share it.
-- **The Fix:** You need a **Vimeo Pro / Premium / Standard Account**. This massively increases your storage limits and, crucially, lets you lock videos to *Domain-Level Privacy*. This means your premium course videos will strictly only play if they are embedded inside `connecta.sheleadsafrica.org`.
+- **The Fix:** You need a **Vimeo Pro / Premium / Standard Account**. This massively increases your storage limits and, crucially, lets you lock videos to *Domain-Level Privacy*. This means your premium course videos will strictly only play if they are embedded inside `CONNECT HER.sheleadsafrica.org`.
 
 ### 2. Supabase / Database Storage
 - **The Problem:** Your database (handling users, progress, payments tracking) and buckets (holding course thumbnails and user avatars) are on a free tier. If thousands of students rapidly upload avatars and take quizzes, the database will fill up in a matter of weeks and freeze the application.
 - **The Fix:** Upgrade your Supabase project to the **Pro Tier ($25/month)** to ensure you have daily automated backups, 100,000 active monthly users, and 100GB of media storage.
 
 ### 3. Email Delivery (SMTP)
-- Free tier authentication emails cap at a small amount per hour. You need a dedicated transactional email provider (like Postmark, SendGrid, or Resend) so that thousands of new students receive their "Welcome to Connecta" emails immediately without bouncing.
+- Free tier authentication emails cap at a small amount per hour. You need a dedicated transactional email provider (like Postmark, SendGrid, or Resend) so that thousands of new students receive their "Welcome to CONNECT HER" emails immediately without bouncing.
 
 ---
 
@@ -66,3 +66,4 @@ To successfully remove the final roadblocks and enter full production mode, plea
 - [ ] **Supabase Pro Upgrade:** Ensure your developer hands over the master Supabase ownership to SLA so you can attach a business credit card to the project.
 
 **Test the platform thoroughly and provide any UI/UX feedback. The code is structured beautifully for quick iteration!**
+

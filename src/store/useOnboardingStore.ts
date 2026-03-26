@@ -48,7 +48,7 @@ export const useOnboardingStore = create<OnboardingState>()(
         }),
     }),
     {
-      name: 'connecta-onboarding-storage',
+      name: 'connect-her-onboarding-storage',
       // Persist only formData; animation-only state should be ephemeral.
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({

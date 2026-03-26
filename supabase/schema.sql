@@ -1,5 +1,5 @@
   -- ============================================================
-  -- SLA CONNECTA LMS — Supabase Schema
+  -- SLA CONNECT HER LMS — Supabase Schema
   -- Run in Supabase: Dashboard → SQL Editor → New query
   --
   -- WHEN TO USE THIS FILE
@@ -646,4 +646,5 @@
     for insert with check (auth.uid() = user_id);
   create policy "Resume draft updatable by owner" on public.user_resume_drafts
     for update using (auth.uid() = user_id);
+
 

@@ -1,9 +1,9 @@
 @echo off
-TITLE Connecta LMS Uploader
+TITLE CONNECT HER LMS Uploader
 color 0b
 
 echo =========================================================
-echo UPLOADING CONNECTA LMS CODEBASE
+echo UPLOADING CONNECT HER LMS CODEBASE
 echo Target: https://github.com/She-Leads-Africa/sla_lms
 echo =========================================================
 echo.
@@ -16,3 +16,4 @@ echo.
 echo =========================================================
 echo Done! Your code has been completely transferred!
 pause
+

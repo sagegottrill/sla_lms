@@ -101,7 +101,7 @@ export default function InstructorDashboard() {
               Good {timeOfDay}, {firstName}
             </h1>
             <p className="mt-2 text-foreground/80 text-base">
-              You currently manage <span className="font-bold text-foreground">{courses.length} courses</span> natively on Connecta.
+              You currently manage <span className="font-bold text-foreground">{courses.length} courses</span> natively on CONNECT HER.
             </p>
           </div>
 
@@ -227,3 +227,4 @@ export default function InstructorDashboard() {
     </div>
   );
 }
+

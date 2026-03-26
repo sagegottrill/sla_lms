@@ -1,12 +1,12 @@
 -- ============================================================
--- SLA CONNECTA LMS — Allow Admin/PM to manage profile roles
+-- SLA CONNECT HER LMS - Allow Admin/PM to manage profile roles
 -- ============================================================
 -- Run this on your Supabase DB ONCE (after schema.sql).
 --
 -- Root cause:
 --   `public.profiles` RLS currently allows updates only when
 --   `auth.uid() = id` (user can update only their own row).
--- The Admin → User Management screen updates other users'
+-- The Admin -> User Management screen updates other users'
 -- `profiles.role` / `profiles.name`, so we must add staff policies.
 --
 -- This script is additive: it does not remove the existing owner policies.
@@ -44,4 +44,3 @@ create policy "Admins and program managers can delete profiles"
         and p.role in ('admin', 'program_manager')
     )
   );
-

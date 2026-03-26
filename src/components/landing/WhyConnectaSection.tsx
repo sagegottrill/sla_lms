@@ -28,7 +28,7 @@ const differentiators = [
     },
 ];
 
-export default function WhyConnectaSection() {
+export default function WhyConnectHerSection() {
     return (
         <section className="py-16 sm:py-20 bg-background">
             <div className="container mx-auto px-5 sm:px-6 lg:px-8">

@@ -1,5 +1,5 @@
 -- ============================================================
--- SLA CONNECTA LMS — Database Purge Script
+-- SLA CONNECT HER LMS — Database Purge Script
 -- Run this in Supabase SQL Editor to wipe legacy test data
 -- ============================================================
 
@@ -26,3 +26,4 @@ SELECT setval('public.jobs_id_seq', 1, false);
 -- ============================================================
 -- After running this, your dashboard will be truly empty.
 -- ============================================================
+

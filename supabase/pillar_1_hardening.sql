@@ -1,5 +1,5 @@
 -- ============================================================================
--- CONNECTA SECURITY OPS — PILLAR 1: ENTERPRISE HARDENING
+-- CONNECT HER SECURITY OPS — PILLAR 1: ENTERPRISE HARDENING
 -- Strictly adheres to the Security Ops Blueprint for >50k user scale.
 -- ============================================================================
 
@@ -110,3 +110,4 @@ BEGIN
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+

@@ -298,7 +298,7 @@ export default function StudentDashboard() {
                       <div className="flex items-center gap-2 mb-2">
                         {/* Instructor / Org name strictly mimicking the tiny Coursera label */}
                         <div className="bg-muted px-2 py-0.5 rounded text-[10px] font-bold text-muted-foreground tracking-wider uppercase">SLA</div>
-                        <span className="text-xs font-semibold text-muted-foreground">{c.instructor || "Connecta"}</span>
+                        <span className="text-xs font-semibold text-muted-foreground">{c.instructor || "CONNECT HER"}</span>
                       </div>
                       
                       <Link to={`/courses/${c.id}`} className="block">
@@ -356,3 +356,4 @@ export default function StudentDashboard() {
     </div>
   );
 }
+

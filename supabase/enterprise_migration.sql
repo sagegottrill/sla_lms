@@ -1,5 +1,5 @@
 -- ============================================================
--- SLA CONNECTA LMS — Enterprise Architecture Migration
+-- SLA CONNECT HER LMS — Enterprise Architecture Migration
 -- Pillar 2: Database Architecture & Security & Indexing
 -- ============================================================
 
@@ -169,3 +169,4 @@ CREATE INDEX IF NOT EXISTS idx_payments_time_brin ON public.payments USING BRIN 
 -- SUCCESS MESSAGE
 -- ============================================================
 -- The environment is now configured with Enterprise RLS and Indexing.
+

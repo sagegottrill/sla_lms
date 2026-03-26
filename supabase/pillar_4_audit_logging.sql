@@ -1,5 +1,5 @@
 -- ============================================================================
--- CONNECTA SECURITY OPS — PILLAR 4: COMPLIANCE AUDIT LOGGING
+-- CONNECT HER SECURITY OPS — PILLAR 4: COMPLIANCE AUDIT LOGGING
 -- Strictly adheres to the Security Ops Blueprint (Who, What, When, Outcome).
 -- ============================================================================
 
@@ -79,3 +79,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER trg_audit_profiles
 AFTER UPDATE ON public.profiles
 FOR EACH ROW EXECUTE PROCEDURE public.audit_profile_changes();
+

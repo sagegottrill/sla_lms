@@ -1,5 +1,5 @@
 @echo off
-TITLE Connecta LMS Uploader
+TITLE CONNECT HER LMS Uploader
 color 0a
 
 echo =========================================================
@@ -22,3 +22,4 @@ echo.
 echo [3/3] If the push was successful, the repository is now "new new" and 100% empty!
 echo =========================================================
 pause
+

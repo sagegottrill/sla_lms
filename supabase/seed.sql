@@ -1,5 +1,5 @@
 -- ============================================================
--- SLA CONNECTA LMS — Seed Data (DISABLED)
+-- SLA CONNECT HER LMS — Seed Data (DISABLED)
 -- ============================================================
 -- This repo previously included demo/mock catalog content.
 -- For real-world handover, seeding is intentionally disabled.
@@ -10,4 +10,5 @@
 -- Leave this file empty so `supabase db reset` doesn't populate
 -- placeholder records.
 -- ============================================================
+
 

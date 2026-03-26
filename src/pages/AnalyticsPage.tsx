@@ -255,7 +255,7 @@ export default function AnalyticsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                        {c.instructor || "SLA Connecta"}
+                        {c.instructor || "SLA CONNECT HER"}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right font-medium text-foreground">
@@ -274,3 +274,4 @@ export default function AnalyticsPage() {
     </div>
   );
 }
+
