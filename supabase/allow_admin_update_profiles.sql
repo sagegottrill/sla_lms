@@ -12,6 +12,7 @@
 -- This script is additive: it does not remove the existing owner policies.
 
 -- Admins and Program Managers can update any profiles row (including `role`)
+drop policy if exists "Admins and program managers can update profiles" on public.profiles;
 create policy "Admins and program managers can update profiles"
   on public.profiles for update
   using (
@@ -32,6 +33,7 @@ create policy "Admins and program managers can update profiles"
   );
 
 -- Optional but recommended: staff can remove profiles rows
+drop policy if exists "Admins and program managers can delete profiles" on public.profiles;
 create policy "Admins and program managers can delete profiles"
   on public.profiles for delete
   using (
