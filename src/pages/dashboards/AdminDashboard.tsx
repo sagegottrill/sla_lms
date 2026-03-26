@@ -56,7 +56,7 @@ export default function AdminDashboard() {
   const visibleMetrics = showAllMetrics ? secondaryMetrics : secondaryMetrics.slice(0, 4);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 py-6 pb-16 sm:pb-20">
+    <div className="max-w-7xl mx-auto space-y-6 py-6 pb-16 sm:pb-20">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-4 sm:pb-6">
