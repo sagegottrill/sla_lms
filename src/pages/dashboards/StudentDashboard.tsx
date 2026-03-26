@@ -222,8 +222,8 @@ export default function StudentDashboard() {
             </p>
           </div>
 
-          {/* Finish setup — only if learner onboarding not completed */}
-          {!onboardingDone && (
+          {/* Finish setup — student onboarding only */}
+          {appUser?.role === "student" && !onboardingDone && (
             <div className="bg-[#f0f4f9]/60 dark:bg-muted/30 border border-transparent rounded-2xl p-4 sm:p-6 flex items-center gap-4 mb-6 sm:mb-8">
               <div className="w-10 h-10 rounded-full bg-[#e8f0fe] text-primary flex items-center justify-center shrink-0">
                 <GraduationCap className="w-5 h-5" />

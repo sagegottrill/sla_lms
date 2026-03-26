@@ -36,7 +36,7 @@ export const dashboardProfileDropdownLinks: Record<
 };
 
 export function getProfileLinksForRole(role: UserRole | undefined) {
-  if (!role) return dashboardProfileDropdownLinks.student;
+  if (!role) return [];
   return dashboardProfileDropdownLinks[role] ?? dashboardProfileDropdownLinks.student;
 }
 

@@ -242,9 +242,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ),
       };
     }
-    // Real Supabase auth
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error };
+    // Load profile before returning so callers never navigate with a stale/missing appUser (wrong role / student fallback).
+    if (data.user) {
+      setUser(data.user);
+      if (data.session) setSession(data.session);
+      await loadUserProfile(data.user.id, data.user);
+    }
+    return { error: null };
   };
 
   const signup = async (name: string, email: string, password: string, role: UserRole) => {

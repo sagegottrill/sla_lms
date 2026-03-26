@@ -49,6 +49,15 @@ export default function DashboardLayout() {
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
+  // Wait for profiles row — otherwise UI falls back to student menus / wrong dashboard (especially right after login on mobile).
+  if (!appUser) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
   const roleLabels: Record<string, string> = {
     student: "Student",
     instructor: "Instructor",
@@ -172,7 +181,7 @@ export default function DashboardLayout() {
                     </div>
 
                     <div className="py-1.5">
-                      {getProfileLinksForRole(appUser?.role).map(({ icon: Icon, label, href }) => (
+                      {getProfileLinksForRole(appUser.role).map(({ icon: Icon, label, href }) => (
                         <Link
                           key={label}
                           to={href}

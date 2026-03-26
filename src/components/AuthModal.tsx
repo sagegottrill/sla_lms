@@ -26,7 +26,7 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalProps) {
-  const { login, signup, appUser } = useAuth();
+  const { login, signup } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [email, setEmail] = useState("");
@@ -72,27 +72,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
     if (!error) {
       toast.success("Welcome back!");
       onClose();
-      // Wait up to 1.5s for appUser to load from Supabase, then route by real role
-      // All roles share the unified /dashboard endpoint which internally routes them
-      const routeByRole = (role?: string) => {
-        navigate("/dashboard");
-      };
-      if (appUser?.role) {
-        routeByRole(appUser.role);
-      } else {
-        // Poll briefly for appUser to load
-        let attempts = 0;
-        const poll = setInterval(() => {
-          attempts++;
-          // appUser is updated reactively by AuthContext — check window.__sla_role as a bridge
-          const el = document.querySelector('[data-user-role]') as HTMLElement | null;
-          const role = el?.dataset?.userRole;
-          if (role || attempts > 6) {
-            clearInterval(poll);
-            routeByRole(role);
-          }
-        }, 250);
-      }
+      // login() awaits profile load so role is correct before navigation (avoids student/onboarding flash).
+      navigate("/dashboard");
     } else {
       toast.error(error?.message || "Invalid email or password.");
     }
