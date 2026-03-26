@@ -187,7 +187,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (user && !error) {
           setUser(user);
-          await loadUserProfile(user.id, user);
+          // Use ref so this effect is resilient to function identity changes.
+          await loadUserProfileRef.current(user.id, user);
         }
       } catch (err) {
         console.error("Auth initialization failed:", err);
@@ -210,7 +211,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          void loadUserProfile(session.user.id, session.user);
+          // Use ref to avoid stale closure issues inside this effect.
+          void loadUserProfileRef.current(session.user.id, session.user);
         } else {
           setAppUser(null);
         }
@@ -341,7 +343,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: queryKeys.jobs.base });
     }
     prevRoleRef.current = appUser.role;
-  }, [appUser?.id, appUser?.role]);
+  }, [appUser]);
 
   return (
     <AuthContext.Provider value={{
