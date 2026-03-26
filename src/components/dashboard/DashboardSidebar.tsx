@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -197,12 +197,30 @@ const roleColors: Record<UserRole, string> = {
 export default function DashboardSidebar() {
   const { appUser, logout } = useAuth();
   const location = useLocation();
+  const [isDesktop, setIsDesktop] = useState(() => (typeof window !== "undefined" ? window.innerWidth >= 1024 : true));
+  const [mobileDrawerWidth, setMobileDrawerWidth] = useState(() => (typeof window !== "undefined" ? Math.min(window.innerWidth * 0.84, 320) : 300));
   // Default to collapsed on smaller "laptop" widths to reduce visual density.
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
-    return window.innerWidth < 1280;
+    const width = window.innerWidth;
+    // Keep mobile expanded for tap accuracy; collapse only on laptop widths.
+    return width >= 1024 && width < 1280;
   });
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const onResize = () => {
+      const width = window.innerWidth;
+      setIsDesktop(width >= 1024);
+      setMobileDrawerWidth(Math.min(width * 0.84, 320));
+      if (width < 1024) {
+        // Never collapse on mobile/tablet drawer.
+        setCollapsed(false);
+      }
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   if (!appUser) return (
     <aside className="relative flex flex-col h-screen bg-background border-r border-border shrink-0 overflow-hidden w-[252px]">
@@ -224,7 +242,7 @@ export default function DashboardSidebar() {
 
   return (
     <motion.aside
-      animate={{ width: collapsed ? 72 : 252 }}
+      animate={{ width: collapsed ? 72 : (isDesktop ? 252 : mobileDrawerWidth) }}
       transition={{ duration: 0.25, ease: "easeInOut" }}
       className="relative flex flex-col h-screen bg-background border-r border-border shrink-0 overflow-hidden"
     >
@@ -249,12 +267,14 @@ export default function DashboardSidebar() {
       </Link>
 
       {/* Collapse toggle */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="absolute top-[60px] -right-3 w-6 h-6 rounded-full bg-background ring-1 ring-black/5 dark:ring-white/10 border-0 flex items-center justify-center text-muted-foreground hover:text-primary z-20 shadow-sm"
-      >
-        {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
-      </button>
+      {isDesktop && (
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="absolute top-[60px] -right-3 w-6 h-6 rounded-full bg-background ring-1 ring-black/5 dark:ring-white/10 border-0 flex items-center justify-center text-muted-foreground hover:text-primary z-20 shadow-sm"
+        >
+          {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
+        </button>
+      )}
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 scrollbar-hide">
@@ -292,14 +312,14 @@ export default function DashboardSidebar() {
                           to={item.href}
                           title={collapsed ? item.label : undefined}
                           className={cn(
-                            "flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150",
+                            "flex items-center gap-3 px-3 py-3 lg:py-2 rounded-xl text-sm font-medium transition-all duration-150",
                             collapsed && "justify-center px-2",
                             active
                               ? "bg-primary/8 text-primary font-semibold"
                               : "text-muted-foreground hover:text-foreground hover:bg-muted"
                           )}
                         >
-                          <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
+                          <item.icon className={cn("w-5 h-5 lg:w-4 lg:h-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
                           <AnimatePresence>
                             {!collapsed && (
                               <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 truncate">

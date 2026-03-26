@@ -103,7 +103,7 @@ export default function DashboardLayout() {
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: "spring", damping: 25 }}
-              className="fixed left-0 top-0 z-40 lg:hidden"
+              className="fixed left-0 top-0 z-40 lg:hidden h-screen shadow-2xl"
             >
               <DashboardSidebar />
             </motion.div>
@@ -118,9 +118,9 @@ export default function DashboardLayout() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
-              className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+              className="lg:hidden w-11 h-11 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-muted transition-colors"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-6 h-6" />
             </button>
             <h1 className="text-sm font-semibold text-foreground capitalize">
               {location.pathname.split("/").filter(Boolean).pop()?.replace(/-/g, " ") || "Dashboard"}
@@ -131,15 +131,15 @@ export default function DashboardLayout() {
             {/* Notifications */}
             <Link
               to="/dashboard/notifications"
-              className="relative w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-              <Bell className="w-5 h-5" />
+              className="relative w-11 h-11 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+              <Bell className="w-5 h-5 sm:w-5 sm:h-5" />
             </Link>
 
             {/* Profile dropdown */}
             <div ref={profileRef} className="relative">
               <button
                 onClick={() => setProfileOpen((p) => !p)}
-                className="flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-xl hover:bg-muted transition-colors"
+                className="flex items-center gap-2.5 pl-1 pr-3 py-2 rounded-xl hover:bg-muted transition-colors"
               >
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0 overflow-hidden ring-1 ring-primary/20">
                   {appUser?.avatar && appUser.avatar !== "undefined" ? (
