@@ -1,77 +1,68 @@
 -- ============================================================
--- SLA CONNECT HER LMS — Admin Setup SQL
--- Run this ONCE in Supabase SQL Editor after schema.sql + seed.sql
+-- SLA CONNECT HER LMS — Admin setup (trial / production)
+-- Run in Supabase: Dashboard → SQL → New query
+-- ============================================================
+--
+-- PASSWORDS NEVER GO IN THIS FILE. Set the password only in:
+--   Dashboard → Authentication → Users → Add user / Reset password
+--
+-- Trial admin email: info@sheleadsafrica.org
+--
+-- STEP 1 — Create the Auth user (if they do not exist yet)
+--   • Authentication → Users → Add user
+--   • Email: info@sheleadsafrica.org
+--   • Password: (choose in the form — do not paste secrets into SQL or git)
+--   • Turn ON "Auto Confirm User" (or confirm via email) so they can log in
+--
+-- STEP 2 — Link profile row to admin role (run the block below)
 -- ============================================================
 
--- Upsert the SLA Admin profile
 insert into public.profiles (id, name, email, role)
-values (
-  '831f16e7-d36d-4485-b005-1e68ff568665',
-  'SLA Admin',
-  'info@sheleadsafrica.org',
-  'admin'
-)
-on conflict (id)
-do update set
+select u.id, 'SLA Admin', u.email, 'admin'
+from auth.users u
+where lower(u.email) = lower('info@sheleadsafrica.org')
+on conflict (id) do update set
   name  = 'SLA Admin',
   role  = 'admin',
-  email = 'info@sheleadsafrica.org';
+  email = excluded.email;
+
+-- If the insert above affects 0 rows, the email is not in auth.users yet — do Step 1 first.
 
 -- ============================================================
--- Verification — confirm admin is set correctly
+-- Verification
 -- ============================================================
 select id, name, email, role, created_at
 from public.profiles
-where role = 'admin';
+where lower(email) = lower('info@sheleadsafrica.org');
+
+select id, email, email_confirmed_at, created_at
+from auth.users
+where lower(email) = lower('info@sheleadsafrica.org');
 
 -- ============================================================
--- To promote your team to their specific roles, you can use
--- the Dashboard → Users page, OR run these shortcuts for the
--- 3 official SLA administrative accounts:
+-- Other SLA roles (uncomment and run after those users exist in Auth)
 -- ============================================================
 
--- update public.profiles set role = 'admin' where email = 'info@sheleadsafrica.org';
--- update public.profiles set role = 'admin' where email = 'content@sheleadsafrica.org';
--- update public.profiles set role = 'program_manager' where email = 'programs@sheleadsafrica.org';
-
+-- update public.profiles set role = 'admin' where lower(email) = lower('content@sheleadsafrica.org');
+-- update public.profiles set role = 'program_manager' where lower(email) = lower('programs@sheleadsafrica.org');
 
 -- ============================================================
--- STEP 3 (OPTIONAL): Create a Program Manager account
--- When ready:
---   1. Go to Supabase Auth → Add User
---   2. Create: programs@sheleadsafrica.org
---   3. Copy the UUID and replace the placeholder below
---   4. Uncomment the block and run it
+-- OPTIONAL: Program manager — create user in Auth first, then:
 -- ============================================================
 
 -- insert into public.profiles (id, name, email, role)
--- values (
---   '<PASTE_PROGRAM_MGR_UUID_HERE>',
---   'SLA Programs',
---   'programs@sheleadsafrica.org',
---   'program_manager'
--- )
--- on conflict (id)
--- do update set
---   name  = 'SLA Programs',
---   role  = 'program_manager',
---   email = 'programs@sheleadsafrica.org';
+-- select u.id, 'SLA Programs', u.email, 'program_manager'
+-- from auth.users u
+-- where lower(u.email) = lower('programs@sheleadsafrica.org')
+-- on conflict (id) do update set
+--   name = 'SLA Programs',
+--   role = 'program_manager',
+--   email = excluded.email;
 
 -- ============================================================
--- QUICK VERIFICATION
--- Run this to confirm the admin accounts are set up correctly
+-- Admins + program managers overview
 -- ============================================================
 select id, name, email, role, created_at
 from public.profiles
 where role in ('admin', 'program_manager')
-order by role;
-
--- ============================================================
--- OPTIONAL: Promote any existing user to admin by email
--- If the admin already signed up via the /signup page,
--- run this instead (replace the email below):
--- ============================================================
--- update public.profiles
--- set role = 'admin'
--- where email = 'your-admin@email.com';
-
+order by role, email;
