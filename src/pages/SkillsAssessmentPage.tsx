@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Target, CheckCircle2, ArrowRight, BarChart3, Award, Star, Clock, RotateCcw, Users, Smartphone, DollarSign, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,9 @@ function getLevelColor(level: string): string {
 
 export default function SkillsAssessmentPage() {
   const { appUser } = useAuth();
+  const [searchParams] = useSearchParams();
+  const filterCourseId = searchParams.get("courseId");
+  const filterProgramId = searchParams.get("programId");
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [activeAssessment, setActiveAssessment] = useState<Assessment | null>(null);
   const [currentQ, setCurrentQ] = useState(0);
@@ -51,8 +55,14 @@ export default function SkillsAssessmentPage() {
     async function init() {
       if (!appUser?.id) return;
       setLoading(true);
+      const assessmentFilters =
+        filterCourseId != null && filterCourseId !== ""
+          ? { courseId: Number(filterCourseId) }
+          : filterProgramId != null && filterProgramId !== ""
+            ? { programId: Number(filterProgramId) }
+            : undefined;
       const [fetchedAssessments, fetchedResults] = await Promise.all([
-        api.getSkillsAssessments(),
+        api.getSkillsAssessments(assessmentFilters),
         api.getUserSkillsResults(appUser.id)
       ]);
       setAssessments(fetchedAssessments as Assessment[]);
@@ -66,7 +76,7 @@ export default function SkillsAssessmentPage() {
       setLoading(false);
     }
     init();
-  }, [appUser?.id]);
+  }, [appUser?.id, filterCourseId, filterProgramId]);
 
   const startAssessment = (a: Assessment) => {
     setActiveAssessment(a);
@@ -125,7 +135,7 @@ export default function SkillsAssessmentPage() {
           <span className="text-xs text-secondary font-semibold">{activeAssessment.title}</span>
           <h2 className="font-display text-xl font-bold text-foreground mt-2 mb-6">{q.text}</h2>
           <div className="space-y-3">
-            {q.options.map((opt, i) => (
+            {(q.options ?? []).map((opt, i) => (
               <motion.button key={i} whileTap={{ scale: 0.98 }} onClick={() => selectAnswer(q.id, i)}
                 className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
                   answers[q.id] === i ? "border-primary bg-accent ring-1 ring-primary/20" : "border-border hover:border-primary/30 bg-card"
@@ -185,6 +195,15 @@ export default function SkillsAssessmentPage() {
       <div>
         <h1 className="font-display text-2xl font-bold text-foreground">Skills Assessment</h1>
         <p className="text-muted-foreground text-sm mt-1">Test your knowledge and get skill-level badges for your profile</p>
+        {(filterCourseId || filterProgramId) && (
+          <p className="text-xs text-primary font-medium mt-2">
+            Showing assessments for{" "}
+            {filterCourseId ? `this course (ID ${filterCourseId})` : `this program (ID ${filterProgramId})`}.{" "}
+            <a href="/dashboard/skills" className="underline underline-offset-2">
+              View all assessments
+            </a>
+          </p>
+        )}
       </div>
 
       {results.length > 0 && (

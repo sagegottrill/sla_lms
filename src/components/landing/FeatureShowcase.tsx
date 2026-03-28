@@ -15,7 +15,7 @@ const features = [
   },
   {
     id: "learning",
-    title: "Job-Ready Learning",
+    title: "Skills-Focused Learning",
     icon: Smartphone,
     label: "For Students",
     description: "Learn on the go. Seamlessly switch between laptop and mobile while tracking your progress in real-time.",

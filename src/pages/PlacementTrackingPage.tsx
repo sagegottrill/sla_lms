@@ -9,7 +9,7 @@ interface Placement {
 const statusConfig = {
   placed: { label: "Placed", bg: "bg-accent text-secondary" },
   interviewing: { label: "Interviewing", bg: "bg-amber-100 text-amber-700" },
-  searching: { label: "Job Searching", bg: "bg-muted text-muted-foreground" },
+  searching: { label: "Seeking placement", bg: "bg-muted text-muted-foreground" },
 };
 
 export default function PlacementTrackingPage() {
@@ -149,7 +149,7 @@ export default function PlacementTrackingPage() {
                 >
                   <option value="placed">Placed</option>
                   <option value="interviewing">Interviewing</option>
-                  <option value="searching">Job Searching</option>
+                  <option value="searching">Seeking placement</option>
                 </select>
               </div>
 
@@ -302,7 +302,7 @@ export default function PlacementTrackingPage() {
                           {Array.from({ length: 5 }).map((_, j) => (
                             <Star key={j} className={`w-3 h-3 ${j < p.feedback ? "text-yellow-500 fill-yellow-500" : "text-border"}`} />
                           ))}
-                          <span className="text-[10px] text-muted-foreground ml-1">Employer satisfaction</span>
+                          <span className="text-[10px] text-muted-foreground ml-1">Placement satisfaction</span>
                         </div>
                       )}
                     </div>

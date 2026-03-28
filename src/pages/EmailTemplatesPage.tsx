@@ -118,7 +118,7 @@ export default function EmailTemplatesPage() {
         <div>
           <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">Email Templates</h1>
           <p className="text-muted-foreground text-sm">
-            Manage automated email templates with dynamic variables.
+            Drafts for learner and program messages. Wire delivery through Supabase Auth email or your provider (e.g. SendGrid) in the project dashboard — not from this screen.
           </p>
         </div>
         <Button onClick={handleNewTemplate} className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors">

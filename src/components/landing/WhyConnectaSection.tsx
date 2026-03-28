@@ -15,8 +15,8 @@ const differentiators = [
         color: "bg-accent text-primary",
     },
     {
-        title: "Direct Employer Connections",
-        desc: "Our employer network actively recruits from our graduates — connecting you to real opportunities, not just certificates.",
+        title: "Career-ready outcomes",
+        desc: "Skills and credentials designed for the African market — so you can apply learning where it matters.",
         icon: Briefcase,
         color: "bg-accent text-primary",
     },
@@ -45,7 +45,7 @@ export default function WhyConnectHerSection() {
                             Not just a platform.<br />A movement for African women.
                         </h2>
                         <p className="text-muted-foreground text-base sm:text-lg leading-relaxed max-w-lg">
-                            We combine high-growth curriculum with a powerful sisterhood and employer partnerships to deliver real power moves — not just certifications.
+                            We combine high-growth curriculum with a powerful community so you finish strong — not just start.
                         </p>
                     </motion.div>
 

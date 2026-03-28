@@ -11,7 +11,7 @@ import { api } from "@/services/api";
 
 const metricOptions = [
   "Total Enrollments", "Course Completions", "Revenue", "Active Users", "New Registrations",
-  "Certificate Issued", "Job Placements", "Average Score", "Retention Rate", "Lead Conversions",
+  "Certificate Issued", "Placements", "Average Score", "Retention Rate", "Lead Conversions",
 ];
 
 const dimensionOptions = ["Month", "Week", "Program", "Course Category", "Instructor", "Country", "Payment Method", "Gender"];
@@ -144,6 +144,7 @@ export default function ReportBuilderPage() {
           return Math.round(Number(completionRate) || 0);
         case "Average Score":
           return Math.round(Number(satisfaction) || 0);
+        case "Placements":
         case "Job Placements":
         case "New Registrations":
         case "Lead Conversions":

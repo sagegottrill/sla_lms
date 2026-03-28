@@ -89,92 +89,20 @@ export const useCreateProgramMutation = () => {
   });
 };
 
-// --- JOBS ---
-export const useJobs = () => {
-  const { appUser } = useAuth();
-  return useQuery({
-    queryKey: queryKeys.jobs.all(appUser?.role),
-    queryFn: api.getJobs,
-  });
-};
-
-export const useCreateJobMutation = () => {
+export const useUpdateProgramMutation = () => {
   const queryClient = useQueryClient();
-  const { appUser } = useAuth();
   return useMutation({
-    mutationFn: (job: any) => api.createJob(job),
-    onMutate: async (job) => {
-      const queryKey = queryKeys.jobs.all(appUser?.role);
-      await queryClient.cancelQueries({ queryKey });
-      const previousJobs = queryClient.getQueryData(queryKey);
-      queryClient.setQueryData(queryKey, (old: any) => [{ id: 'temp-'+Date.now(), ...job }, ...(old || [])]);
-      return { previousJobs, queryKey };
-    },
-    onError: (err, variables, context) => {
-      if (context?.queryKey) queryClient.setQueryData(context.queryKey, context.previousJobs);
-      toast.error("We couldn't post that job. Your changes weren't saved.");
-    },
+    mutationFn: ({ id, updates }: { id: number; updates: Record<string, unknown> }) =>
+      api.updateProgram(id, updates),
     onSuccess: () => {
-      toast.success("Job posted");
+      toast.success("Program updated");
     },
-    onSettled: (data, error, variables, context) => {
-      if (context?.queryKey) queryClient.invalidateQueries({ queryKey: context.queryKey });
-    }
-  });
-};
-
-export const useUpdateJobMutation = () => {
-  const queryClient = useQueryClient();
-  const { appUser } = useAuth();
-  return useMutation({
-    mutationFn: ({ id, updates }: { id: number, updates: any }) => api.updateJob(id, updates),
-    onMutate: async ({ id, updates }) => {
-      const queryKey = queryKeys.jobs.all(appUser?.role);
-      await queryClient.cancelQueries({ queryKey });
-      const previousJobs = queryClient.getQueryData(queryKey);
-      queryClient.setQueryData(queryKey, (old: any) => {
-        if (!old) return old;
-        return old.map((j: any) => j.id === id ? { ...j, ...updates } : j);
-      });
-      return { previousJobs, queryKey };
+    onError: () => {
+      toast.error("We couldn't save this program. Please try again.");
     },
-    onError: (err, variables, context) => {
-      if (context?.queryKey) queryClient.setQueryData(context.queryKey, context.previousJobs);
-      toast.error("We couldn't update that job. Please try again.");
-    },
-    onSuccess: () => {
-      toast.success("Job updated");
-    },
-    onSettled: (data, error, variables, context) => {
-      if (context?.queryKey) queryClient.invalidateQueries({ queryKey: context.queryKey });
-    }
-  });
-};
-
-export const useDeleteJobMutation = () => {
-  const queryClient = useQueryClient();
-  const { appUser } = useAuth();
-  return useMutation({
-    mutationFn: (id: number) => api.deleteJob(id),
-    onMutate: async (id) => {
-      const queryKey = queryKeys.jobs.all(appUser?.role);
-      await queryClient.cancelQueries({ queryKey });
-      const previousJobs = queryClient.getQueryData(queryKey);
-      queryClient.setQueryData(queryKey, (old: any) => {
-        if (!old) return old;
-        return old.filter((j: any) => j.id !== id);
-      });
-      return { previousJobs, queryKey };
-    },
-    onError: (err, variables, context) => {
-      if (context?.queryKey) queryClient.setQueryData(context.queryKey, context.previousJobs);
-      toast.error("We couldn't delete that job. Your changes were reverted.");
-    },
-    onSuccess: () => {
-      toast.success("Job deleted");
-    },
-    onSettled: (data, error, variables, context) => {
-      if (context?.queryKey) queryClient.invalidateQueries({ queryKey: context.queryKey });
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.programs.base });
+      queryClient.invalidateQueries({ queryKey: ["site-config"] });
     }
   });
 };

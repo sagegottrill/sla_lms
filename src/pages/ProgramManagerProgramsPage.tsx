@@ -9,13 +9,19 @@ export default function ProgramManagerProgramsPage() {
   const [search, setSearch] = useState("");
   const { data: programs = [], isLoading } = usePrograms({ activeCatalog: false });
 
+  const cohortLabel = (p: { tag?: string; cohort?: string }) => p.tag ?? p.cohort ?? "";
+
   const filtered = programs.filter((p) => {
-    const matchFilter = filter === "All" || p.status === filter.toLowerCase();
+    const matchFilter =
+      filter === "All" ||
+      (filter === "Draft" && p.status === "upcoming") ||
+      (filter === "Active" && p.status === "active") ||
+      (filter === "Completed" && p.status === "completed");
     const q = search.toLowerCase().trim();
     const matchSearch =
       q.length === 0 ||
       (p.title ?? "").toLowerCase().includes(q) ||
-      (p.cohort ?? "").toLowerCase().includes(q);
+      cohortLabel(p).toLowerCase().includes(q);
     return matchFilter && matchSearch;
   });
 
@@ -134,9 +140,35 @@ export default function ProgramManagerProgramsPage() {
                        </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Button variant="outline" className="h-8 px-4 text-xs font-semibold rounded-md border-border bg-transparent hover:bg-muted opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                        Manage
-                      </Button>
+                      <div className="flex justify-end gap-2 flex-wrap">
+                        <Link to={`/dashboard/programs/new?edit=${prog.id}`} className="inline-flex">
+                          <Button
+                            variant="outline"
+                            className="h-8 px-4 text-xs font-semibold rounded-md border-border bg-transparent hover:bg-muted"
+                          >
+                            Edit
+                          </Button>
+                        </Link>
+                        <Link to={`/dashboard/programs/${prog.id}`} className="inline-flex">
+                          <Button
+                            variant="outline"
+                            className="h-8 px-4 text-xs font-semibold rounded-md border-border bg-transparent hover:bg-muted"
+                          >
+                            Manage
+                          </Button>
+                        </Link>
+                        <Link
+                          to={`/dashboard/assessments/setup?programId=${prog.id}`}
+                          className="inline-flex"
+                        >
+                          <Button
+                            variant="outline"
+                            className="h-8 px-4 text-xs font-semibold rounded-md border-border bg-transparent hover:bg-muted"
+                          >
+                            Assessments
+                          </Button>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))

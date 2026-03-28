@@ -47,7 +47,7 @@ export default function DashboardLayout() {
     );
   }
 
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
 
   // Wait for profiles row — otherwise UI falls back to student menus / wrong dashboard (especially right after login on mobile).
   if (!appUser) {

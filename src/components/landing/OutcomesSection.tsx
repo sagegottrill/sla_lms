@@ -179,7 +179,7 @@ export default function OutcomesSection() {
               <h3 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
                 <GraduationCap className="w-5 h-5 text-primary" /> Where Our Graduates Work
               </h3>
-              <p className="text-sm text-muted-foreground mt-1">Employers actively recruit from our programs</p>
+              <p className="text-sm text-muted-foreground mt-1">Alumni have gone on to roles across Africa and beyond</p>
             </div>
             <Link to="/programs">
               <Button variant="outline" className="rounded-xl text-sm shrink-0">

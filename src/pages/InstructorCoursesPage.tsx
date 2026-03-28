@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useInstructorCourses } from "@/hooks/useQueries";
+import { useInstructorCourses, useCourses } from "@/hooks/useQueries";
 import { Link, useNavigate } from "react-router-dom";
 import { BookOpen, Users, DollarSign, Star, Plus, Search, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,26 @@ export default function InstructorCoursesPage() {
   const { appUser } = useAuth();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  
-  const { data: courses = [], isLoading } = useInstructorCourses(appUser?.id ?? "");
 
-  const filtered = courses.filter((c) =>
-    (c.title ?? "").toLowerCase().includes(search.toLowerCase())
+  const isStaffCatalog =
+    appUser?.role === "admin" || appUser?.role === "program_manager";
+
+  const { data: allCourses = [], isLoading: loadingAll } = useCourses({
+    publishedOnly: false,
+  });
+  const { data: myCourses = [], isLoading: loadingMine } = useInstructorCourses(
+    isStaffCatalog ? undefined : appUser?.id
+  );
+
+  const courses = isStaffCatalog ? allCourses : myCourses;
+  const isLoading = isStaffCatalog ? loadingAll : loadingMine;
+
+  const filtered = useMemo(
+    () =>
+      courses.filter((c) =>
+        (c.title ?? "").toLowerCase().includes(search.toLowerCase())
+      ),
+    [courses, search]
   );
 
   return (
@@ -22,9 +37,15 @@ export default function InstructorCoursesPage() {
       {/* Header — Spacious and Clean */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-6">
         <div>
-          <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">My Courses</h1>
+          <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">
+            {isStaffCatalog ? "All courses" : "My courses"}
+          </h1>
           <p className="text-muted-foreground text-sm">
-            {isLoading ? "Syncing curriculum..." : `${courses.length} courses managed by you.`}
+            {isLoading
+              ? "Syncing curriculum..."
+              : isStaffCatalog
+                ? `${courses.length} course${courses.length === 1 ? "" : "s"} on the platform (published and draft).`
+                : `${courses.length} courses managed by you.`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -50,7 +71,7 @@ export default function InstructorCoursesPage() {
           <input 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
-            placeholder="Search your library..."
+            placeholder={isStaffCatalog ? "Search all courses..." : "Search your library..."}
             className="w-full pl-10 pr-4 py-2 rounded-full ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 transition-shadow" 
           />
         </div>
@@ -67,14 +88,23 @@ export default function InstructorCoursesPage() {
           <div className="text-center py-20 bg-card/20">
              <BookOpen className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
              <p className="text-foreground font-medium mb-1">No courses found</p>
-             <p className="text-sm text-muted-foreground">Start building your curriculum today.</p>
+             <p className="text-sm text-muted-foreground">
+               {isStaffCatalog
+                 ? "No courses in the database yet, or your account cannot read the courses table."
+                 : "Start building your curriculum today."}
+             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[600px]">
               <thead className="bg-muted/20 border-b border-border/40">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Course Label</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Course</th>
+                  {isStaffCatalog && (
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">
+                      Listed instructor
+                    </th>
+                  )}
                   <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Status</th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground tracking-widest uppercase">Metrics</th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground tracking-widest uppercase">Action</th>
@@ -91,6 +121,13 @@ export default function InstructorCoursesPage() {
                          </h3>
                       </div>
                     </td>
+                    {isStaffCatalog && (
+                      <td className="px-6 py-4 text-xs text-muted-foreground max-w-[180px]">
+                        <span className="line-clamp-2" title={String((course as { instructor?: string }).instructor ?? "")}>
+                          {(course as { instructor?: string }).instructor || "—"}
+                        </span>
+                      </td>
+                    )}
                     <td className="px-6 py-4">
                       <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-md capitalize ${
                         course.status === "published" 

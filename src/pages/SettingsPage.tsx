@@ -191,8 +191,11 @@ export default function SettingsPage() {
     setTheme(t);
     if (t === "Dark") {
       document.documentElement.classList.add("dark");
-    } else {
+    } else if (t === "Light") {
       document.documentElement.classList.remove("dark");
+    } else {
+      const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+      document.documentElement.classList.toggle("dark", Boolean(prefersDark));
     }
     toast.success(`Theme set to ${t}`);
   };
@@ -230,7 +233,7 @@ export default function SettingsPage() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-6 mb-8">
         <div>
           <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">Settings</h1>
-          <p className="text-muted-foreground text-sm">Manage your profile visibility, theme, and authentication preferences.</p>
+          <p className="text-muted-foreground text-sm">Profile, account security, notifications, and display preferences.</p>
         </div>
       </div>
 
@@ -355,7 +358,7 @@ export default function SettingsPage() {
                     { key: "courseUpdates" as const, label: "Course updates", desc: "New lessons, module releases" },
                     { key: "deadlineReminders" as const, label: "Deadline reminders", desc: "Upcoming quizzes and assignments" },
                     { key: "programAnnouncements" as const, label: "Program announcements", desc: "Live sessions and cohort updates" },
-                    { key: "jobAlerts" as const, label: "Job alerts", desc: "New jobs matching your skills" },
+                    { key: "jobAlerts" as const, label: "Opportunities digest", desc: "Optional updates from SLA partners (learning-first platform)" },
                     { key: "marketingEmails" as const, label: "Marketing emails", desc: "New courses and promotions" },
                   ]).map(item => (
                     <div key={item.key} className="flex items-center justify-between p-4 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0">
@@ -378,9 +381,9 @@ export default function SettingsPage() {
                 <h2 className="font-display text-lg font-bold text-foreground">Privacy Settings</h2>
                 <div className="space-y-4">
                   {([
-                    { key: "publicProfile" as const, label: "Public profile", desc: "Let employers and other learners view your profile" },
+                    { key: "publicProfile" as const, label: "Public profile", desc: "Let other learners view your profile" },
                     { key: "showProgress" as const, label: "Show course progress", desc: "Display completed courses on your profile" },
-                    { key: "jobMatching" as const, label: "Job matching", desc: "Allow employers to find you based on your skills" },
+                    { key: "jobMatching" as const, label: "Career visibility", desc: "Optional — share skills for future opportunities (off by default)" },
                   ]).map(item => (
                     <div key={item.key} className="flex items-center justify-between p-4 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0">
                       <div>
@@ -400,6 +403,7 @@ export default function SettingsPage() {
             {activeTab === "Appearance" && (
               <>
                 <h2 className="font-display text-lg font-bold text-foreground">Appearance</h2>
+                <p className="text-xs text-muted-foreground -mt-2 mb-2">Light/dark is a local display preference only.</p>
                 <div>
                   <p className="text-sm font-medium text-foreground mb-3">Theme</p>
                   <div className="grid grid-cols-3 gap-3">

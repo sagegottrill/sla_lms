@@ -319,7 +319,7 @@ export default function ProfilePage() {
                      return;
                    }
                    const { error } = await supabase.auth.resetPasswordForEmail(appUser.email, {
-                     redirectTo: `${window.location.origin}/login`,
+                     redirectTo: `${getSiteUrl()}/reset-password`,
                    });
                    if (error) {
                      toast.error(error.message);

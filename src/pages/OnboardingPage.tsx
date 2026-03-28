@@ -19,10 +19,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-/** Only student + instructor are self-selected; program_manager and admin are assigned in User management. */
+/** Self-serve signups are learners only. Instructors and staff are invited from User management. */
 const ROLES = [
   { id: "student" as const, label: "Student Learner", desc: "I want to take courses and build skills", icon: BookOpen },
-  { id: "instructor" as const, label: "Instructor", desc: "I want to teach and create courses", icon: Megaphone },
 ] as const;
 
 const COMMON_SKILLS = ["React", "Python", "Digital Marketing", "Figma", "Data Analysis", "Leadership", "SEO", "Copywriting"];
@@ -38,7 +37,7 @@ const INTEREST_CATEGORIES = [
   { id: "Health", label: "Health & Wellness", icon: Heart },
 ];
 
-const allowedRoles = ["student", "instructor"] as const;
+const allowedRoles = ["student"] as const;
 
 const roleStepSchema = z.object({
   roleChoice: z
@@ -103,9 +102,9 @@ export default function OnboardingPage() {
     defaultValues: { avatarUrl: avatarUrl ?? "" },
   });
 
-  // Clear legacy persisted roles (PM/admin) from before the funnel was limited to student + instructor.
+  // Clear legacy persisted roles from before the funnel was limited to student-only self-signup.
   useEffect(() => {
-    if (role != null && role !== "student" && role !== "instructor") {
+    if (role != null && role !== "student") {
       useOnboardingStore.getState().setFormData({ role: null });
       roleForm.reset({ roleChoice: "" });
     }
@@ -153,8 +152,8 @@ export default function OnboardingPage() {
   const interestsError = interestsForm.formState.errors.interests?.message;
   const avatarError = avatarForm.formState.errors.avatarUrl?.message;
 
-  if (!user) return <Navigate to="/login" replace />;
-  // Onboarding is only for student + instructor roles.
+  if (!user) return <Navigate to="/" replace />;
+  // Onboarding is only for self-serve learners (students).
   if (appUser && !isOnboardingRole(appUser.role)) return <Navigate to="/dashboard" replace />;
   if (!needsOnboarding) return <Navigate to="/dashboard" replace />;
 
@@ -202,7 +201,7 @@ export default function OnboardingPage() {
       await supabase
         .from("profiles")
         .update({
-          role: role,
+          role: "student",
           avatar_url: avatarUrl || null,
           onboarding_completed: true,
           skills: skills,

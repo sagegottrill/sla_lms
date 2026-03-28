@@ -242,7 +242,7 @@ export default function ResumeBuilderPage() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-10 border-b border-border/60 pb-6 pt-4">
         <div>
           <h1 className="font-display text-4xl font-bold text-foreground tracking-tight">Resume Builder</h1>
-          <p className="text-muted-foreground text-base mt-2">Create a professional, ATS-friendly resume to share with employers</p>
+          <p className="text-muted-foreground text-base mt-2">Create a professional, ATS-friendly resume for your portfolio and applications</p>
           {appUser?.id ? (
             <p className="text-xs text-muted-foreground mt-2">
               {!resumeLoaded

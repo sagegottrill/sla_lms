@@ -46,6 +46,6 @@ export function getLandingProfileMenuItems(role: UserRole | undefined) {
   return [
     { label: "Dashboard", href: "/dashboard" },
     ...links.map(({ label, href }) => ({ label, href })),
-    { label: "Help Center", href: "/about" },
+    { label: "Help & contact", href: "/for-teams" },
   ];
 }

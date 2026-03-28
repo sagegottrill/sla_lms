@@ -8,14 +8,14 @@ insert into public.profiles (id, name, email, role)
 values (
   '831f16e7-d36d-4485-b005-1e68ff568665',
   'SLA Admin',
-  'admin@sheleadsafrica.org',
+  'info@sheleadsafrica.org',
   'admin'
 )
 on conflict (id)
 do update set
   name  = 'SLA Admin',
   role  = 'admin',
-  email = 'admin@sheleadsafrica.org';
+  email = 'info@sheleadsafrica.org';
 
 -- ============================================================
 -- Verification — confirm admin is set correctly

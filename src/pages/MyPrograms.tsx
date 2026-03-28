@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { FolderOpen, BookOpen, Clock, Users, ChevronRight, Award, Calendar, Play } from "lucide-react";
+import { Link } from "react-router-dom";
+import { FolderOpen, BookOpen, Clock, Users, Award, Calendar, Play, ClipboardList } from "lucide-react";
 import { useMyPrograms } from "@/hooks/useQueries";
 
 export default function MyPrograms() {
@@ -83,17 +84,25 @@ export default function MyPrograms() {
                     ))}
                   </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-border">
                     <p className="text-xs text-muted-foreground">Managed by <span className="font-medium text-foreground">{prog.manager}</span></p>
-                    {prog.status === "active" ? (
-                      <button className="flex items-center gap-2 px-4 py-2 rounded-xl gradient-card text-primary-foreground text-xs font-semibold hover:opacity-90">
-                        <Play className="w-3 h-3" /> Continue
-                      </button>
-                    ) : (
-                      <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-primary text-xs font-semibold hover:bg-secondary/20 transition-colors">
-                        <Award className="w-3 h-3" /> Get Certificate
-                      </button>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2 justify-end">
+                      <Link
+                        to={`/dashboard/skills?programId=${prog.id}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl ring-1 ring-border text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+                      >
+                        <ClipboardList className="w-3 h-3" /> Program assessments
+                      </Link>
+                      {prog.status === "active" ? (
+                        <button type="button" className="flex items-center gap-2 px-4 py-2 rounded-xl gradient-card text-primary-foreground text-xs font-semibold hover:opacity-90">
+                          <Play className="w-3 h-3" /> Continue
+                        </button>
+                      ) : (
+                        <button type="button" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-primary text-xs font-semibold hover:bg-secondary/20 transition-colors">
+                          <Award className="w-3 h-3" /> Get Certificate
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

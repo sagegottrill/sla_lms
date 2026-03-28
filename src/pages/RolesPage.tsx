@@ -8,7 +8,7 @@ type Role = "student" | "instructor" | "program_manager" | "admin";
 const roleDefinitions: { role: Role; label: string; description: string; permissions: string[]; color: string }[] = [
   {
     role: "student", label: "Student", description: "Learners who enroll in courses and programs",
-    permissions: ["Browse course catalog", "Enroll in courses & programs", "Download certificates", "Access job board", "Submit assignments & quizzes"],
+    permissions: ["Browse course catalog", "Enroll in courses & programs", "Download certificates", "Join forums & discussions", "Submit assignments & quizzes"],
     color: "bg-accent text-accent-foreground",
   },
   {

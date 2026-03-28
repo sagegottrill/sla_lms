@@ -7,7 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { useProfiles, useUpdateProfileMutation, useDeleteProfileMutation } from "@/hooks/useQueries";
+import { useProfiles, useUpdateProfileMutation, useDeleteProfileMutation, usePrograms } from "@/hooks/useQueries";
 import { FilterChips } from "@/components/dashboard/FilterChips";
 import { 
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, 
@@ -26,6 +26,9 @@ interface Profile {
 }
 
 const ROLES: Role[] = ["student", "instructor", "program_manager", "admin"];
+/** Shown in User Management directory (learners belong under Participants). */
+const STAFF_ROLES: Role[] = ["instructor", "program_manager", "admin"];
+const INVITE_ROLES: Role[] = ["instructor", "program_manager", "admin"];
 
 // Minimalist understated colors for role badges
 const roleColors: Record<Role, string> = {
@@ -41,6 +44,8 @@ const labelCls = "block text-xs font-semibold text-muted-foreground uppercase tr
 export default function AdminUsersPage() {
   const { data: usersData, isLoading: loading, refetch } = useProfiles();
   const users = (usersData as Profile[]) || [];
+  const { data: programs = [] } = usePrograms({ activeCatalog: false });
+  const staffDirectory = users.filter((u) => u.role !== "student");
   
   const updateProfile = useUpdateProfileMutation();
   const deleteProfile = useDeleteProfileMutation();
@@ -53,17 +58,23 @@ export default function AdminUsersPage() {
   const [savingAdd, setSavingAdd] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "student" as Role });
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "instructor" as Role,
+    managedProgramId: "" as number | "",
+  });
 
   const normalizeRoleLabel = (role: Role) =>
     role.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-  const ROLE_OPTIONS = ROLES.map((role) => ({
+  const STAFF_FILTER_OPTIONS = STAFF_ROLES.map((role) => ({
     label: normalizeRoleLabel(role),
     value: role,
   }));
 
-  const filtered = users.filter((u: Profile) => {
+  const filtered = staffDirectory.filter((u: Profile) => {
     const q = search.toLowerCase();
     const matchSearch = (u.name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q);
     const matchRole = selectedRoles.length === 0 || selectedRoles.includes(u.role);
@@ -124,25 +135,44 @@ export default function AdminUsersPage() {
   };
 
   const handleAddUser = async () => {
-    if (!newUser.email || !newUser.password || !newUser.name) {
-      toast.error("Please fill in all fields");
+    if (!newUser.email?.trim() || !newUser.password || !newUser.name?.trim()) {
+      toast.error("Add name, email, and a temporary password (8+ characters).");
+      return;
+    }
+    if (newUser.password.length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
+    if (newUser.role === "program_manager" && newUser.managedProgramId === "") {
+      toast.error("Select a cohort/program for this program manager, or choose another role.");
       return;
     }
     setSavingAdd(true);
-    const { error } = await supabase.auth.admin.createUser({
-      email: newUser.email,
+    const body: Record<string, unknown> = {
+      email: newUser.email.trim(),
       password: newUser.password,
-      user_metadata: { full_name: newUser.name, role: newUser.role },
-    });
+      name: newUser.name.trim(),
+      role: newUser.role,
+    };
+    if (newUser.role === "program_manager" && newUser.managedProgramId !== "") {
+      body.managed_program_id = Number(newUser.managedProgramId);
+    }
+    const { data, error } = await supabase.functions.invoke("invite-staff", { body });
     if (error) {
-      toast.error("To create users, the Supabase Service Role key is needed. For now, have users sign up.");
+      toast.error(error.message || "Invite failed. Deploy the invite-staff Edge Function and set secrets.");
       setSavingAdd(false);
       return;
     }
-    toast.success("User created!");
+    const payload = data as { error?: string } | null;
+    if (payload?.error) {
+      toast.error(payload.error);
+      setSavingAdd(false);
+      return;
+    }
+    toast.success("Account created. They can sign in with the temporary password and should change it.");
     setSavingAdd(false);
     setShowAddModal(false);
-    setNewUser({ name: "", email: "", password: "", role: "student" });
+    setNewUser({ name: "", email: "", password: "", role: "instructor", managedProgramId: "" });
     void refetch();
   };
 
@@ -177,7 +207,9 @@ export default function AdminUsersPage() {
         <div>
           <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">User Management</h1>
           <p className="text-muted-foreground text-sm">
-            {loading ? "Syncing directory..." : `${users.length} registered members across all roles.`}
+            {loading
+              ? "Syncing directory..."
+              : `${staffDirectory.length} staff (instructors, program managers, admins). Learners are listed under Participants.`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -197,11 +229,11 @@ export default function AdminUsersPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="pb-2 md:pb-0 w-full">
           <FilterChips
-            options={ROLE_OPTIONS}
+            options={STAFF_FILTER_OPTIONS}
             selectedValues={selectedRoles}
             onToggle={handleToggleRole}
             onClear={handleClearRoles}
-            allLabel="All Roles"
+            allLabel="All staff roles"
             resetAriaLabel="Clear role filters"
           />
         </div>
@@ -325,7 +357,7 @@ export default function AdminUsersPage() {
                   <label className={labelCls}>System Role</label>
                   <div className="relative">
                     <select value={editUser.role} onChange={e => setEditUser({ ...editUser, role: e.target.value as Role })} className={inputCls + " appearance-none cursor-pointer"}>
-                      {ROLES.map(r => <option key={r} value={r}>{r.replace("_", " ").replace(/\b\w/g, c => c.toUpperCase())}</option>)}
+                      {STAFF_ROLES.map(r => <option key={r} value={r}>{r.replace("_", " ").replace(/\b\w/g, c => c.toUpperCase())}</option>)}
                     </select>
                     <ChevronRight className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
                   </div>
@@ -375,14 +407,70 @@ export default function AdminUsersPage() {
                   <input value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="jane@example.com" className={inputCls} />
                 </div>
                 <div>
+                  <label className={labelCls}>Temporary password</label>
+                  <input
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    placeholder="Min. 8 characters — user can reset after first login"
+                    autoComplete="new-password"
+                    className={inputCls}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                    Required by Supabase to create the account. They should change it after signing in.
+                  </p>
+                </div>
+                <div>
                   <label className={labelCls}>Assign Role</label>
                   <div className="relative">
-                    <select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value as Role })} className={inputCls + " appearance-none cursor-pointer"}>
-                      {ROLES.map(r => <option key={r} value={r}>{r.replace("_", " ").replace(/\b\w/g, c => c.toUpperCase())}</option>)}
+                    <select
+                      value={newUser.role}
+                      onChange={(e) =>
+                        setNewUser({
+                          ...newUser,
+                          role: e.target.value as Role,
+                          managedProgramId: e.target.value === "program_manager" ? newUser.managedProgramId : "",
+                        })
+                      }
+                      className={inputCls + " appearance-none cursor-pointer"}
+                    >
+                      {INVITE_ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {r.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                        </option>
+                      ))}
                     </select>
                     <ChevronRight className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
                   </div>
                 </div>
+                {newUser.role === "program_manager" && (
+                  <div>
+                    <label className={labelCls}>Cohort / program scope</label>
+                    <div className="relative">
+                      <select
+                        value={newUser.managedProgramId === "" ? "" : String(newUser.managedProgramId)}
+                        onChange={(e) =>
+                          setNewUser({
+                            ...newUser,
+                            managedProgramId: e.target.value ? Number(e.target.value) : "",
+                          })
+                        }
+                        className={inputCls + " appearance-none cursor-pointer"}
+                      >
+                        <option value="">Select program…</option>
+                        {programs.map((p: { id: number; title: string }) => (
+                          <option key={p.id} value={p.id}>
+                            {p.title}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1.5">
+                      Stored on the auth profile for reference; full scoped access rules can be extended in the database.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 justify-end pt-6 border-t border-border/40">

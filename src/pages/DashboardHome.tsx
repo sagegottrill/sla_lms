@@ -8,7 +8,7 @@ import AdminDashboard from "./dashboards/AdminDashboard";
 export default function DashboardHome() {
   const { appUser } = useAuth();
 
-  if (!appUser) return <Navigate to="/login" replace />;
+  if (!appUser) return <Navigate to="/" replace />;
 
   const dashboards = {
     student: <StudentDashboard />,

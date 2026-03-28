@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Search, Star, Clock, Users, BookOpen, X, SlidersHorizontal,
   Database, Megaphone, Crown, TrendingUp, Code, Briefcase, Heart, Palette,
@@ -29,7 +29,12 @@ const priceRanges = ["Any Price", "Free", 'Under ₦50,000', '₦50,000–₦100
 
 export default function CourseCatalogPage() {
   const [searchParams] = useSearchParams();
-  const [search, setSearch] = useState(searchParams.get("q") || "");
+  const qFromUrl = searchParams.get("q") || "";
+  const [search, setSearch] = useState(qFromUrl);
+
+  useEffect(() => {
+    setSearch(qFromUrl);
+  }, [qFromUrl]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
   const [sort, setSort] = useState("Most Popular");

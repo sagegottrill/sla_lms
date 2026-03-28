@@ -33,14 +33,6 @@ export function useGlobalDashboardSync() {
           queryClient.invalidateQueries({ queryKey: queryKeys.programs.base });
         }
       )
-      // Listen to Job mutations
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "jobs" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: queryKeys.jobs.base });
-        }
-      )
       // Listen to Profile/User mutations (crucial for Admin and self-updates)
       .on(
         "postgres_changes",

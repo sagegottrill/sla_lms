@@ -1,16 +1,23 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Upload, Briefcase, GraduationCap, Target } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Upload, Briefcase, GraduationCap, Target, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useProgram } from "@/hooks/useQueries";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/services/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/react-query";
 
 export default function ProgramApplicationPage() {
   const { id } = useParams();
   const { data: program, isLoading } = useProgram(Number(id));
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [submitted, setSubmitted] = useState(false);
   const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     fullName: "",
@@ -74,11 +81,32 @@ export default function ProgramApplicationPage() {
     if (validateStep()) setStep((s) => Math.min(s + 1, 3));
   };
 
-  const handleSubmit = () => {
-    if (!validateStep()) return;
+  const handleSubmit = async () => {
+    if (!validateStep() || !program) return;
+    if (user?.id) {
+      setSubmitting(true);
+      const result = await api.enrollUserInProgram(user.id, (program as { id: number }).id);
+      setSubmitting(false);
+      if (result === null) {
+        toast.error("Could not save your enrollment. Please try again.");
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.participants.all() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.base });
+      toast.success("You're enrolled in this cohort — you'll appear under Participants for admins.");
+    } else {
+      toast.success("Application details recorded. Sign in or create an account to complete enrollment.");
+    }
     setSubmitted(true);
-    toast.success("Application submitted successfully!");
   };
+
+  const startRaw = program
+    ? (program as { start_date?: string; startDate?: string }).start_date ?? (program as { startDate?: string }).startDate
+    : undefined;
+  const startDisplay =
+    startRaw && !isNaN(new Date(startRaw).getTime())
+      ? new Date(startRaw).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+      : "TBD";
 
   if (submitted) {
     return (
@@ -104,7 +132,7 @@ export default function ProgramApplicationPage() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Start date</span>
-                <span className="text-foreground">{new Date(program.startDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+                <span className="text-foreground">{startDisplay}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Program fee</span>
@@ -300,7 +328,13 @@ export default function ProgramApplicationPage() {
             {step < 3 ? (
               <Button onClick={handleNext} className="gradient-card text-primary-foreground rounded-xl hover:opacity-90">Continue</Button>
             ) : (
-              <Button onClick={handleSubmit} className="gradient-card text-primary-foreground rounded-xl hover:opacity-90 px-8">Submit Application</Button>
+              <Button
+                onClick={() => void handleSubmit()}
+                disabled={submitting}
+                className="gradient-card text-primary-foreground rounded-xl hover:opacity-90 px-8"
+              >
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Application"}
+              </Button>
             )}
           </div>
         </motion.div>

@@ -3,34 +3,24 @@ import { BookOpen, Mail, Twitter, Linkedin, Instagram, Youtube } from "lucide-re
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
-const footerLinks = {
-  "Learn": [
-    { label: "Browse Courses", href: "/courses" },
-    { label: "Browse Programs", href: "/programs" },
-    { label: "Certifications", href: "/courses" },
-    { label: "For Employers", href: "/for-teams" },
+const footerLinks: Record<string, { label: string; href: string }[]> = {
+  Learn: [
+    { label: "Browse courses", href: "/courses" },
+    { label: "Browse programs", href: "/programs" },
+    { label: "Certificates", href: "/courses" },
   ],
-  "Company": [
-    { label: "About Us", href: "/about" },
-    { label: "Partners", href: "/for-teams" },
-    { label: "Job Board", href: "/courses" },
+  Platform: [
+    { label: "Sign in", href: "/" },
+    { label: "She Leads Africa", href: "https://sheleadsafrica.org" },
   ],
-  "Support": [
-    { label: "Contact Us", href: "/about" },
-    { label: "Privacy Policy", href: "/about" },
-    { label: "Terms of Service", href: "/about" },
-  ],
-  "Community": [
-    { label: "She Leads Africa", href: "/about" },
-    { label: "Events", href: "/programs" },
-  ],
+  Support: [{ label: "Contact", href: "mailto:info@sheleadsafrica.org" }],
 };
 
 const socials = [
-  { icon: Twitter, href: "https://twitter.com/shaborneafrica", label: "Twitter" },
-  { icon: Linkedin, href: "https://linkedin.com/company/she-leads-africa", label: "LinkedIn" },
-  { icon: Instagram, href: "https://instagram.com/sheleadsafrica", label: "Instagram" },
-  { icon: Youtube, href: "https://youtube.com/@sheleadsafrica", label: "YouTube" },
+  { icon: Twitter, href: "https://twitter.com/SheLeadsAfrica", label: "Twitter" },
+  { icon: Linkedin, href: "https://www.linkedin.com/company/she-leads-africa", label: "LinkedIn" },
+  { icon: Instagram, href: "https://www.instagram.com/sheleadsafrica", label: "Instagram" },
+  { icon: Youtube, href: "https://www.youtube.com/@sheleadsafrica", label: "YouTube" },
 ];
 
 export default function Footer() {
@@ -56,7 +46,7 @@ export default function Footer() {
               <img src="/sla_logo_transparent.png" alt="She Leads Africa" className="h-10 w-auto brightness-0 invert" />
             </Link>
             <p className="text-white/60 text-sm leading-relaxed mb-6 max-w-sm">
-              Africa's leading learning platform for ambitious women. Build career-defining skills, earn certificates, and connect with opportunities.
+              Africa's leading learning platform for ambitious women. Build career-defining skills, earn certificates, and learn alongside a global community.
             </p>
             {/* Newsletter */}
             <form onSubmit={handleSubscribe} className="flex gap-2">
@@ -98,9 +88,21 @@ export default function Footer() {
               <ul className="space-y-3">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <Link to={link.href} className="text-sm text-white/60 hover:text-white transition-colors font-medium">
-                      {link.label}
-                    </Link>
+                    {/^https?:\/\//.test(link.href) || link.href.startsWith("mailto:") ? (
+                      <a
+                        href={link.href}
+                        {...(link.href.startsWith("mailto:")
+                          ? {}
+                          : { target: "_blank", rel: "noopener noreferrer" })}
+                        className="text-sm text-white/60 hover:text-white transition-colors font-medium"
+                      >
+                        {link.label}
+                      </a>
+                    ) : (
+                      <Link to={link.href} className="text-sm text-white/60 hover:text-white transition-colors font-medium">
+                        {link.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -110,19 +112,24 @@ export default function Footer() {
 
         <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="text-[11px] text-white/40 leading-relaxed font-medium">
+            <p className="text-white/55 font-semibold mb-1">Powered by She Leads Africa</p>
             <p>© 2026 She Leads Africa. All rights reserved.</p>
             <p className="mt-1">Operated by Devorent Nigeria Limited</p>
             <p>Lagos, Nigeria</p>
           </div>
           <div className="flex items-center gap-8">
             {[
-              { label: "Privacy", href: "/about" },
-              { label: "Terms", href: "/about" },
-              { label: "Cookies", href: "/about" },
+              { label: "Privacy", href: "mailto:info@sheleadsafrica.org?subject=Privacy" },
+              { label: "Terms", href: "mailto:info@sheleadsafrica.org?subject=Terms" },
+              { label: "Cookies", href: "mailto:info@sheleadsafrica.org?subject=Cookies" },
             ].map((link) => (
-              <Link key={link.label} to={link.href} className="text-xs text-white/40 hover:text-white transition-colors font-bold">
+              <a
+                key={link.label}
+                href={link.href}
+                className="text-xs text-white/40 hover:text-white transition-colors font-bold"
+              >
                 {link.label}
-              </Link>
+              </a>
             ))}
           </div>
         </div>

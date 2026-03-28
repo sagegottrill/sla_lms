@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Course, Program, Job } from "@/types";
+import type { Course, Program } from "@/types";
 
 // Feature flag: if real Supabase URL is configured, use live data
 const USE_SUPABASE = Boolean(
@@ -181,6 +181,15 @@ export const api = {
     return null;
   },
 
+  updateProgram: async (id: number, updates: Partial<Program> & Record<string, unknown>) => {
+    if (USE_SUPABASE) {
+      const { data, error } = await supabase.from("programs").update(updates).eq("id", id).select().single();
+      if (error) { console.error("Supabase updateProgram error:", error.message); throw error; }
+      return data;
+    }
+    return null;
+  },
+
   getProgramById: async (id: number): Promise<Program | undefined> => {
     if (USE_SUPABASE) {
       const { data, error } = await supabase.from("programs").select("*").eq("id", id).single();
@@ -188,43 +197,6 @@ export const api = {
       return data as Program;
     }
     return undefined;
-  },
-
-  // -------------------------
-  // JOBS
-  // -------------------------
-  getJobs: async (): Promise<Job[]> => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from("jobs").select("*").order("id");
-      if (error) { console.error("Supabase getJobs error:", error.message); return []; }
-      return (data ?? []) as Job[];
-    }
-    return [];
-  },
-
-  createJob: async (jobData: Partial<Job>) => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from("jobs").insert(jobData).select().single();
-      if (error) { console.error("Supabase createJob error:", error.message); throw error; }
-      return data;
-    }
-    return null;
-  },
-
-  updateJob: async (id: number, updates: Partial<Job>) => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from("jobs").update(updates).eq("id", id).select().single();
-      if (error) { console.error("Supabase updateJob error:", error.message); throw error; }
-      return data;
-    }
-    return null;
-  },
-
-  deleteJob: async (id: number) => {
-    if (USE_SUPABASE) {
-      const { error } = await supabase.from("jobs").delete().eq("id", id);
-      if (error) { console.error("Supabase deleteJob error:", error.message); throw error; }
-    }
   },
 
   // -------------------------
@@ -237,6 +209,32 @@ export const api = {
         .insert({ user_id: userId, course_id: courseId, enrolled_at: new Date().toISOString() })
         .select().single();
       if (error) { console.error("Supabase enrollUser error:", error.message); return null; }
+      return data;
+    }
+    return null;
+  },
+
+  /** Program-level cohort membership (no course row; `program_id` set, `course_id` null). */
+  enrollUserInProgram: async (userId: string, programId: number) => {
+    if (USE_SUPABASE) {
+      const { data, error } = await supabase
+        .from("enrollments")
+        .insert({
+          user_id: userId,
+          program_id: programId,
+          status: "active",
+          progress: 0,
+          enrolled_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+      if (error) {
+        if ((error as { code?: string }).code === "23505") {
+          return { ok: true as const, duplicate: true };
+        }
+        console.error("Supabase enrollUserInProgram error:", error.message);
+        return null;
+      }
       return data;
     }
     return null;
@@ -280,11 +278,9 @@ export const api = {
   // -------------------------
   // PROGRAM MANAGER: Participants Across Programs
   // -------------------------
-  // Derives a "participant per user per program" view by:
-  // - reading programs.courses (stored as course titles by ProgramBuilderPage)
-  // - mapping those titles to course ids
-  // - pulling enrollments for those course ids
-  // - aggregating progress per user within each program
+  // Combines:
+  // - enrollments with program_id set (direct cohort / program membership)
+  // - enrollments in courses listed on programs.courses (title-matched to catalog)
   getProgramParticipants: async () => {
     if (!USE_SUPABASE) return [];
 
@@ -298,57 +294,136 @@ export const api = {
         return [];
       }
 
-      const programsArr = (programs ?? []).filter(
-        (p: any) => Array.isArray(p?.courses) && p.courses.length > 0,
-      );
+      const programsArr = programs ?? [];
       if (programsArr.length === 0) return [];
 
+      const programById = new Map<number, any>(programsArr.map((p: any) => [p.id as number, p]));
+      const programIds = programsArr.map((p: any) => p.id).filter((id: unknown) => id != null);
+
+      const toDate = (v: any) => {
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? null : d;
+      };
+
+      const merge = (
+        map: Map<string, { progress: number; lastActive: Date | null }>,
+        key: string,
+        progress: number,
+        lastActive: Date | null,
+      ) => {
+        const prev = map.get(key);
+        if (!prev) {
+          map.set(key, { progress, lastActive });
+          return;
+        }
+        map.set(key, {
+          progress: Math.max(prev.progress, progress),
+          lastActive:
+            prev.lastActive && lastActive
+              ? prev.lastActive > lastActive
+                ? prev.lastActive
+                : lastActive
+              : (prev.lastActive ?? lastActive),
+        });
+      };
+
+      const byProgramUser = new Map<string, { progress: number; lastActive: Date | null }>();
+
+      // A) Direct program enrollments (program_id on enrollments row)
+      if (programIds.length > 0) {
+        const { data: progEnrolls, error: peErr } = await supabase
+          .from("enrollments")
+          .select("user_id, program_id, progress, last_accessed, enrolled_at")
+          .in("program_id", programIds);
+
+        if (peErr) {
+          console.error("Supabase getProgramParticipants program enrollments error:", peErr.message);
+        } else {
+          for (const e of progEnrolls ?? []) {
+            const row = e as {
+              user_id?: string;
+              program_id?: number | null;
+              progress?: number | null;
+              last_accessed?: string | null;
+              enrolled_at?: string | null;
+            };
+            if (!row.user_id || row.program_id == null) continue;
+            const key = `${row.program_id}:${row.user_id}`;
+            const progress = typeof row.progress === "number" ? row.progress : 0;
+            const lastActive = toDate(row.last_accessed ?? row.enrolled_at);
+            merge(byProgramUser, key, progress, lastActive);
+          }
+        }
+      }
+
+      // B) Course-title path (programs bundle course titles → match catalog course ids)
+      const programsWithCourses = programsArr.filter(
+        (p: any) => Array.isArray(p?.courses) && p.courses.length > 0,
+      );
       const allCourseTitles = Array.from(
-        new Set(programsArr.flatMap((p: any) => (p.courses ?? []).filter(Boolean))),
+        new Set(programsWithCourses.flatMap((p: any) => (p.courses ?? []).filter(Boolean))),
       );
-      if (allCourseTitles.length === 0) return [];
 
-      // Step 1: titles -> course ids
-      const { data: coursesData, error: coursesErr } = await supabase
-        .from("courses")
-        .select("id,title")
-        .in("title", allCourseTitles);
-
-      if (coursesErr) {
-        console.error("Supabase getProgramParticipants courses error:", coursesErr.message);
-        return [];
-      }
-
-      const coursesArr = (coursesData ?? []) as Array<{ id: number; title: string }>;
-      const courseIdToTitle = new Map<number, string>(
-        coursesArr.map((c) => [c.id, c.title]),
-      );
-      const courseIds = coursesArr.map((c) => c.id);
-      if (courseIds.length === 0) return [];
-
-      // Step 2: enrollments for those course ids
-      const { data: enrollments, error: enrollmentsErr } = await supabase
-        .from("enrollments")
-        .select("user_id, progress, last_accessed, enrolled_at, course_id")
-        .in("course_id", courseIds);
-
-      if (enrollmentsErr) {
-        console.error("Supabase getProgramParticipants enrollments error:", enrollmentsErr.message);
-        return [];
-      }
-
-      const enrollArr = (enrollments ?? []) as Array<{
+      let enrollArr: Array<{
         user_id: string;
         progress?: number | null;
         last_accessed?: string | null;
         enrolled_at?: string | null;
         course_id: number;
-      }>;
+      }> = [];
+      const courseIdToTitle = new Map<number, string>();
 
-      const userIds = Array.from(new Set(enrollArr.map((e) => e.user_id).filter(Boolean)));
-      if (userIds.length === 0) return [];
+      if (allCourseTitles.length > 0) {
+        const { data: coursesData, error: coursesErr } = await supabase
+          .from("courses")
+          .select("id,title")
+          .in("title", allCourseTitles);
 
-      // Step 3: profiles (for names/emails)
+        if (coursesErr) {
+          console.error("Supabase getProgramParticipants courses error:", coursesErr.message);
+        } else {
+          const coursesArr = (coursesData ?? []) as Array<{ id: number; title: string }>;
+          coursesArr.forEach((c) => courseIdToTitle.set(c.id, c.title));
+          const courseIds = coursesArr.map((c) => c.id);
+          if (courseIds.length > 0) {
+            const { data: enrollments, error: enrollmentsErr } = await supabase
+              .from("enrollments")
+              .select("user_id, progress, last_accessed, enrolled_at, course_id")
+              .in("course_id", courseIds);
+
+            if (enrollmentsErr) {
+              console.error("Supabase getProgramParticipants course enrollments error:", enrollmentsErr.message);
+            } else {
+              enrollArr = (enrollments ?? []) as typeof enrollArr;
+            }
+          }
+        }
+
+        for (const program of programsWithCourses) {
+          const programCourseTitles = new Set<string>((program.courses ?? []).filter(Boolean));
+
+          for (const e of enrollArr) {
+            const title = courseIdToTitle.get(e.course_id);
+            if (!title || !programCourseTitles.has(title)) continue;
+            const progress = typeof e.progress === "number" ? e.progress : 0;
+            const lastActive = toDate(e.last_accessed ?? e.enrolled_at);
+            const key = `${program.id as number}:${e.user_id}`;
+            merge(byProgramUser, key, progress, lastActive);
+          }
+        }
+      }
+
+      if (byProgramUser.size === 0) return [];
+
+      const userIds = Array.from(
+        new Set(
+          [...byProgramUser.keys()].map((k) => {
+            const i = k.indexOf(":");
+            return i === -1 ? k : k.slice(i + 1);
+          }),
+        ),
+      );
+
       const { data: profiles, error: profilesErr } = await supabase
         .from("profiles")
         .select("id, name, full_name, email, avatar_url")
@@ -360,64 +435,39 @@ export const api = {
       }
 
       const profileById = new Map<string, any>((profiles ?? []).map((p: any) => [p.id, p]));
-      const toDate = (v: any) => {
-        const d = new Date(v);
-        return isNaN(d.getTime()) ? null : d;
-      };
 
-      // Step 4: aggregate per program + user
       const participants: Array<any> = [];
-      for (const program of programsArr) {
-        const programName = program.title ?? program.cohort ?? program.name ?? "Program";
-        const programCourseTitles = new Set<string>((program.courses ?? []).filter(Boolean));
+      for (const [key, agg] of byProgramUser.entries()) {
+        const colon = key.indexOf(":");
+        const programId = Number(key.slice(0, colon));
+        const userId = key.slice(colon + 1);
+        const program = programById.get(programId);
+        if (!program) continue;
 
-        const byUser = new Map<
-          string,
-          { progress: number; lastActive: Date | null }
-        >();
+        const profile = profileById.get(userId);
+        const name = profile?.name ?? profile?.full_name ?? "";
+        const email = profile?.email ?? "";
+        const programName = program.title ?? "Program";
 
-        for (const e of enrollArr) {
-          const title = courseIdToTitle.get(e.course_id);
-          if (!title || !programCourseTitles.has(title)) continue;
+        const status =
+          agg.progress >= 100
+            ? "completed"
+            : agg.progress >= 30
+              ? "on-track"
+              : "at-risk";
 
-          const progress = typeof e.progress === "number" ? e.progress : 0;
-          const lastActive = toDate(e.last_accessed ?? e.enrolled_at);
-
-          const prev = byUser.get(e.user_id);
-          if (!prev) {
-            byUser.set(e.user_id, { progress, lastActive });
-          } else {
-            byUser.set(e.user_id, {
-              progress: Math.max(prev.progress, progress),
-              lastActive: prev.lastActive && lastActive ? (prev.lastActive > lastActive ? prev.lastActive : lastActive) : (prev.lastActive ?? lastActive),
-            });
-          }
-        }
-
-        for (const [userId, agg] of byUser.entries()) {
-          const profile = profileById.get(userId);
-          const name = profile?.name ?? profile?.full_name ?? "";
-          const email = profile?.email ?? "";
-
-          const status =
-            agg.progress >= 100
-              ? "completed"
-              : agg.progress >= 30
-                ? "on-track"
-                : "at-risk";
-
-          participants.push({
-            id: userId,
-            name,
-            email,
-            program: programName,
-            progress: agg.progress,
-            status,
-            lastActive: agg.lastActive
-              ? agg.lastActive.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-              : "",
-          });
-        }
+        participants.push({
+          id: userId,
+          name,
+          email,
+          program: programName,
+          program_id: programId,
+          progress: agg.progress,
+          status,
+          lastActive: agg.lastActive
+            ? agg.lastActive.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+            : "",
+        });
       }
 
       return participants;
@@ -801,26 +851,126 @@ export const api = {
   // -------------------------
   // SKILLS ASSESSMENTS
   // -------------------------
-  getSkillsAssessments: async () => {
+  getSkillsAssessments: async (filters?: {
+    courseId?: number;
+    programId?: number;
+    globalOnly?: boolean;
+  }) => {
     if (USE_SUPABASE) {
-      const { data: assessments, error: aErr } = await supabase.from("skills_assessments").select("*");
+      let query = supabase.from("skills_assessments").select("*").order("created_at", { ascending: false });
+      if (filters?.courseId != null) {
+        query = query.eq("course_id", filters.courseId);
+      } else if (filters?.programId != null) {
+        query = query.eq("program_id", filters.programId);
+      } else if (filters?.globalOnly) {
+        query = query.is("course_id", null).is("program_id", null);
+      }
+      const { data: assessments, error: aErr } = await query;
       if (aErr) { console.error("Supabase getSkillsAssessments error:", aErr.message); return []; }
-      
-      const { data: questions, error: qErr } = await supabase.from("skills_questions").select("*");
+
+      const ids = (assessments || []).map((a) => a.id);
+      if (ids.length === 0) return [];
+
+      const { data: questions, error: qErr } = await supabase
+        .from("skills_questions")
+        .select("*")
+        .in("assessment_id", ids);
       if (qErr) { console.error("Supabase getSkillsQuestions error:", qErr.message); return assessments || []; }
 
-      // Map questions into assessments
-      return (assessments || []).map(a => ({
+      const parseOptions = (raw: unknown): string[] => {
+        if (Array.isArray(raw)) return raw as string[];
+        if (typeof raw === "string") {
+          try {
+            const j = JSON.parse(raw);
+            return Array.isArray(j) ? j : [];
+          } catch {
+            return [];
+          }
+        }
+        return [];
+      };
+
+      return (assessments || []).map((a: Record<string, unknown>) => ({
         ...a,
-        questions: (questions || []).filter(q => q.assessment_id === a.id).map(q => ({
-          id: q.id,
-          text: q.question_text,
-          options: q.options,
-          correct: q.correct_index
-        }))
+        category: typeof a.category === "string" ? a.category : "",
+        duration: typeof a.duration === "string" ? a.duration : "15 min",
+        icon_name: typeof a.icon_name === "string" ? a.icon_name : "Target",
+        questions: (questions || [])
+          .filter((q: { assessment_id: string }) => q.assessment_id === a.id)
+          .map((q: { id: string; question_text: string; options: unknown; correct_index: number }) => ({
+            id: q.id,
+            text: q.question_text,
+            options: parseOptions(q.options),
+            correct: q.correct_index,
+          })),
       }));
     }
     return [];
+  },
+
+  createAssessment: async (payload: {
+    title: string;
+    description?: string;
+    category?: string;
+    duration?: string;
+    icon_name?: string;
+    course_id?: number | null;
+    program_id?: number | null;
+    questions: Array<{ text: string; options: string[]; correct_index: number }>;
+  }) => {
+    if (!USE_SUPABASE) return null;
+    const hasCourse = payload.course_id != null;
+    const hasProgram = payload.program_id != null;
+    if (hasCourse && hasProgram) {
+      console.error("createAssessment: cannot set both course_id and program_id");
+      return null;
+    }
+    if (!payload.questions?.length) {
+      console.error("createAssessment: need at least one question");
+      return null;
+    }
+    const row = {
+      title: payload.title.trim(),
+      description: (payload.description ?? "").trim(),
+      category: (payload.category ?? "Assessment").trim(),
+      duration: (payload.duration ?? "15 min").trim(),
+      icon_name: (payload.icon_name ?? "Target").trim(),
+      course_id: hasCourse ? payload.course_id! : null,
+      program_id: hasProgram ? payload.program_id! : null,
+      total_questions: payload.questions.length,
+    };
+    const { data: created, error: insErr } = await supabase
+      .from("skills_assessments")
+      .insert(row)
+      .select()
+      .single();
+    if (insErr || !created) {
+      console.error("Supabase createAssessment error:", insErr?.message);
+      return null;
+    }
+    const qRows = payload.questions.map((q) => ({
+      assessment_id: created.id,
+      question_text: q.text.trim(),
+      options: q.options.map((o) => String(o).trim()),
+      correct_index: Math.max(0, Math.min(q.options.length - 1, q.correct_index)),
+    }));
+    const { error: qErr } = await supabase.from("skills_questions").insert(qRows);
+    if (qErr) {
+      console.error("Supabase createAssessment questions error:", qErr.message);
+      await supabase.from("skills_assessments").delete().eq("id", created.id);
+      return null;
+    }
+    return created.id as string;
+  },
+
+  deleteAssessment: async (assessmentId: string) => {
+    if (!USE_SUPABASE) return false;
+    const { error } = await supabase.from("skills_assessments").delete().eq("id", assessmentId);
+    if (error) {
+      console.error("Supabase deleteAssessment error:", error.message);
+      return false;
+    }
+    return true;
   },
 
   getUserSkillsResults: async (userId: string) => {

@@ -11,14 +11,13 @@ interface NotifPref {
 }
 
 const defaultPrefs: NotifPref[] = [
-  { key: "course_updates", label: "Course Updates", description: "New lessons, content changes, instructor announcements", email: true, sms: false, push: true },
-  { key: "deadlines", label: "Deadline Reminders", description: "Quiz and assignment deadlines, cohort milestones", email: true, sms: true, push: true },
-  { key: "certificates", label: "Certificate Notifications", description: "When a new certificate is ready for download", email: true, sms: false, push: true },
-  { key: "job_matches", label: "Job Matches", description: "New jobs matching your skills and preferences", email: true, sms: false, push: false },
-  { key: "program_updates", label: "Program Announcements", description: "Cohort schedules, new programs, registration dates", email: true, sms: false, push: true },
-  { key: "community", label: "Community Activity", description: "Forum replies, mentions, group discussions", email: false, sms: false, push: true },
-  { key: "promotions", label: "Promotions & Offers", description: "Discounts, free courses, special events", email: true, sms: false, push: false },
-  { key: "system", label: "System Alerts", description: "Account security, policy changes, platform updates", email: true, sms: true, push: true },
+  { key: "course_updates", label: "Course updates", description: "New lessons, instructor announcements, content changes", email: true, sms: false, push: true },
+  { key: "deadlines", label: "Deadlines & milestones", description: "Assignments, quizzes, cohort milestones", email: true, sms: false, push: true },
+  { key: "certificates", label: "Certificates", description: "When a certificate is ready to download", email: true, sms: false, push: true },
+  { key: "program_updates", label: "Program announcements", description: "Cohort schedules, registration dates, program news", email: true, sms: false, push: true },
+  { key: "community", label: "Community", description: "Forums, replies, mentions", email: false, sms: false, push: true },
+  { key: "promotions", label: "Promotions & offers", description: "Occasional discounts and SLA events (optional)", email: false, sms: false, push: false },
+  { key: "system", label: "System & security", description: "Account security and important platform notices", email: true, sms: false, push: true },
 ];
 
 export default function NotificationPrefsPage() {
@@ -97,6 +96,9 @@ export default function NotificationPrefsPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      <p className="text-xs text-muted-foreground mb-4">
+        These are your personal account defaults. Program-specific broadcasts can be sent from each cohort’s dashboard (Manage program).
+      </p>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">Notification Preferences</h1>

@@ -3,40 +3,54 @@ import { GraduationCap, Users, Building2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 
-const personas = [
+type Persona = {
+  id: string;
+  title: string;
+  description: string;
+  icon: typeof GraduationCap;
+  color: string;
+  bg: string;
+  border: string;
+  href: string;
+  external?: boolean;
+  cta: string;
+};
+
+const personas: Persona[] = [
   {
     id: "learner",
     title: "For Learners",
-    description: "Build job-ready skills with expert-led courses and get certified by world-class institutions.",
+    description: "Take cohort programs and on-demand courses, track progress, and earn certificates.",
     icon: GraduationCap,
     color: "text-blue-600",
     bg: "bg-blue-50",
     border: "border-blue-100",
-    link: "/programs",
-    cta: "Start Learning"
+    href: "/programs",
+    cta: "Start learning",
   },
   {
     id: "instructor",
     title: "For Instructors",
-    description: "Launch your teaching empire. Use our AI tools to create, manage, and scale your impact across Africa.",
+    description: "Faculty accounts are created by SLA admins. If you’re collaborating with us, you’ll receive an invite.",
     icon: Users,
     color: "text-teal-600",
     bg: "bg-teal-50",
     border: "border-teal-100",
-    link: "/signup?role=instructor",
-    cta: "Start Teaching"
+    href: "mailto:info@sheleadsafrica.org?subject=Instructor%20collaboration%20enquiry",
+    external: true,
+    cta: "Contact SLA",
   },
   {
     id: "institution",
-    title: "For Institutions",
-    description: "Corporate training and school management at scale. Close skill gaps and automate compliance.",
+    title: "For Organizations",
+    description: "Cohort or partner enquiries — we’ll help you align with the right programme team.",
     icon: Building2,
     color: "text-purple-600",
     bg: "bg-purple-50",
     border: "border-purple-100",
-    link: "/for-teams",
-    cta: "Connect Teams"
-  }
+    href: "/for-teams",
+    cta: "Get in touch",
+  },
 ];
 
 export default function LmsPersonas() {
@@ -91,18 +105,37 @@ export default function LmsPersonas() {
                 {persona.description}
               </p>
 
-              <Link to={persona.link} className="inline-flex items-center gap-2 group/btn">
-                <span className={cn("text-sm font-black uppercase tracking-widest transition-colors", persona.color)}>
-                  {persona.cta}
-                </span>
-                <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all group-hover/btn:translate-x-1",
-                    persona.border,
-                    "bg-white"
-                )}>
-                  <ArrowRight className={cn("w-4 h-4", persona.color)} />
-                </div>
-              </Link>
+              {persona.external ? (
+                <a href={persona.href} className="inline-flex items-center gap-2 group/btn">
+                  <span className={cn("text-sm font-black uppercase tracking-widest transition-colors", persona.color)}>
+                    {persona.cta}
+                  </span>
+                  <div
+                    className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all group-hover/btn:translate-x-1",
+                      persona.border,
+                      "bg-white",
+                    )}
+                  >
+                    <ArrowRight className={cn("w-4 h-4", persona.color)} />
+                  </div>
+                </a>
+              ) : (
+                <Link to={persona.href} className="inline-flex items-center gap-2 group/btn">
+                  <span className={cn("text-sm font-black uppercase tracking-widest transition-colors", persona.color)}>
+                    {persona.cta}
+                  </span>
+                  <div
+                    className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all group-hover/btn:translate-x-1",
+                      persona.border,
+                      "bg-white",
+                    )}
+                  >
+                    <ArrowRight className={cn("w-4 h-4", persona.color)} />
+                  </div>
+                </Link>
+              )}
               
               {/* Decorative element */}
               <div className="absolute top-6 right-6 opacity-[0.03] scale-150 rotate-12 group-hover:rotate-0 transition-transform duration-700 pointer-events-none">

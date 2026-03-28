@@ -4,6 +4,7 @@ import { BookOpen, ArrowLeft, Mail, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { getSiteUrl } from "@/lib/siteUrl";
 import { toast } from "sonner";
 
 export default function ForgotPasswordPage() {
@@ -16,7 +17,7 @@ export default function ForgotPasswordPage() {
         setLoading(true);
         try {
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/login`,
+                redirectTo: `${getSiteUrl()}/reset-password`,
             });
 
             if (error) {
@@ -80,8 +81,8 @@ export default function ForgotPasswordPage() {
                 )}
 
                 <div className="mt-8 text-center">
-                    <Link to="/login" className="text-sm text-primary hover:underline font-medium inline-flex items-center gap-1">
-                        <ArrowLeft className="w-3.5 h-3.5" /> Back to sign in
+                    <Link to="/" className="text-sm text-primary hover:underline font-medium inline-flex items-center gap-1">
+                        <ArrowLeft className="w-3.5 h-3.5" /> Back to home
                     </Link>
                 </div>
             </motion.div>

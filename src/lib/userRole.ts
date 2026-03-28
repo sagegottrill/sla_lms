@@ -3,8 +3,8 @@ export type UserRole = "student" | "instructor" | "program_manager" | "admin";
 /** Staff never use the learner onboarding wizard (students only). */
 const STAFF_ROLES: readonly UserRole[] = ["admin", "program_manager", "instructor"];
 
-/** Roles that are allowed to use the onboarding wizard. */
-const ONBOARDING_ROLES: readonly UserRole[] = ["student", "instructor"];
+/** Roles that are allowed to use the onboarding wizard (self-serve learners only). */
+const ONBOARDING_ROLES: readonly UserRole[] = ["student"];
 
 export function normalizeUserRole(raw: unknown): UserRole {
   const s = typeof raw === "string" ? raw.toLowerCase().trim() : "";
@@ -32,7 +32,7 @@ export function resolveEffectiveRole(profileRow: Record<string, unknown>): UserR
 
 type OnboardingSlice = { role: UserRole; onboarding?: { completed?: boolean } };
 
-/** Onboarding applies to `student` + `instructor` roles until they complete it. */
+/** Onboarding applies to new `student` accounts until they complete it. */
 export function learnerNeedsOnboarding(appUser: OnboardingSlice | null | undefined): boolean {
   if (!appUser) return false;
   if (!isOnboardingRole(appUser.role)) return false;

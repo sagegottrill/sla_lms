@@ -8,7 +8,7 @@ import { QueryClient } from '@tanstack/react-query';
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Data like courses and jobs doesn't change every second.
+      // Data like courses and programs doesn't change every second.
       // 5 minutes stale time prevents excessive refething on tab focus
       // while guaranteeing users see relatively fresh data.
       staleTime: 1000 * 60 * 5, 
@@ -49,12 +49,6 @@ export const queryKeys = {
     base: ['programs'] as const,
     all: (role: string = 'public') => ['programs', role, 'all'] as const,
     detail: (role: string = 'public', id: number) => ['programs', role, 'detail', { id }] as const,
-  },
-
-  // Jobs
-  jobs: {
-    base: ['jobs'] as const,
-    all: (role: string = 'public') => ['jobs', role, 'all'] as const,
   },
 
   // Enrollments

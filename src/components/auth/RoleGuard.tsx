@@ -14,7 +14,7 @@ type RoleGuardProps = {
  */
 export function RoleGuard({ allow, children, redirectTo = "/dashboard" }: RoleGuardProps) {
   const { appUser } = useAuth();
-  if (!appUser) return <Navigate to="/login" replace />;
+  if (!appUser) return <Navigate to="/" replace />;
   if (!allow.includes(appUser.role)) return <Navigate to={redirectTo} replace />;
   return <>{children}</>;
 }

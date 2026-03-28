@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, Link } from "react-router-dom";
-import { Star, Clock, Users, Play, CheckCircle, ChevronDown, Globe, BookOpen, ArrowLeft, Loader2, Video, Check, Maximize, Minimize } from "lucide-react";
+import { Star, Clock, Users, Play, CheckCircle, ChevronDown, Globe, BookOpen, ArrowLeft, Loader2, Video, Check, Maximize, Minimize, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCourse, useUserEnrollments, useEnrollUserMutation } from "@/hooks/useQueries";
@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { toVideoEmbedUrl } from "@/lib/videoEmbed";
+import { api } from "@/services/api";
 
 export default function CourseDetailPage() {
   const { id } = useParams();
@@ -26,6 +27,18 @@ export default function CourseDetailPage() {
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [navDimmed, setNavDimmed] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
+  const [courseAssessments, setCourseAssessments] = useState<Array<{ id: string; title?: string }>>([]);
+
+  useEffect(() => {
+    if (!Number.isFinite(courseIdNum)) return;
+    let cancelled = false;
+    void api.getSkillsAssessments({ courseId: courseIdNum }).then((rows) => {
+      if (!cancelled) setCourseAssessments(rows as Array<{ id: string; title?: string }>);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseIdNum]);
 
   // Lights-Out mode: dim navbar when video is active
   useEffect(() => {
@@ -382,6 +395,41 @@ export default function CourseDetailPage() {
                     {item}
                   </div>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {courseAssessments.length > 0 && (
+            <section className="bg-card p-6 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <ClipboardList className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="font-display text-lg font-bold text-foreground mb-1">Course assessments</h2>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Knowledge checks for this course ({courseAssessments.length}{" "}
+                    {courseAssessments.length === 1 ? "quiz" : "quizzes"}).
+                  </p>
+                  <ul className="space-y-1 mb-4">
+                    {courseAssessments.map((a) => (
+                      <li key={a.id} className="text-sm text-foreground">
+                        {a.title ?? "Assessment"}
+                      </li>
+                    ))}
+                  </ul>
+                  {appUser ? (
+                    <Link to={`/dashboard/skills?courseId=${course.id}`}>
+                      <Button className="rounded-xl gradient-card text-primary-foreground">Take assessments</Button>
+                    </Link>
+                  ) : (
+                    <Link to="/">
+                      <Button variant="outline" className="rounded-xl">
+                        Log in to take assessments
+                      </Button>
+                    </Link>
+                  )}
+                </div>
               </div>
             </section>
           )}

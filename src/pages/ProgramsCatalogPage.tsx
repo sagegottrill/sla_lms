@@ -24,6 +24,7 @@ interface Program {
   course_count: number;
   status: string;
   cohort?: string;
+  tag?: string;
   featured?: boolean;
   partners?: string[];
 }
@@ -76,7 +77,11 @@ function ProgramCard({ prog }: { prog: Program }) {
           </div>
         )}
         <div className="absolute bottom-0 left-0 right-0 p-4">
-          {prog.cohort && <span className="text-[10px] font-semibold text-primary-foreground/70 uppercase tracking-wider">{prog.cohort}</span>}
+          {(prog.tag || prog.cohort) && (
+            <span className="text-[10px] font-semibold text-primary-foreground/70 uppercase tracking-wider">
+              {(prog as { tag?: string }).tag ?? prog.cohort}
+            </span>
+          )}
           <h3 className="font-display text-base font-bold text-primary-foreground line-clamp-1">{prog.title}</h3>
         </div>
       </div>

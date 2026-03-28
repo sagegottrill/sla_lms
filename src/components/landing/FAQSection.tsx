@@ -6,15 +6,15 @@ import { cn } from "@/lib/utils";
 const faqs = [
   {
     q: "How are She Leads Africa programs different from typical online courses?",
-    a: "SLA programs are cohort-based, meaning you learn alongside a group of ambitious women on the same schedule. Each program includes live sessions with industry practitioners, real-world case studies drawn from African markets, and direct access to our alumni and employer network — not just pre-recorded videos."
+    a: "SLA programs are cohort-based, meaning you learn alongside a group of ambitious women on the same schedule. Each program includes live sessions with industry practitioners, real-world case studies drawn from African markets, and access to our alumni community — not just pre-recorded videos."
   },
   {
     q: "Can I try the platform before committing to a paid program?",
     a: "Yes! We offer free introductory courses and micro-certifications so you can explore career tracks like Data Analytics, Leadership, and Entrepreneurship before enrolling in a full cohort program."
   },
   {
-    q: "Are SLA certificates recognized by employers?",
-    a: "Absolutely. She Leads Africa has built partnerships with leading organizations across Africa and globally. Our curriculum is designed to meet current market demands, and our graduates have gone on to work at top companies across the continent and beyond."
+    q: "Are SLA certificates recognized?",
+    a: "Our certificates reflect completed learning on this platform. Graduates use them in portfolios and professional profiles; curriculum is aligned with practical skills for African markets."
   },
   {
     q: "I'm not in Nigeria — can I still participate?",

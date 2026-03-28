@@ -3,12 +3,12 @@ import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, LayoutDashboard, Users, Settings, LogOut,
-  GraduationCap, BarChart3, Briefcase, FolderOpen,
+  GraduationCap, BarChart3, FolderOpen,
   Bell, Award, Calendar, ChevronLeft, ChevronRight,
   PlusCircle, FileText, DollarSign, UserCheck,
-  MessageSquare, Video, TrendingUp, Folder, Building2,
-  Megaphone, ChevronDown, Home, Target, Smartphone,
-  ClipboardList, BellRing,
+  MessageSquare, TrendingUp, Folder, Building2,
+  Megaphone, ChevronDown, Home, Target,
+  ClipboardList, ListChecks,
 } from "lucide-react";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -36,13 +36,11 @@ const navByRole: Record<UserRole, NavGroup[]> = {
       ],
     },
     {
-      group: "Career",
+      group: "Profile & tools",
       items: [
         { label: "Portfolio", icon: Folder, href: "/dashboard/portfolio" },
         { label: "Resume Builder", icon: FileText, href: "/dashboard/resume" },
         { label: "Skills Assessment", icon: Target, href: "/dashboard/skills" },
-        { label: "Job Board", icon: Briefcase, href: "/dashboard/jobs" },
-        { label: "Job Alerts", icon: BellRing, href: "/dashboard/job-alerts" },
         { label: "Income Tracker", icon: TrendingUp, href: "/dashboard/income" },
         { label: "Forums", icon: MessageSquare, href: "/dashboard/forums" },
       ],
@@ -68,6 +66,7 @@ const navByRole: Record<UserRole, NavGroup[]> = {
       items: [
         { label: "My Courses", icon: BookOpen, href: "/dashboard/courses" },
         { label: "Create Course", icon: PlusCircle, href: "/dashboard/courses/new" },
+        { label: "Assessments", icon: ListChecks, href: "/dashboard/assessments/setup" },
       ],
     },
     {
@@ -105,6 +104,7 @@ const navByRole: Record<UserRole, NavGroup[]> = {
         { label: "Programs", icon: FolderOpen, href: "/dashboard/programs" },
         { label: "Create Program", icon: PlusCircle, href: "/dashboard/programs/new" },
         { label: "Participants", icon: Users, href: "/dashboard/participants" },
+        { label: "Assessments", icon: ListChecks, href: "/dashboard/assessments/setup" },
       ],
     },
     {
@@ -146,16 +146,15 @@ const navByRole: Record<UserRole, NavGroup[]> = {
         { label: "Programs", icon: FolderOpen, href: "/dashboard/programs" },
         { label: "Participants", icon: UserCheck, href: "/dashboard/participants" },
         { label: "User Roles", icon: UserCheck, href: "/dashboard/roles" },
+        { label: "Assessments", icon: ListChecks, href: "/dashboard/assessments/setup" },
       ],
     },
     {
       group: "Engage",
       items: [
         { label: "Forums", icon: MessageSquare, href: "/dashboard/forums" },
-        { label: "Employer Portal", icon: Briefcase, href: "/dashboard/employers" },
         { label: "Placements", icon: Target, href: "/dashboard/placements" },
         { label: "Interviews", icon: Building2, href: "/dashboard/interviews" },
-        { label: "Job Board", icon: GraduationCap, href: "/dashboard/jobs" },
       ],
     },
     {

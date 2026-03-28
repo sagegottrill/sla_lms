@@ -1,28 +1,36 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { FolderOpen, Plus, BookOpen, Calendar, Users, ArrowLeft, ChevronRight, Trash2, GripVertical, Upload, Image, X, Loader2, CheckCircle2 } from "lucide-react";
+import { FolderOpen, Plus, BookOpen, Calendar, Users, ArrowLeft, ChevronRight, Trash2, GripVertical, Upload, Image, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { useCourses, useCreateProgramMutation } from "@/hooks/useQueries";
+import { useCourses, useCreateProgramMutation, useUpdateProgramMutation, useProgram } from "@/hooks/useQueries";
 
 const CATEGORIES = ["Data Science", "Technology", "Business", "Leadership", "Finance", "Marketing", "Health", "Design"];
-const inputCls = "w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground";
-const labelCls = "block text-sm font-medium text-foreground mb-1.5";
 
 type Partner = { id: number; name: string; logoUrl: string };
 type Course = { id: number; title: string; category: string; duration: string };
 
 export default function ProgramBuilderPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editIdRaw = searchParams.get("edit");
+  const editId = editIdRaw ? Number(editIdRaw) : 0;
+  const isEdit = Number.isFinite(editId) && editId > 0;
+
   const createProgram = useCreateProgramMutation();
+  const updateProgram = useUpdateProgramMutation();
+  const { data: programData, isLoading: loadingProgram } = useProgram(isEdit ? editId : 0);
   const { data: allCoursesData, isLoading: coursesLoading } = useCourses({ publishedOnly: false });
-  
+
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [saving, setSaving] = useState(false);
-  const [published, setPublished] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
-  // Step 1 fields
+  useEffect(() => {
+    setHydrated(false);
+  }, [editId]);
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
@@ -31,21 +39,54 @@ export default function ProgramBuilderPage() {
   const [deadline, setDeadline] = useState("");
   const [capacity, setCapacity] = useState("");
   const [price, setPrice] = useState("");
+  const [originalPrice, setOriginalPrice] = useState("");
+  const [cohort, setCohort] = useState("");
   const [image, setImage] = useState("");
   const [highlights, setHighlights] = useState<string[]>(["Live mentoring sessions", "Certificate from SLA"]);
 
-  // Step 2 — Partners
   const [partners, setPartners] = useState<Partner[]>([]);
   const [newPartnerName, setNewPartnerName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nextPartnerId = useRef(1);
 
-  // Step 3 — Courses
-  const allCourses = (allCoursesData as unknown as Array<Course & {status?: string}>) || [];
-  const availableCourses = allCourses.filter(c => c.status === "published");
+  const allCourses = (allCoursesData as unknown as Array<Course & { status?: string }>) || [];
+  const availableCourses = useMemo(
+    () => allCourses.filter((c) => c.status !== "archived"),
+    [allCourses],
+  );
   const [selectedCourses, setSelectedCourses] = useState<number[]>([]);
 
-  const toggleCourse = (id: number) => setSelectedCourses(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
+  useEffect(() => {
+    if (!isEdit || !programData || hydrated) return;
+    const p = programData as Record<string, unknown>;
+    setTitle(String(p.title ?? ""));
+    setDescription(String(p.description ?? ""));
+    setCategory(typeof p.category === "string" && p.category ? p.category : CATEGORIES[0]);
+    setDuration(String(p.duration ?? ""));
+    setStartDate(String(p.start_date ?? "").slice(0, 10));
+    setDeadline(String(p.deadline ?? "").slice(0, 10));
+    setCapacity(String(p.capacity ?? ""));
+    setPrice(p.price != null ? String(p.price) : "");
+    setOriginalPrice(p.original_price != null ? String(p.original_price) : "");
+    setCohort(String(p.tag ?? (p as { cohort?: string }).cohort ?? ""));
+    setImage(String(p.image ?? ""));
+    const hl = p.highlights;
+    if (Array.isArray(hl) && hl.length > 0) setHighlights(hl.map(String));
+    setHydrated(true);
+  }, [isEdit, programData, hydrated]);
+
+  useEffect(() => {
+    if (!isEdit || !programData || !hydrated || allCourses.length === 0) return;
+    const p = programData as { courses?: string[] };
+    const titles = Array.isArray(p.courses) ? p.courses : [];
+    const ids = titles
+      .map((t) => allCourses.find((c) => c.title === t)?.id)
+      .filter((id): id is number => typeof id === "number");
+    setSelectedCourses(ids);
+  }, [isEdit, programData, hydrated, allCourses]);
+
+  const toggleCourse = (id: number) =>
+    setSelectedCourses((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
 
   const addPartner = () => {
     if (!newPartnerName.trim()) return;
@@ -54,28 +95,22 @@ export default function ProgramBuilderPage() {
       name: newPartnerName.trim(),
       logoUrl: "",
     };
-    setPartners(prev => [...prev, newPartner]);
+    setPartners((prev) => [...prev, newPartner]);
     setNewPartnerName("");
   };
 
   const removePartner = (id: number) => {
-    setPartners(prev => prev.filter(p => p.id !== id));
+    setPartners((prev) => prev.filter((p) => p.id !== id));
   };
 
   const handleLogoUpload = (partnerId: number, file: File) => {
     const url = URL.createObjectURL(file);
-    setPartners(prev => prev.map(p => p.id === partnerId ? { ...p, logoUrl: url } : p));
+    setPartners((prev) => prev.map((p) => (p.id === partnerId ? { ...p, logoUrl: url } : p)));
   };
 
-
-  const handleSave = async (status: "upcoming" | "active") => {
-    if (!title.trim()) { toast.error("Program title is required."); setStep(1); return; }
-    setSaving(true);
-    const selectedCourseTitles = availableCourses
-      .filter(c => selectedCourses.includes(c.id))
-      .map(c => c.title);
-      
-    createProgram.mutate({
+  const buildPayload = (status: "upcoming" | "active") => {
+    const selectedCourseTitles = availableCourses.filter((c) => selectedCourses.includes(c.id)).map((c) => c.title);
+    return {
       title: title.trim(),
       description: description.trim(),
       category,
@@ -84,44 +119,106 @@ export default function ProgramBuilderPage() {
       deadline: deadline || null,
       capacity: Number(capacity) || 100,
       price: Number(price) || 0,
+      original_price: originalPrice.trim() ? Number(originalPrice) : null,
       image: image.trim() || null,
       highlights: highlights.filter(Boolean),
       courses: selectedCourseTitles,
       course_count: selectedCourses.length,
       status,
-    }, {
+      tag: cohort.trim() || null,
+    };
+  };
+
+  const handleSave = async (status: "upcoming" | "active") => {
+    if (!title.trim()) {
+      toast.error("Program title is required.");
+      setStep(1);
+      return;
+    }
+    setSaving(true);
+    const payload = buildPayload(status);
+
+    if (isEdit) {
+      updateProgram.mutate(
+        { id: editId, updates: payload },
+        {
+          onSuccess: () => {
+            toast.success(status === "active" ? "Program updated & live." : "Draft saved.");
+            if (status === "active") setTimeout(() => navigate(`/dashboard/programs/${editId}`), 1200);
+            else setTimeout(() => navigate("/dashboard/programs"), 800);
+          },
+          onError: (err: unknown) =>
+            toast.error(`Failed to save: ${err instanceof Error ? err.message : "Unknown error"}`),
+          onSettled: () => setSaving(false),
+        },
+      );
+      return;
+    }
+
+    createProgram.mutate(payload, {
       onSuccess: () => {
         toast.success(status === "active" ? "Program launched!" : "Draft saved.");
-        setPublished(status === "active");
         if (status === "active") setTimeout(() => navigate("/dashboard/programs"), 1500);
       },
-      onError: (err: any) => toast.error(`Failed to save: ${err.message}`),
-      onSettled: () => setSaving(false)
+      onError: (err: unknown) => toast.error(`Failed to save: ${err instanceof Error ? err.message : "Unknown error"}`),
+      onSettled: () => setSaving(false),
     });
   };
 
   const stepLabels = ["Program Details", "Partners & Sponsors", "Select Courses", "Preview & Launch"];
 
+  if (isEdit && loadingProgram) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading program…</p>
+      </div>
+    );
+  }
+
+  if (isEdit && !loadingProgram && !programData) {
+    return (
+      <div className="max-w-lg mx-auto py-16 text-center">
+        <p className="text-foreground font-medium">Program not found.</p>
+        <Link to="/dashboard/programs" className="text-primary text-sm mt-4 inline-block">
+          Back to programs
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <Link to="/dashboard/programs" className="w-9 h-9 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 flex items-center justify-center text-muted-foreground hover:bg-muted">
+        <Link
+          to="/dashboard/programs"
+          className="w-9 h-9 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 flex items-center justify-center text-muted-foreground hover:bg-muted"
+        >
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Create Program</h1>
-          <p className="text-muted-foreground text-sm">Bundle courses into a structured learning track</p>
+          <h1 className="font-display text-2xl font-bold text-foreground">{isEdit ? "Edit program" : "Create Program"}</h1>
+          <p className="text-muted-foreground text-sm">Bundle courses into a structured learning track · set pricing on step 1</p>
         </div>
       </div>
 
-      {/* Steps */}
       <div className="flex items-center gap-2 flex-wrap">
         {stepLabels.map((s, i) => (
           <div key={s} className="flex items-center gap-2">
-            <button onClick={() => setStep((i + 1) as 1 | 2 | 3 | 4)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all ${step === i + 1 ? "gradient-card text-primary-foreground shadow-brand-sm" : step > i + 1 ? "bg-accent text-primary" : "bg-muted text-muted-foreground"}`}>
-              <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-current">{i + 1}</span>
+            <button
+              type="button"
+              onClick={() => setStep((i + 1) as 1 | 2 | 3 | 4)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                step === i + 1
+                  ? "gradient-card text-primary-foreground shadow-brand-sm"
+                  : step > i + 1
+                    ? "bg-accent text-primary"
+                    : "bg-muted text-muted-foreground"
+              }`}
+            >
+              <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-current">
+                {i + 1}
+              </span>
               <span className="hidden sm:inline">{s}</span>
             </button>
             {i < 3 && <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
@@ -130,55 +227,146 @@ export default function ProgramBuilderPage() {
       </div>
 
       <div className="bg-card rounded-2xl shadow-sm border-0 p-6">
-        {/* Step 1: Program Details */}
         {step === 1 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
             <h2 className="font-display text-lg font-bold text-foreground">Program Details</h2>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Program Title</label>
-              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Women in Data Science 2026"
-                className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Women in Data Science 2026"
+                className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Description</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Describe the program goals and outcomes..."
-                className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="Describe the program goals and outcomes..."
+                className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+              />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Enrollment Deadline</label>
-                <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Category</label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm"
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Max Participants</label>
-                <input type="number" value={capacity} onChange={e => setCapacity(e.target.value)} placeholder="e.g. 200"
-                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Duration label</label>
+                <input
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                  placeholder="e.g. 12 weeks"
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Start date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Enrollment deadline</label>
+                <input
+                  type="date"
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Price (NGN)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="0 = show as free on catalog"
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Original price (optional)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={originalPrice}
+                  onChange={(e) => setOriginalPrice(e.target.value)}
+                  placeholder="Strike-through on landing"
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Max participants</label>
+                <input
+                  type="number"
+                  value={capacity}
+                  onChange={(e) => setCapacity(e.target.value)}
+                  placeholder="e.g. 200"
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Hero image URL</label>
+                <input
+                  value={image}
+                  onChange={(e) => setImage(e.target.value)}
+                  placeholder="https://…"
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Cohort Name</label>
-              <input placeholder="e.g. Cohort 3 · Spring 2026"
-                className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Cohort label</label>
+              <input
+                value={cohort}
+                onChange={(e) => setCohort(e.target.value)}
+                placeholder="e.g. Cohort 3 · Spring 2026"
+                className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Shown on program cards (stored as tag).</p>
             </div>
-            <Button onClick={() => setStep(2)} className="gradient-card text-primary-foreground rounded-xl hover:opacity-90">Continue →</Button>
+            <Button onClick={() => setStep(2)} className="gradient-card text-primary-foreground rounded-xl hover:opacity-90">
+              Continue →
+            </Button>
           </motion.div>
         )}
 
-        {/* Step 2: Partners & Sponsors */}
         {step === 2 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
             <div>
               <h2 className="font-display text-lg font-bold text-foreground">Partners & Sponsors</h2>
-              <p className="text-sm text-muted-foreground">Add partner or sponsor logos to be displayed on the program's public listing. This is optional.</p>
+              <p className="text-sm text-muted-foreground">Optional — add partner or sponsor logos for the public listing.</p>
             </div>
 
-            {/* Add Partner */}
             <div className="flex gap-2">
               <input
                 value={newPartnerName}
-                onChange={e => setNewPartnerName(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && addPartner()}
+                onChange={(e) => setNewPartnerName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addPartner()}
                 placeholder="Enter partner/sponsor name..."
                 className="flex-1 px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
@@ -187,13 +375,14 @@ export default function ProgramBuilderPage() {
               </Button>
             </div>
 
-            {/* Partners List */}
             {partners.length > 0 ? (
               <div className="space-y-3">
                 <p className="text-sm font-semibold text-foreground">Added Partners ({partners.length})</p>
-                {partners.map(partner => (
-                  <div key={partner.id} className="flex items-center gap-3 p-3 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-muted/30">
-                    {/* Logo preview or upload */}
+                {partners.map((partner) => (
+                  <div
+                    key={partner.id}
+                    className="flex items-center gap-3 p-3 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-muted/30"
+                  >
                     <div className="relative group">
                       {partner.logoUrl ? (
                         <div className="w-14 h-14 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 overflow-hidden bg-white flex items-center justify-center">
@@ -201,6 +390,7 @@ export default function ProgramBuilderPage() {
                         </div>
                       ) : (
                         <button
+                          type="button"
                           onClick={() => {
                             fileInputRef.current?.setAttribute("data-partner-id", String(partner.id));
                             fileInputRef.current?.click();
@@ -213,6 +403,7 @@ export default function ProgramBuilderPage() {
                       )}
                       {partner.logoUrl && (
                         <button
+                          type="button"
                           onClick={() => {
                             fileInputRef.current?.setAttribute("data-partner-id", String(partner.id));
                             fileInputRef.current?.click();
@@ -224,7 +415,6 @@ export default function ProgramBuilderPage() {
                       )}
                     </div>
 
-                    {/* Name */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">{partner.name}</p>
                       <p className="text-[10px] text-muted-foreground">
@@ -232,8 +422,11 @@ export default function ProgramBuilderPage() {
                       </p>
                     </div>
 
-                    {/* Remove */}
-                    <button onClick={() => removePartner(partner.id)} className="w-7 h-7 rounded-lg hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => removePartner(partner.id)}
+                      className="w-7 h-7 rounded-lg hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                    >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -243,17 +436,15 @@ export default function ProgramBuilderPage() {
               <div className="text-center py-8 border-2 border-dashed border-border rounded-2xl">
                 <Image className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
                 <p className="text-sm text-muted-foreground">No partners added yet</p>
-                <p className="text-xs text-muted-foreground/70">Add partner names above and upload their logos</p>
               </div>
             )}
 
-            {/* Hidden file input */}
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={e => {
+              onChange={(e) => {
                 const file = e.target.files?.[0];
                 const partnerId = Number(fileInputRef.current?.getAttribute("data-partner-id"));
                 if (file && partnerId) handleLogoUpload(partnerId, file);
@@ -262,7 +453,9 @@ export default function ProgramBuilderPage() {
             />
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep(1)} className="rounded-xl">← Back</Button>
+              <Button variant="outline" onClick={() => setStep(1)} className="rounded-xl">
+                ← Back
+              </Button>
               <Button onClick={() => setStep(3)} className="gradient-card text-primary-foreground rounded-xl hover:opacity-90">
                 {partners.length === 0 ? "Skip →" : "Continue →"}
               </Button>
@@ -270,79 +463,113 @@ export default function ProgramBuilderPage() {
           </motion.div>
         )}
 
-        {/* Step 3: Select Courses */}
         {step === 3 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
             <div>
               <h2 className="font-display text-lg font-bold text-foreground">Select Courses</h2>
-              <p className="text-sm text-muted-foreground">Choose and order the courses included in this program</p>
+              <p className="text-sm text-muted-foreground">
+                Includes published and draft courses (not archived). {coursesLoading ? "Loading catalog…" : `${availableCourses.length} available.`}
+              </p>
             </div>
 
-            {/* Selected */}
             <div>
               <p className="text-sm font-semibold text-foreground mb-2">Selected ({selectedCourses.length})</p>
               <div className="space-y-2">
-                {availableCourses.filter(c => selectedCourses.includes(c.id)).map((course, i) => (
-                  <div key={course.id} className="flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-accent">
-                    <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab shrink-0" />
-                    <span className="w-5 h-5 rounded-full gradient-card flex items-center justify-center text-[10px] font-bold text-primary-foreground shrink-0">{i + 1}</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-foreground">{course.title}</p>
-                      <p className="text-xs text-muted-foreground">{course.category} · {course.duration}</p>
+                {availableCourses
+                  .filter((c) => selectedCourses.includes(c.id))
+                  .map((course, i) => (
+                    <div key={course.id} className="flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-accent">
+                      <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab shrink-0" />
+                      <span className="w-5 h-5 rounded-full gradient-card flex items-center justify-center text-[10px] font-bold text-primary-foreground shrink-0">
+                        {i + 1}
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-foreground">{course.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {course.category} · {course.duration} ·{" "}
+                          <span className="capitalize">{(course as { status?: string }).status ?? "—"}</span>
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleCourse(course.id)}
+                        className="w-7 h-7 rounded-lg hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    <button onClick={() => toggleCourse(course.id)} className="w-7 h-7 rounded-lg hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
 
-            {/* Available */}
             <div>
-              <p className="text-sm font-semibold text-foreground mb-2">Available Courses</p>
-              <div className="space-y-2">
-                {availableCourses.filter(c => !selectedCourses.includes(c.id)).map(course => (
-                  <div key={course.id} className="flex items-center gap-3 p-3 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 hover:border-primary/30 transition-colors">
-                    <BookOpen className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-foreground">{course.title}</p>
-                      <p className="text-xs text-muted-foreground">{course.category} · {course.duration}</p>
+              <p className="text-sm font-semibold text-foreground mb-2">Available courses</p>
+              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                {availableCourses
+                  .filter((c) => !selectedCourses.includes(c.id))
+                  .map((course) => (
+                    <div
+                      key={course.id}
+                      className="flex items-center gap-3 p-3 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 hover:border-primary/30 transition-colors"
+                    >
+                      <BookOpen className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-foreground">{course.title}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{(course as { status?: string }).status ?? "—"}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleCourse(course.id)}
+                        className="text-xs px-3 py-1.5 rounded-lg gradient-card text-primary-foreground hover:opacity-90 font-medium"
+                      >
+                        + Add
+                      </button>
                     </div>
-                    <button onClick={() => toggleCourse(course.id)} className="text-xs px-3 py-1.5 rounded-lg gradient-card text-primary-foreground hover:opacity-90 font-medium">
-                      + Add
-                    </button>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep(2)} className="rounded-xl">← Back</Button>
-              <Button onClick={() => setStep(4)} className="gradient-card text-primary-foreground rounded-xl hover:opacity-90">Preview →</Button>
+              <Button variant="outline" onClick={() => setStep(2)} className="rounded-xl">
+                ← Back
+              </Button>
+              <Button onClick={() => setStep(4)} className="gradient-card text-primary-foreground rounded-xl hover:opacity-90">
+                Preview →
+              </Button>
             </div>
           </motion.div>
         )}
 
-        {/* Step 4: Preview & Launch */}
         {step === 4 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
             <h2 className="font-display text-lg font-bold text-foreground">Preview & Launch</h2>
             <div className="bg-muted/50 rounded-xl p-6 space-y-3">
               <h3 className="font-display font-bold text-foreground text-lg">{title || "Untitled Program"}</h3>
+              {cohort && <p className="text-xs font-semibold text-primary uppercase tracking-wider">{cohort}</p>}
               <p className="text-sm text-muted-foreground">{description || "No description."}</p>
+              <p className="text-sm font-semibold text-foreground">
+                {Number(price) > 0 ? `₦${Number(price).toLocaleString()}${originalPrice && Number(originalPrice) > Number(price) ? ` · was ₦${Number(originalPrice).toLocaleString()}` : ""}` : "Free"}
+              </p>
               <div className="flex flex-wrap gap-2 text-xs">
-                <span className="bg-accent text-accent-foreground px-2 py-1 rounded-full font-medium flex items-center gap-1"><BookOpen className="w-3 h-3" />{selectedCourses.length} courses</span>
-                <span className="bg-muted px-2 py-1 rounded-full flex items-center gap-1"><Calendar className="w-3 h-3" />Deadline: {deadline || "Not set"}</span>
-                <span className="bg-accent text-primary px-2 py-1 rounded-full font-medium flex items-center gap-1"><Users className="w-3 h-3" />Max {capacity || "∞"} participants</span>
+                <span className="bg-accent text-accent-foreground px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                  <BookOpen className="w-3 h-3" />
+                  {selectedCourses.length} courses
+                </span>
+                <span className="bg-muted px-2 py-1 rounded-full flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  Deadline: {deadline || "Not set"}
+                </span>
+                <span className="bg-accent text-primary px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  Max {capacity || "∞"} participants
+                </span>
               </div>
 
-              {/* Partners preview */}
               {partners.length > 0 && (
                 <div className="pt-3 border-t border-border">
                   <p className="text-xs font-semibold text-foreground mb-2">Partners & Sponsors</p>
                   <div className="flex flex-wrap gap-3">
-                    {partners.map(p => (
+                    {partners.map((p) => (
                       <div key={p.id} className="flex items-center gap-2 bg-card shadow-sm border-0 rounded-xl px-3 py-2">
                         {p.logoUrl ? (
                           <img src={p.logoUrl} alt={p.name} className="w-6 h-6 object-contain rounded" />
@@ -358,14 +585,20 @@ export default function ProgramBuilderPage() {
                 </div>
               )}
             </div>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep(3)} className="rounded-xl">← Back</Button>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="outline" onClick={() => setStep(3)} className="rounded-xl">
+                ← Back
+              </Button>
               <Button variant="outline" onClick={() => handleSave("upcoming")} disabled={saving} className="rounded-xl gap-2">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Save as Draft
               </Button>
-              <Button onClick={() => handleSave("active")} disabled={saving} className="gradient-card text-primary-foreground rounded-xl hover:opacity-90 flex items-center gap-2">
+              <Button
+                onClick={() => handleSave("active")}
+                disabled={saving}
+                className="gradient-card text-primary-foreground rounded-xl hover:opacity-90 flex items-center gap-2"
+              >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4" />}
-                {saving ? "Launching..." : "Launch Program"}
+                {saving ? "Saving…" : isEdit ? "Save & publish" : "Launch Program"}
               </Button>
             </div>
           </motion.div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -128,7 +128,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
             <p className="text-sm text-muted-foreground mb-4">
               {mode === "login"
                 ? "Learn on your own time from top institutions."
-                : "Start building job-ready skills today."
+                : "Start building practical skills at your own pace."
               }
             </p>
 
@@ -179,6 +179,17 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
                     {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {mode === "login" && (
+                  <div className="mt-1.5 text-right">
+                    <Link
+                      to="/forgot-password"
+                      onClick={onClose}
+                      className="text-xs font-medium text-primary hover:text-primary/90"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                )}
               </div>
 
               <Button

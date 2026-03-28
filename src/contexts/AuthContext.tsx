@@ -340,7 +340,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: queryKeys.enrollments.base });
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.base });
       queryClient.invalidateQueries({ queryKey: queryKeys.stats.base });
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.base });
     }
     prevRoleRef.current = appUser.role;
   }, [appUser]);

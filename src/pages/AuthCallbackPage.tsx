@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 
 /**
- * OAuth return URL (PKCE). Supabase exchanges ?code=... into a session on
- * this page; then we send the user to the app.
+ * OAuth return URL (PKCE). Exchanges ?code=... for a session, then routes into the app.
+ * Add this exact URL to Supabase Auth → Redirect URLs (and match VITE_SITE_URL in production).
  */
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -14,7 +14,22 @@ export default function AuthCallbackPage() {
     let cancelled = false;
 
     const finish = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      if (code) {
+        const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+        if (cancelled) return;
+        if (exchangeErr) {
+          setMessage(exchangeErr.message || "Could not complete sign-in.");
+          setTimeout(() => navigate("/", { replace: true }), 1800);
+          return;
+        }
+      }
+
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
       if (cancelled) return;
       if (error) {
         setMessage("Could not complete sign-in.");
@@ -25,15 +40,16 @@ export default function AuthCallbackPage() {
         navigate("/dashboard", { replace: true });
         return;
       }
-      // Brief wait for PKCE exchange on slow networks
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 500));
       if (cancelled) return;
-      const { data: { session: s2 } } = await supabase.auth.getSession();
+      const {
+        data: { session: s2 },
+      } = await supabase.auth.getSession();
       if (s2?.user) {
         navigate("/dashboard", { replace: true });
       } else {
-        setMessage("Session not found.");
-        navigate("/", { replace: true });
+        setMessage("Session not found. Check Redirect URLs include this page.");
+        setTimeout(() => navigate("/", { replace: true }), 2200);
       }
     };
 

@@ -331,7 +331,7 @@ export default function IncomeProgressionPage() {
               <table className="w-full text-sm min-w-[600px]">
                 <thead className="bg-[#f5f9ff] dark:bg-muted/10 border-b border-border/40">
                   <tr>
-                    {["Participant", "Program", "Pre-SLA", "Post-SLA", "Growth", "Employer", "Status"].map(h => (
+                    {["Participant", "Program", "Pre-SLA", "Post-SLA", "Growth", "Organization", "Status"].map(h => (
                       <th key={h} className="px-6 py-4 text-left text-xs font-bold tracking-widest uppercase text-muted-foreground">{h}</th>
                     ))}
                   </tr>

@@ -16,13 +16,13 @@ import CalendarPage from "./pages/CalendarPage";
 import CertificatesPage from "./pages/CertificatesPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import SettingsPage from "./pages/SettingsPage";
-import JobBoardPage from "./pages/JobBoardPage";
 import InstructorCoursesPage from "./pages/InstructorCoursesPage";
 import CourseBuilderPage from "./pages/CourseBuilderPage";
 import StudentsPage from "./pages/StudentsPage";
 import EarningsPage from "./pages/EarningsPage";
 import ProgramManagerProgramsPage from "./pages/ProgramManagerProgramsPage";
 import ProgramBuilderPage from "./pages/ProgramBuilderPage";
+import ProgramCohortPage from "./pages/ProgramCohortPage";
 import ParticipantsPage from "./pages/ParticipantsPage";
 import ReportsPage from "./pages/ReportsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
@@ -37,7 +37,6 @@ import ProgramApplicationPage from "./pages/ProgramApplicationPage";
 import ProfilePage from "./pages/ProfilePage";
 import EmailTemplatesPage from "./pages/EmailTemplatesPage";
 import CampaignsPage from "./pages/CampaignsPage";
-import EmployerPortalPage from "./pages/EmployerPortalPage";
 import ForumsPage from "./pages/ForumsPage";
 import VideoUploadPage from "./pages/VideoUploadPage";
 import InterviewSchedulingPage from "./pages/InterviewSchedulingPage";
@@ -46,19 +45,18 @@ import PortfolioPage from "./pages/PortfolioPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import ResumeBuilderPage from "./pages/ResumeBuilderPage";
 import SkillsAssessmentPage from "./pages/SkillsAssessmentPage";
-import JobAlertsPage from "./pages/JobAlertsPage";
+import AssessmentsSetupPage from "./pages/AssessmentsSetupPage";
 import NotificationPrefsPage from "./pages/NotificationPrefsPage";
 import PlacementTrackingPage from "./pages/PlacementTrackingPage";
 import LeadDashboardPage from "./pages/LeadDashboardPage";
 import ReportBuilderPage from "./pages/ReportBuilderPage";
 import AIChatbot from "./components/AIChatbot";
 import SmoothScroll from "./components/SmoothScroll";
-import AboutPage from "./pages/AboutPage";
 import ForTeamsPage from "./pages/ForTeamsPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import AuthCallbackPage from "./pages/AuthCallbackPage";
 
-import JobsAdminPage from "./pages/JobsAdminPage";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import { useAuth } from "./contexts/AuthContext";
 import AuthModal from "./components/AuthModal";
@@ -79,12 +77,6 @@ function ProgramsRoute() {
   const { appUser } = useAuth();
   if (appUser?.role === "program_manager" || appUser?.role === "admin") return <ProgramManagerProgramsPage />;
   return <MyPrograms />;
-}
-
-function JobsRoute() {
-  const { appUser } = useAuth();
-  if (appUser?.role === "admin" || appUser?.role === "program_manager") return <JobsAdminPage />;
-  return <JobBoardPage />;
 }
 
 function GlobalAuthModal() {
@@ -113,9 +105,10 @@ const App = () => (
               <Route path="/courses/:id/checkout" element={<CheckoutPage />} />
               <Route path="/programs" element={<ProgramsCatalogPage />} />
               <Route path="/programs/:id/apply" element={<ProgramApplicationPage />} />
-              <Route path="/about" element={<AboutPage />} />
+              <Route path="/about" element={<Navigate to="/programs" replace />} />
               <Route path="/for-teams" element={<ForTeamsPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
 
@@ -141,6 +134,14 @@ const App = () => (
                   element={
                     <RoleGuard allow={["program_manager", "admin"]}>
                       <ProgramBuilderPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="programs/:programId"
+                  element={
+                    <RoleGuard allow={["program_manager", "admin"]}>
+                      <ProgramCohortPage />
                     </RoleGuard>
                   }
                 />
@@ -194,7 +195,7 @@ const App = () => (
                 />
                 <Route path="certificates" element={<CertificatesPage />} />
                 <Route path="calendar" element={<CalendarPage />} />
-                <Route path="jobs" element={<JobsRoute />} />
+                <Route path="jobs" element={<Navigate to="/dashboard/courses" replace />} />
                 <Route
                   path="reports"
                   element={
@@ -217,11 +218,7 @@ const App = () => (
                 <Route path="portfolio" element={<PortfolioPage />} />
                 <Route
                   path="employers"
-                  element={
-                    <RoleGuard allow={["admin"]}>
-                      <EmployerPortalPage />
-                    </RoleGuard>
-                  }
+                  element={<Navigate to="/dashboard/programs" replace />}
                 />
                 <Route
                   path="email-templates"
@@ -259,7 +256,7 @@ const App = () => (
                 <Route path="income" element={<IncomeProgressionPage />} />
                 <Route path="resume" element={<ResumeBuilderPage />} />
                 <Route path="skills" element={<SkillsAssessmentPage />} />
-                <Route path="job-alerts" element={<JobAlertsPage />} />
+                <Route path="job-alerts" element={<Navigate to="/dashboard/notification-preferences" replace />} />
                 <Route path="notification-preferences" element={<NotificationPrefsPage />} />
                 <Route
                   path="placements"
@@ -282,6 +279,14 @@ const App = () => (
                   element={
                     <RoleGuard allow={["program_manager", "admin"]}>
                       <ReportBuilderPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="assessments/setup"
+                  element={
+                    <RoleGuard allow={["instructor", "program_manager", "admin"]}>
+                      <AssessmentsSetupPage />
                     </RoleGuard>
                   }
                 />
