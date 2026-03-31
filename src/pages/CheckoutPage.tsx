@@ -90,7 +90,7 @@ export default function CheckoutPage() {
       "═══════════════════════════════════════",
       "This is a computer-generated receipt.",
       "She Leads Africa | lms.sheleadsafrica.org",
-      "Support: support@sheleadsafrica.org",
+      "Support: info@sheleadsafrica.org",
       "═══════════════════════════════════════",
     ].filter(Boolean).join("\n");
     const blob = new Blob([lines], { type: "text/plain" });
