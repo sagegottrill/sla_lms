@@ -26,13 +26,12 @@ export default function ProgramsSection() {
   const { data: config } = useSiteConfig();
 
   const featuredIds = (config?.featured_program_ids || []) as number[];
-  let programs =
-    featuredIds.length > 0
-      ? allPrograms.filter((p) => featuredIds.includes(p.id))
-      : allPrograms.slice(0, 3);
-  if (programs.length === 0 && allPrograms.length > 0) {
-    programs = allPrograms.slice(0, 3);
-  }
+  const featuredSet = new Set(featuredIds);
+  const featuredPrograms = featuredIds
+    .map((id) => allPrograms.find((p) => p.id === id))
+    .filter((p): p is Program => Boolean(p));
+  const latestPrograms = allPrograms.filter((p) => !featuredSet.has(p.id));
+  const programs = [...featuredPrograms, ...latestPrograms].slice(0, 3);
 
   return (
     <section id="programs" className="py-16 sm:py-20 bg-muted/30">
@@ -147,7 +146,7 @@ export default function ProgramsSection() {
                       </>
                     )}
                   </div>
-                  <Link to={`/programs/${program.id}`}>
+                  <Link to={`/programs/${program.id}/apply`}>
                     <Button size="sm" className="rounded-xl text-xs px-4 h-8 gradient-card text-primary-foreground hover:opacity-90 gap-1">
                       Enroll Now <ArrowRight className="w-3 h-3" />
                     </Button>

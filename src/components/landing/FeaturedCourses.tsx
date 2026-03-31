@@ -91,13 +91,12 @@ export default function FeaturedCourses() {
   const { data: config } = useSiteConfig();
   
   const featuredIds = (config?.featured_course_ids || []) as number[];
-  let courses =
-    featuredIds.length > 0
-      ? allCourses.filter((c) => featuredIds.includes(c.id))
-      : allCourses.slice(0, 6);
-  if (courses.length === 0 && allCourses.length > 0) {
-    courses = allCourses.slice(0, 6);
-  }
+  const featuredSet = new Set(featuredIds);
+  const featuredCourses = featuredIds
+    .map((id) => allCourses.find((c) => c.id === id))
+    .filter((c): c is Course => Boolean(c));
+  const latestCourses = allCourses.filter((c) => !featuredSet.has(c.id));
+  const courses = [...featuredCourses, ...latestCourses].slice(0, 6);
 
   return (
     <section className="py-16 sm:py-20 bg-background">
