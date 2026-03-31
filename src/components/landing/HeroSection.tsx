@@ -6,43 +6,39 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function HeroSection() {
   const { openAuthModal } = useAuth();
   return (
-    <section className="relative pt-24 pb-16 bg-[#F5F5F5] overflow-hidden">
-      <div className="container mx-auto px-5 sm:px-6 lg:px-8">
-        <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
-          
-          {/* Content side (Left) */}
-          <div className="w-full lg:w-1/2 text-left space-y-6 order-2 lg:order-1">
-            <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground leading-[1.15]">
-              Achieve your career goals with world-class learning
-            </h1>
+    <section className="relative overflow-hidden min-h-[72vh] sm:min-h-[78vh]">
+      <img
+        src="/sla_hero_career_fair.jpg"
+        alt="Learners at a She Leads Africa programme"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30" />
 
-            <p className="text-base sm:text-lg text-muted-foreground max-w-lg leading-relaxed">
-              Learn practical skills from world-class institutions and industry experts—on your schedule.
-            </p>
+      <div className="relative container mx-auto px-5 sm:px-6 lg:px-8 py-24 sm:py-28 lg:py-32">
+        <div className="max-w-2xl text-white space-y-6">
+          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-[1.15]">
+            Achieve your career goals with world-class learning
+          </h1>
 
-            <div className="flex flex-col sm:flex-row items-start gap-4 pt-2">
-              <button onClick={() => openAuthModal("signup")}>
-                <Button size="lg" className="rounded-lg px-8 h-12 text-base font-semibold bg-primary text-white hover:bg-primary/90 gap-2">
-                  Join for Free <ArrowRight className="w-4 h-4" />
-                </Button>
-              </button>
-              <Link to="/programs">
-                <Button variant="outline" size="lg" className="rounded-lg px-8 h-12 text-base font-semibold ring-1 ring-black/5 dark:ring-white/10 border-0 hover:bg-muted gap-2">
-                  Explore Programs
-                </Button>
-              </Link>
-            </div>
-          </div>
+          <p className="text-base sm:text-lg text-white/90 max-w-xl leading-relaxed">
+            Learn practical skills from world-class institutions and industry experts, on your schedule.
+          </p>
 
-          {/* Image — full-width feel on mobile, balanced on desktop */}
-          <div className="w-full lg:w-1/2 relative order-1 lg:order-2 -mx-5 sm:mx-0">
-            <div className="relative rounded-none sm:rounded-2xl overflow-hidden shadow-xl ring-1 ring-black/5">
-              <img
-                src="/sla_hero_career_fair.jpg"
-                alt="Learners at a She Leads Africa programme"
-                className="relative z-10 w-full min-h-[220px] sm:min-h-[280px] lg:min-h-[340px] object-cover"
-              />
-            </div>
+          <div className="flex flex-col sm:flex-row items-start gap-4 pt-2">
+            <button onClick={() => openAuthModal("signup")}>
+              <Button size="lg" className="rounded-lg px-8 h-12 text-base font-semibold bg-primary text-white hover:bg-primary/90 gap-2">
+                Join for Free <ArrowRight className="w-4 h-4" />
+              </Button>
+            </button>
+            <Link to="/programs">
+              <Button
+                variant="outline"
+                size="lg"
+                className="rounded-lg px-8 h-12 text-base font-semibold border-white/35 text-white bg-white/10 hover:bg-white/20"
+              >
+                Explore Programs
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
