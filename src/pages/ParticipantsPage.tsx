@@ -63,7 +63,12 @@ export default function ParticipantsPage() {
   };
 
   const handleRemove = async () => {
-    const userIds = Array.from(selected);
+    const selectedRows = filtered.filter((p) => selected.has(p.id));
+    const userIds = Array.from(
+      new Set(
+        selectedRows.map((p: any) => String(p.user_id ?? p.id)).filter((id) => id.length > 0),
+      ),
+    );
     if (userIds.length === 0) return;
     setRemoving(true);
     try {

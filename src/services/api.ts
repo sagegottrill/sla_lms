@@ -295,7 +295,6 @@ export const api = {
       }
 
       const programsArr = programs ?? [];
-      if (programsArr.length === 0) return [];
 
       const programById = new Map<number, any>(programsArr.map((p: any) => [p.id as number, p]));
       const programIds = programsArr.map((p: any) => p.id).filter((id: unknown) => id != null);
@@ -413,8 +412,6 @@ export const api = {
         }
       }
 
-      if (byProgramUser.size === 0) return [];
-
       const userIds = Array.from(
         new Set(
           [...byProgramUser.keys()].map((k) => {
@@ -424,19 +421,24 @@ export const api = {
         ),
       );
 
-      const { data: profiles, error: profilesErr } = await supabase
-        .from("profiles")
-        .select("id, name, full_name, email, avatar_url")
-        .in("id", userIds);
+      const profileById = new Map<string, any>();
+      if (userIds.length > 0) {
+        const { data: profiles, error: profilesErr } = await supabase
+          .from("profiles")
+          .select("id, name, full_name, email, avatar_url")
+          .in("id", userIds);
 
-      if (profilesErr) {
-        console.error("Supabase getProgramParticipants profiles error:", profilesErr.message);
-        return [];
+        if (profilesErr) {
+          console.error("Supabase getProgramParticipants profiles error:", profilesErr.message);
+        } else {
+          for (const p of profiles ?? []) {
+            profileById.set((p as any).id, p);
+          }
+        }
       }
 
-      const profileById = new Map<string, any>((profiles ?? []).map((p: any) => [p.id, p]));
-
       const participants: Array<any> = [];
+      const participantUserIds = new Set<string>();
       for (const [key, agg] of byProgramUser.entries()) {
         const colon = key.indexOf(":");
         const programId = Number(key.slice(0, colon));
@@ -457,7 +459,8 @@ export const api = {
               : "at-risk";
 
         participants.push({
-          id: userId,
+          id: `${userId}:${programId}`,
+          user_id: userId,
           name,
           email,
           program: programName,
@@ -468,6 +471,39 @@ export const api = {
             ? agg.lastActive.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
             : "",
         });
+        participantUserIds.add(userId);
+      }
+
+      // Include all learner profiles so Participants tab is the learner directory source of truth.
+      // Some existing projects have non-standard role values (or null roles), so we treat
+      // non-staff roles as participants as a safe fallback.
+      const { data: allProfiles, error: studentsErr } = await supabase
+        .from("profiles")
+        .select("id, name, full_name, email, role");
+      if (studentsErr) {
+        console.error("Supabase getProgramParticipants students error:", studentsErr.message);
+      } else {
+        const isStaffRole = (role: unknown) =>
+          typeof role === "string" && ["admin", "program_manager", "instructor"].includes(role);
+
+        for (const s of allProfiles ?? []) {
+          if (isStaffRole((s as any).role)) continue;
+          const userId = String((s as any).id ?? "");
+          if (!userId || participantUserIds.has(userId)) continue;
+          const name = (s as any).name ?? (s as any).full_name ?? "";
+          const email = (s as any).email ?? "";
+          participants.push({
+            id: userId,
+            user_id: userId,
+            name,
+            email,
+            program: "Not assigned",
+            program_id: null,
+            progress: 0,
+            status: "not-started",
+            lastActive: "",
+          });
+        }
       }
 
       return participants;

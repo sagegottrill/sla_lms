@@ -41,16 +41,11 @@ const roleColors: Record<Role, string> = {
 const inputCls = "w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground/60 transition-all";
 const labelCls = "block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2";
 
-type DirectoryTab = "staff" | "all";
-
 export default function AdminUsersPage() {
   const { data: usersData, isLoading: loading, refetch } = useProfiles();
   const users = (usersData as Profile[]) || [];
   const { data: programs = [] } = usePrograms({ activeCatalog: false });
-  const [directoryTab, setDirectoryTab] = useState<DirectoryTab>("all");
-
-  const staffOnly = users.filter((u) => u.role !== "student");
-  const directorySource = directoryTab === "staff" ? staffOnly : users;
+  const staffDirectory = users.filter((u) => STAFF_ROLES.includes(u.role));
   
   const updateProfile = useUpdateProfileMutation();
   const deleteProfile = useDeleteProfileMutation();
@@ -79,14 +74,7 @@ export default function AdminUsersPage() {
     value: role,
   }));
 
-  const ALL_ROLE_FILTER_OPTIONS = ROLES.map((role) => ({
-    label: normalizeRoleLabel(role),
-    value: role,
-  }));
-
-  const filterOptions = directoryTab === "staff" ? STAFF_FILTER_OPTIONS : ALL_ROLE_FILTER_OPTIONS;
-
-  const filtered = directorySource.filter((u: Profile) => {
+  const filtered = staffDirectory.filter((u: Profile) => {
     const q = search.toLowerCase();
     const matchSearch = (u.name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q);
     const matchRole = selectedRoles.length === 0 || selectedRoles.includes(u.role);
@@ -221,9 +209,7 @@ export default function AdminUsersPage() {
           <p className="text-muted-foreground text-sm">
             {loading
               ? "Syncing directory..."
-              : directoryTab === "staff"
-                ? `${staffOnly.length} staff. Switch to “Everyone” to see learners (${users.length} total accounts).`
-                : `${users.length} accounts (all roles). Cohort rosters: Dashboard → Participants.`}
+              : `${staffDirectory.length} staff (instructors, program managers, admins). Learners are listed under Participants.`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -239,47 +225,15 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Staff vs full directory — learners were hidden before, which looked like “no users” */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            setDirectoryTab("all");
-            setSelectedRoles([]);
-          }}
-          className={`rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
-            directoryTab === "all"
-              ? "bg-primary text-primary-foreground"
-              : "ring-1 ring-black/5 dark:ring-white/10 text-muted-foreground hover:bg-muted"
-          }`}
-        >
-          Everyone ({users.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setDirectoryTab("staff");
-            setSelectedRoles([]);
-          }}
-          className={`rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
-            directoryTab === "staff"
-              ? "bg-primary text-primary-foreground"
-              : "ring-1 ring-black/5 dark:ring-white/10 text-muted-foreground hover:bg-muted"
-          }`}
-        >
-          Staff only ({staffOnly.length})
-        </button>
-      </div>
-
       {/* Toolbar: Horizontal Pill Tabs & Search */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="pb-2 md:pb-0 w-full">
           <FilterChips
-            options={filterOptions}
+            options={STAFF_FILTER_OPTIONS}
             selectedValues={selectedRoles}
             onToggle={handleToggleRole}
             onClear={handleClearRoles}
-            allLabel={directoryTab === "staff" ? "All staff roles" : "All roles"}
+            allLabel="All staff roles"
             resetAriaLabel="Clear role filters"
           />
         </div>
@@ -306,11 +260,7 @@ export default function AdminUsersPage() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-3xl bg-card/20">
             <p className="text-foreground font-medium mb-1">No users found</p>
-            <p className="text-sm text-muted-foreground">
-              {directoryTab === "staff" && users.length > 0
-                ? "No staff match your filters. Click “Everyone” to see learners."
-                : "Try adjusting your search or filters."}
-            </p>
+            <p className="text-sm text-muted-foreground">Try adjusting your search or filters.</p>
           </div>
         ) : (
           <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden">
@@ -407,7 +357,7 @@ export default function AdminUsersPage() {
                   <label className={labelCls}>System Role</label>
                   <div className="relative">
                     <select value={editUser.role} onChange={e => setEditUser({ ...editUser, role: e.target.value as Role })} className={inputCls + " appearance-none cursor-pointer"}>
-                      {ROLES.map((r) => (
+                      {STAFF_ROLES.map((r) => (
                         <option key={r} value={r}>
                           {r.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                         </option>
