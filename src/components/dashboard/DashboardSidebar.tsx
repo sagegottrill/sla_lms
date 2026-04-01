@@ -101,6 +101,8 @@ const navByRole: Record<UserRole, NavGroup[]> = {
     {
       group: "Programs",
       items: [
+        { label: "Courses", icon: BookOpen, href: "/dashboard/courses" },
+        { label: "Create Course", icon: PlusCircle, href: "/dashboard/courses/new" },
         { label: "Programs", icon: FolderOpen, href: "/dashboard/programs" },
         { label: "Create Program", icon: PlusCircle, href: "/dashboard/programs/new" },
         { label: "Participants", icon: Users, href: "/dashboard/participants" },
