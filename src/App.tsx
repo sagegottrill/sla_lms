@@ -1,62 +1,13 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { EnrollmentProvider } from "@/contexts/EnrollmentContext";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-
-import DashboardLayout from "./components/dashboard/DashboardLayout";
-import DashboardHome from "./pages/DashboardHome";
-import MyCourses from "./pages/MyCourses";
-import MyPrograms from "./pages/MyPrograms";
-import CalendarPage from "./pages/CalendarPage";
-import CertificatesPage from "./pages/CertificatesPage";
-import NotificationsPage from "./pages/NotificationsPage";
-import SettingsPage from "./pages/SettingsPage";
-import InstructorCoursesPage from "./pages/InstructorCoursesPage";
-import CourseBuilderPage from "./pages/CourseBuilderPage";
-import StudentsPage from "./pages/StudentsPage";
-import EarningsPage from "./pages/EarningsPage";
-import ProgramManagerProgramsPage from "./pages/ProgramManagerProgramsPage";
-import ProgramBuilderPage from "./pages/ProgramBuilderPage";
-import ProgramCohortPage from "./pages/ProgramCohortPage";
-import ParticipantsPage from "./pages/ParticipantsPage";
-import ReportsPage from "./pages/ReportsPage";
-import AdminUsersPage from "./pages/AdminUsersPage";
-import AnalyticsPage from "./pages/AnalyticsPage";
-import PaymentsPage from "./pages/PaymentsPage";
-import RolesPage from "./pages/RolesPage";
-import CourseCatalogPage from "./pages/CourseCatalogPage";
-import CourseDetailPage from "./pages/CourseDetailPage";
-import CheckoutPage from "./pages/CheckoutPage";
-import ProgramsCatalogPage from "./pages/ProgramsCatalogPage";
-import ProgramApplicationPage from "./pages/ProgramApplicationPage";
-import ProfilePage from "./pages/ProfilePage";
-import EmailTemplatesPage from "./pages/EmailTemplatesPage";
-import CampaignsPage from "./pages/CampaignsPage";
-import ForumsPage from "./pages/ForumsPage";
-import VideoUploadPage from "./pages/VideoUploadPage";
-import InterviewSchedulingPage from "./pages/InterviewSchedulingPage";
-import IncomeProgressionPage from "./pages/IncomeProgressionPage";
-import PortfolioPage from "./pages/PortfolioPage";
-import OnboardingPage from "./pages/OnboardingPage";
-import ResumeBuilderPage from "./pages/ResumeBuilderPage";
-import SkillsAssessmentPage from "./pages/SkillsAssessmentPage";
-import AssessmentsSetupPage from "./pages/AssessmentsSetupPage";
-import NotificationPrefsPage from "./pages/NotificationPrefsPage";
-import PlacementTrackingPage from "./pages/PlacementTrackingPage";
-import LeadDashboardPage from "./pages/LeadDashboardPage";
-import ReportBuilderPage from "./pages/ReportBuilderPage";
 import AIChatbot from "./components/AIChatbot";
 import SmoothScroll from "./components/SmoothScroll";
-import ForTeamsPage from "./pages/ForTeamsPage";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
-import AuthCallbackPage from "./pages/AuthCallbackPage";
-
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import { useAuth } from "./contexts/AuthContext";
 import AuthModal from "./components/AuthModal";
@@ -64,6 +15,55 @@ import { RoleGuard } from "./components/auth/RoleGuard";
 
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from "@/lib/react-query";
+
+const Index = lazy(() => import("./pages/Index"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const DashboardLayout = lazy(() => import("./components/dashboard/DashboardLayout"));
+const DashboardHome = lazy(() => import("./pages/DashboardHome"));
+const MyCourses = lazy(() => import("./pages/MyCourses"));
+const MyPrograms = lazy(() => import("./pages/MyPrograms"));
+const CalendarPage = lazy(() => import("./pages/CalendarPage"));
+const CertificatesPage = lazy(() => import("./pages/CertificatesPage"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const InstructorCoursesPage = lazy(() => import("./pages/InstructorCoursesPage"));
+const CourseBuilderPage = lazy(() => import("./pages/CourseBuilderPage"));
+const StudentsPage = lazy(() => import("./pages/StudentsPage"));
+const EarningsPage = lazy(() => import("./pages/EarningsPage"));
+const ProgramManagerProgramsPage = lazy(() => import("./pages/ProgramManagerProgramsPage"));
+const ProgramBuilderPage = lazy(() => import("./pages/ProgramBuilderPage"));
+const ProgramCohortPage = lazy(() => import("./pages/ProgramCohortPage"));
+const ParticipantsPage = lazy(() => import("./pages/ParticipantsPage"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage"));
+const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
+const PaymentsPage = lazy(() => import("./pages/PaymentsPage"));
+const RolesPage = lazy(() => import("./pages/RolesPage"));
+const CourseCatalogPage = lazy(() => import("./pages/CourseCatalogPage"));
+const CourseDetailPage = lazy(() => import("./pages/CourseDetailPage"));
+const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
+const ProgramsCatalogPage = lazy(() => import("./pages/ProgramsCatalogPage"));
+const ProgramApplicationPage = lazy(() => import("./pages/ProgramApplicationPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const EmailTemplatesPage = lazy(() => import("./pages/EmailTemplatesPage"));
+const CampaignsPage = lazy(() => import("./pages/CampaignsPage"));
+const ForumsPage = lazy(() => import("./pages/ForumsPage"));
+const VideoUploadPage = lazy(() => import("./pages/VideoUploadPage"));
+const InterviewSchedulingPage = lazy(() => import("./pages/InterviewSchedulingPage"));
+const IncomeProgressionPage = lazy(() => import("./pages/IncomeProgressionPage"));
+const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
+const OnboardingPage = lazy(() => import("./pages/OnboardingPage"));
+const ResumeBuilderPage = lazy(() => import("./pages/ResumeBuilderPage"));
+const SkillsAssessmentPage = lazy(() => import("./pages/SkillsAssessmentPage"));
+const AssessmentsSetupPage = lazy(() => import("./pages/AssessmentsSetupPage"));
+const NotificationPrefsPage = lazy(() => import("./pages/NotificationPrefsPage"));
+const PlacementTrackingPage = lazy(() => import("./pages/PlacementTrackingPage"));
+const LeadDashboardPage = lazy(() => import("./pages/LeadDashboardPage"));
+const ReportBuilderPage = lazy(() => import("./pages/ReportBuilderPage"));
+const ForTeamsPage = lazy(() => import("./pages/ForTeamsPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
+const AuthCallbackPage = lazy(() => import("./pages/AuthCallbackPage"));
 
 function CoursesRoute() {
   const { appUser } = useAuth();
@@ -84,6 +84,14 @@ function GlobalAuthModal() {
   return <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} initialMode={authModalMode} />;
 }
 
+function RouteLoadingFallback() {
+  return (
+    <div className="min-h-[40vh] flex items-center justify-center text-sm text-muted-foreground">
+      Loading...
+    </div>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -93,7 +101,8 @@ const App = () => (
         <Sonner />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <SmoothScroll>
-            <Routes>
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <Routes>
               {/* Public */}
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Navigate to="/" replace />} />
@@ -293,7 +302,8 @@ const App = () => (
               </Route>
 
               <Route path="*" element={<NotFound />} />
-            </Routes>
+              </Routes>
+            </Suspense>
             <AIChatbot />
             <GlobalAuthModal />
           </SmoothScroll>

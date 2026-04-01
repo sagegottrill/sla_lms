@@ -49,7 +49,10 @@ export default function ProgramBuilderPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nextPartnerId = useRef(1);
 
-  const allCourses = (allCoursesData as unknown as Array<Course & { status?: string }>) || [];
+  const allCourses = useMemo(
+    () => (Array.isArray(allCoursesData) ? (allCoursesData as Array<Course & { status?: string }>) : []),
+    [allCoursesData],
+  );
   const availableCourses = useMemo(
     () => allCourses.filter((c) => c.status !== "archived"),
     [allCourses],

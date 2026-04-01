@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  let model = typeof body.model === "string" && /^[a-zA-Z0-9_.-]{1,80}$/.test(body.model)
+  const model = typeof body.model === "string" && /^[a-zA-Z0-9_.-]{1,80}$/.test(body.model)
     ? body.model
     : defaultModel;
 

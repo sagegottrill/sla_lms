@@ -291,10 +291,9 @@ export const api = {
 
       if (programsErr) {
         console.error("Supabase getProgramParticipants programs error:", programsErr.message);
-        return [];
       }
 
-      const programsArr = programs ?? [];
+      const programsArr = programsErr ? [] : (programs ?? []);
 
       const programById = new Map<number, any>(programsArr.map((p: any) => [p.id as number, p]));
       const programIds = programsArr.map((p: any) => p.id).filter((id: unknown) => id != null);
@@ -425,7 +424,7 @@ export const api = {
       if (userIds.length > 0) {
         const { data: profiles, error: profilesErr } = await supabase
           .from("profiles")
-          .select("id, name, full_name, email, avatar_url")
+          .select("id, name, email, avatar_url")
           .in("id", userIds);
 
         if (profilesErr) {
@@ -479,7 +478,7 @@ export const api = {
       // non-staff roles as participants as a safe fallback.
       const { data: allProfiles, error: studentsErr } = await supabase
         .from("profiles")
-        .select("id, name, full_name, email, role");
+        .select("id, name, email, role");
       if (studentsErr) {
         console.error("Supabase getProgramParticipants students error:", studentsErr.message);
       } else {
@@ -563,7 +562,7 @@ export const api = {
       // 3) profiles
       const { data: profiles, error: profilesErr } = await supabase
         .from("profiles")
-        .select("id, name, full_name, email, avatar_url")
+        .select("id, name, email, avatar_url")
         .in("id", userIds);
 
       if (profilesErr) {
