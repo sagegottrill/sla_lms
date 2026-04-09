@@ -42,6 +42,20 @@ export const api = {
     return null;
   },
 
+  updateCourse: async (id: number, updates: Partial<Course> & Record<string, unknown>) => {
+    if (USE_SUPABASE) {
+      const { data, error } = await supabase
+        .from("courses")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) { console.error("Supabase updateCourse error:", error.message); throw error; }
+      return data;
+    }
+    return null;
+  },
+
   getCourseById: async (id: number): Promise<Course | undefined> => {
     if (USE_SUPABASE) {
       const { data, error } = await supabase.from("courses").select("*").eq("id", id).single();

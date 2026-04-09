@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   BookOpen, Plus, Trash2, ChevronDown, ChevronRight, Video,
@@ -7,9 +7,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { useCreateCourseMutation } from "@/hooks/useQueries";
+import { useCourse, useCreateCourseMutation, useUpdateCourseMutation } from "@/hooks/useQueries";
 import { useUIStore } from "@/store/useUIStore";
 import imageCompression from "browser-image-compression";
 import { supabase } from "@/lib/supabase";
@@ -29,8 +29,16 @@ const labelCls = "block text-sm font-medium text-foreground mb-1.5";
 
 export default function CourseBuilderPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editIdRaw = searchParams.get("edit");
+  const editId = editIdRaw ? Number(editIdRaw) : 0;
+  const isEdit = Number.isFinite(editId) && editId > 0;
+
   const createCourse = useCreateCourseMutation();
+  const updateCourse = useUpdateCourseMutation();
   const { isTheaterMode, toggleTheaterMode } = useUIStore();
+
+  const { data: existingCourse, isLoading: loadingExisting } = useCourse(isEdit ? editId : 0);
   
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [saving, setSaving] = useState(false);
@@ -60,6 +68,57 @@ export default function CourseBuilderPage() {
     { id: 1, title: "Module 1: Introduction", open: true, lessons: [{ id: 1, title: "Welcome to the Course", type: "video", vimeo_url: "" }] },
   ]);
   const [whatYoullLearn, setWhatYoullLearn] = useState<string[]>(["", "", ""]);
+
+  // Hydrate builder in edit mode.
+  useEffect(() => {
+    if (!isEdit || !existingCourse) return;
+    const c = existingCourse as any;
+    setTitle(String(c.title ?? ""));
+    setSubtitle(String(c.subtitle ?? ""));
+    setDescription(String(c.description ?? ""));
+    setCategory(typeof c.category === "string" && c.category ? c.category : CATEGORIES[0]);
+    setLevel(typeof c.level === "string" && c.level ? c.level : LEVELS[0]);
+    const p = typeof c.price === "number" ? c.price : Number(c.price ?? 0);
+    setIsFree(p === 0);
+    setPrice(p ? String(p) : "");
+    const op = typeof c.original_price === "number" ? c.original_price : Number(c.original_price ?? 0);
+    setOriginalPrice(op ? String(op) : "");
+    setBadge(typeof c.badge === "string" && c.badge ? c.badge : BADGES[0]);
+    setLanguage(typeof c.language === "string" && c.language ? c.language : "English");
+    setImage(String(c.image ?? ""));
+    setInstructor(String(c.instructor ?? ""));
+    setInstructorTitle(String(c.instructor_title ?? ""));
+    setInstructorBio(String(c.instructor_bio ?? ""));
+    setInstructorAvatar(String(c.instructor_avatar ?? ""));
+
+    const wyl = c.what_youll_learn;
+    if (Array.isArray(wyl)) {
+      const arr = wyl.map((x: any) => String(x ?? "")).filter(Boolean);
+      setWhatYoullLearn(arr.length ? arr : ["", "", ""]);
+    }
+    const cur = c.curriculum;
+    if (Array.isArray(cur)) {
+      // Map stored curriculum JSON into builder module/lesson state.
+      const mappedModules: Module[] = cur.map((m: any, idx: number) => {
+        const items = Array.isArray(m?.items) ? m.items : [];
+        const lessons: Lesson[] = items.map((it: any, li: number) => ({
+          id: Date.now() + idx * 1000 + li,
+          title: String(it?.title ?? ""),
+          type: (it?.type === "text" || it?.type === "quiz" || it?.type === "video") ? it.type : "video",
+          vimeo_url: typeof it?.vimeo_url === "string" ? it.vimeo_url : "",
+          duration: typeof it?.duration === "string" ? it.duration : "",
+          transcript_url: typeof it?.transcript_url === "string" ? it.transcript_url : "",
+        }));
+        return {
+          id: Date.now() + idx,
+          title: String(m?.module ?? `Module ${idx + 1}`),
+          open: idx === 0,
+          lessons,
+        };
+      });
+      if (mappedModules.length) setModules(mappedModules);
+    }
+  }, [isEdit, existingCourse]);
 
   // Utils
   const toggleModule = (id: number) => setModules(m => m.map(mod => mod.id === id ? { ...mod, open: !mod.open } : mod));
@@ -141,7 +200,10 @@ export default function CourseBuilderPage() {
 
       const { error: uploadError } = await supabase.storage
         .from('courses')
-        .upload(filePath, compressedFile);
+        .upload(filePath, compressedFile, {
+          upsert: true,
+          contentType: compressedFile.type || file.type,
+        });
 
       if (uploadError) throw uploadError;
 
@@ -152,9 +214,11 @@ export default function CourseBuilderPage() {
       setImage(publicUrl);
       toast.success("Thumbnail compressed and uploaded!");
     } catch (err: any) {
-      toast.error(`Image upload failed: ${err.message}`);
+      toast.error(`Image upload failed: ${err?.message ?? "Unknown error"}`);
     } finally {
       setUploadingImage(false);
+      // allow re-selecting the same file
+      if (imageRef.current) imageRef.current.value = "";
     }
   };
 
@@ -176,7 +240,7 @@ export default function CourseBuilderPage() {
       })),
     }));
 
-    createCourse.mutate({
+    const payload = {
       title: title.trim(),
       subtitle: subtitle.trim(),
       description: description.trim(),
@@ -197,15 +261,21 @@ export default function CourseBuilderPage() {
       what_youll_learn: whatYoullLearn.filter(Boolean),
       curriculum,
       reviews: [],
-    }, {
+    };
+
+    const mutate = isEdit
+      ? updateCourse.mutate.bind(updateCourse, { id: editId, updates: payload })
+      : createCourse.mutate.bind(createCourse, payload as any);
+
+    mutate({
       onSuccess: () => {
-        toast.success(status === "published" ? "Course published successfully!" : "Draft saved.");
+        toast.success(status === "published" ? "Course published successfully!" : (isEdit ? "Course updated." : "Draft saved."));
         setPublished(status === "published");
         if (status === "published") setTimeout(() => navigate("/dashboard/courses"), 1500);
       },
       onError: (err: any) => toast.error(`Failed to save: ${err.message}`),
       onSettled: () => setSaving(false)
-    });
+    } as any);
   };
 
   const steps = ["Course Info", "Curriculum", "Publish"];
@@ -228,6 +298,15 @@ export default function CourseBuilderPage() {
     );
   }
 
+  if (isEdit && loadingExisting) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading course…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
@@ -235,7 +314,7 @@ export default function CourseBuilderPage() {
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Create New Course</h1>
+          <h1 className="font-display text-2xl font-bold text-foreground">{isEdit ? "Edit course" : "Create New Course"}</h1>
           <p className="text-muted-foreground text-sm">Share your expertise with learners across Africa</p>
         </div>
         <div className="ml-auto hidden sm:block">

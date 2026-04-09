@@ -51,6 +51,28 @@ export const useCreateCourseMutation = () => {
   });
 };
 
+export const useUpdateCourseMutation = () => {
+  const queryClient = useQueryClient();
+  const { appUser } = useAuth();
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: number; updates: Record<string, unknown> }) =>
+      api.updateCourse(id, {
+        ...updates,
+        instructor_id: appUser?.id ?? (updates as any).instructor_id,
+      }),
+    onSuccess: () => {
+      toast.success("Course updated");
+    },
+    onError: () => {
+      toast.error("We couldn't update your course. Please try again.");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
+      queryClient.invalidateQueries({ queryKey: ["site-config"] });
+    }
+  });
+};
+
 // --- PROGRAMS ---
 /** @param options.activeCatalog — true = landing / programs catalog (hide completed cohorts). false = admin builder lists all. */
 export const usePrograms = (options?: { activeCatalog?: boolean }) => {

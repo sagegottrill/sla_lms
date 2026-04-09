@@ -13,6 +13,7 @@ type PaymentMethod = "card" | "mobile_money" | "bank_transfer";
 
 const currencies = [
   { code: "USD", symbol: "$", label: "US Dollar", rate: 1 },
+  // Rates are expressed as: (1 USD -> X in that currency)
   { code: "NGN", symbol: "₦", label: "Nigerian Naira", rate: 1580 },
   { code: "KES", symbol: "KSh", label: "Kenyan Shilling", rate: 153 },
   { code: "GHS", symbol: "GH₵", label: "Ghanaian Cedi", rate: 15.2 },
@@ -50,10 +51,25 @@ export default function CheckoutPage() {
     accountRef: "",
   });
 
-  const convertPrice = useCallback((usd: number) => {
+  // PRICE MODEL (critical):
+  // - `course.price` is treated as NGN KOBO (e.g. ₦10,000 = 1,000,000 kobo)
+  // - Display values are derived from that base.
+  const NGN_PER_USD = 1580;
+  const priceKobo = Math.max(0, Math.round(Number(course?.price ?? 0)));
+  const originalPriceKobo = Math.max(0, Math.round(Number((course as any)?.originalPrice ?? (course as any)?.original_price ?? 0)));
+
+  const formatAmount = useCallback((amount: number) => {
+    if (!Number.isFinite(amount)) return "0";
+    if (currency.code === "USD") return amount.toFixed(2);
+    return Math.round(amount).toLocaleString();
+  }, [currency.code]);
+
+  const convertFromKobo = useCallback((kobo: number) => {
+    const ngn = kobo / 100;
+    const usd = ngn / NGN_PER_USD;
     const converted = usd * currency.rate;
-    return currency.code === "USD" ? converted.toFixed(2) : Math.round(converted).toLocaleString();
-  }, [currency]);
+    return formatAmount(converted);
+  }, [currency.rate, formatAmount]);
 
   const downloadInvoice = useCallback(() => {
     if (!course) return;
@@ -85,7 +101,7 @@ export default function CheckoutPage() {
       "─── PAYMENT ───────────────────────────",
       `Method:         ${method.replace("_", " ")}`,
       `Currency:       ${currency.code}`,
-      `Amount:         ${currency.symbol}${convertPrice(course.price)}`,
+      `Amount:         ${currency.symbol}${convertFromKobo(priceKobo)}`,
       "",
       "═══════════════════════════════════════",
       "This is a computer-generated receipt.",
@@ -101,7 +117,7 @@ export default function CheckoutPage() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Receipt downloaded!");
-  }, [course, form, method, currency, convertPrice, receiptId]);
+  }, [course, form, method, currency, convertFromKobo, priceKobo, receiptId]);
 
   const update = (key: string, val: string) => setForm((p) => ({ ...p, [key]: val }));
 
@@ -154,13 +170,13 @@ export default function CheckoutPage() {
       toast.error("Please log in to complete payment.");
       return;
     }
-    if (!Number.isFinite(course.price)) {
+    if (!Number.isFinite(priceKobo)) {
       toast.error("Invalid course price.");
       return;
     }
 
     // Free course: enrol immediately (no Paystack).
-    if (course.price === 0) {
+    if (priceKobo === 0) {
       setProcessing(true);
       enrollMutation.mutate(
         { userId: appUser.id, courseId: course.id },
@@ -184,7 +200,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    const amountKobo = Math.max(0, Math.round(course.price * 100));
+    const amountKobo = priceKobo;
     if (!amountKobo) {
       toast.error("Invalid payment amount.");
       return;
@@ -463,7 +479,7 @@ export default function CheckoutPage() {
                         Processing payment...
                       </span>
                     ) : (
-                      `Pay ${currency.symbol}${convertPrice(course.price)} ${currency.code}`
+                      `Pay ${currency.symbol}${convertFromKobo(priceKobo)} ${currency.code}`
                     )}
                   </Button>
                   <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground">
@@ -489,17 +505,17 @@ export default function CheckoutPage() {
               <div className="border-t border-border pt-3 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Course price</span>
-                  <span className="text-foreground">{currency.symbol}{convertPrice(course.price)}</span>
+                  <span className="text-foreground">{currency.symbol}{convertFromKobo(priceKobo)}</span>
                 </div>
-                {course.originalPrice && (
+                {originalPriceKobo > priceKobo && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Discount</span>
-                    <span className="text-secondary font-semibold">-{currency.symbol}{convertPrice(course.originalPrice - course.price)}</span>
+                    <span className="text-secondary font-semibold">-{currency.symbol}{convertFromKobo(originalPriceKobo - priceKobo)}</span>
                   </div>
                 )}
                 <div className="border-t border-border pt-2 flex justify-between text-sm font-bold">
                   <span className="text-foreground">Total</span>
-                  <span className="text-foreground">{currency.symbol}{convertPrice(course.price)} {currency.code}</span>
+                  <span className="text-foreground">{currency.symbol}{convertFromKobo(priceKobo)} {currency.code}</span>
                 </div>
               </div>
               <div className="space-y-2 pt-2">
