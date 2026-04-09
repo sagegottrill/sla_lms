@@ -28,3 +28,5 @@ The app runs at `http://localhost:8080` by default.
 - **TanStack Query** for data fetching
 - **React Hook Form + Zod** for form validation
 
+_Last updated by automated cleanup script._
+
