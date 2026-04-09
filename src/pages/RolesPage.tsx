@@ -1,7 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Shield, UserCheck, Plus, Edit, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { api } from "@/services/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/react-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Role = "student" | "instructor" | "program_manager" | "admin";
 
@@ -40,6 +50,18 @@ import { useProfiles } from "@/hooks/useQueries";
 export default function RolesPage() {
   const [expandedRole, setExpandedRole] = useState<Role | null>("student");
   const { data: profiles = [] } = useProfiles();
+  const queryClient = useQueryClient();
+
+  const [selectedUser, setSelectedUser] = useState<{ id: string; role: Role } | null>(null);
+  const [newRole, setNewRole] = useState<Role>("student");
+
+  const sortedProfiles = useMemo(() => {
+    return [...profiles].sort((a: any, b: any) => {
+      const ae = String(a?.email ?? "").toLowerCase();
+      const be = String(b?.email ?? "").toLowerCase();
+      return ae.localeCompare(be);
+    });
+  }, [profiles]);
   
   const roleCounts: Record<Role, number> = {
     student: profiles.filter((p: any) => p.role === "student").length,
@@ -60,7 +82,19 @@ export default function RolesPage() {
           </p>
         </div>
         <div className="flex gap-2">
-            <Button className="rounded-full px-6 h-9 text-xs font-semibold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors shadow-sm">
+            <Button
+              onClick={() => {
+                const first = sortedProfiles[0] as any;
+                if (!first?.id) {
+                  toast.info("No users found.");
+                  return;
+                }
+                const role = (first?.role as Role) ?? "student";
+                setSelectedUser({ id: String(first.id), role });
+                setNewRole(role);
+              }}
+              className="rounded-full px-6 h-9 text-xs font-semibold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors shadow-sm"
+            >
               <Plus className="w-3.5 h-3.5 mr-2" /> Assign Role
             </Button>
         </div>
@@ -117,6 +151,77 @@ export default function RolesPage() {
           </motion.div>
         ))}
       </div>
+
+      {/* Assign Role Dialog */}
+      <Dialog
+        open={!!selectedUser}
+        onOpenChange={(open) => {
+          if (!open) setSelectedUser(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Assign Role</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-foreground">User</label>
+            <select
+              value={selectedUser?.id ?? ""}
+              onChange={(e) => {
+                const id = e.target.value;
+                const p = sortedProfiles.find((x: any) => String(x?.id) === id) as any;
+                const role = (p?.role as Role) ?? "student";
+                setSelectedUser({ id, role });
+                setNewRole(role);
+              }}
+              className="w-full px-4 py-2.5 rounded-xl border bg-background text-sm"
+            >
+              {sortedProfiles.map((p: any) => (
+                <option key={String(p.id)} value={String(p.id)}>
+                  {String(p.email ?? p.name ?? p.id)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-foreground">Role</label>
+            <select
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value as Role)}
+              className="w-full px-4 py-2.5 rounded-xl border bg-background text-sm"
+            >
+              <option value="student">Student</option>
+              <option value="instructor">Instructor</option>
+              <option value="program_manager">Program Manager</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
+          <div className="pt-2 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => setSelectedUser(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-xl"
+              onClick={async () => {
+                if (!selectedUser) return;
+                await api.updateUserRole(selectedUser.id, newRole);
+                toast.success("Role updated");
+                setSelectedUser(null);
+                queryClient.invalidateQueries({ queryKey: queryKeys.profiles.base });
+              }}
+            >
+              Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Removed Fake Recent Changes Log completely */}
     </div>

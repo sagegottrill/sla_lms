@@ -711,6 +711,111 @@ export const api = {
   },
 
   // -------------------------
+  // PROGRAM APPLICATIONS (Admin approvals)
+  // -------------------------
+  getPendingProgramApplications: async () => {
+    if (!USE_SUPABASE) return [];
+    const { data, error } = await supabase
+      .from("program_applications")
+      .select("*, profiles(name, email), programs(title)")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("getPendingProgramApplications error:", error.message);
+      return [];
+    }
+    return data ?? [];
+  },
+
+  approveProgramApplication: async (applicationId: string, userId: string, programId: number) => {
+    if (!USE_SUPABASE) return null;
+    await supabase.from("program_applications").update({ status: "approved" }).eq("id", applicationId);
+    return api.enrollUserInProgram(userId, programId);
+  },
+
+  rejectProgramApplication: async (applicationId: string) => {
+    if (!USE_SUPABASE) return null;
+    const { error } = await supabase.from("program_applications").update({ status: "rejected" }).eq("id", applicationId);
+    if (error) console.error("rejectProgramApplication error:", error.message);
+    return true;
+  },
+
+  createProgramApplication: async (payload: {
+    user_id: string | null;
+    program_id: number;
+    full_name: string;
+    phone: string;
+    email: string;
+    status: "pending";
+  }) => {
+    if (!USE_SUPABASE) return null;
+    const { data, error } = await supabase
+      .from("program_applications")
+      .insert({
+        user_id: payload.user_id,
+        program_id: payload.program_id,
+        full_name: payload.full_name,
+        phone: payload.phone,
+        email: payload.email,
+        status: payload.status,
+      })
+      .select()
+      .single();
+    if (error) {
+      console.error("createProgramApplication error:", error.message);
+      return null;
+    }
+    return data;
+  },
+
+  // -------------------------
+  // COURSE APPLICATIONS (pre-checkout intake; admins list per course)
+  // -------------------------
+  createCourseApplication: async (payload: {
+    user_id: string;
+    course_id: number;
+    full_name: string;
+    email: string;
+    phone: string;
+    goal: string;
+    status: "pending";
+  }) => {
+    if (!USE_SUPABASE) return null;
+    const { data, error } = await supabase
+      .from("course_applications")
+      .insert({
+        user_id: payload.user_id,
+        course_id: payload.course_id,
+        full_name: payload.full_name,
+        email: payload.email,
+        phone: payload.phone,
+        goal: payload.goal,
+        status: payload.status,
+      })
+      .select()
+      .single();
+    if (error) {
+      console.error("createCourseApplication error:", error.message);
+      return null;
+    }
+    return data;
+  },
+
+  getCourseApplications: async (courseId: number) => {
+    if (!USE_SUPABASE) return [];
+    const { data, error } = await supabase
+      .from("course_applications")
+      .select("*, profiles(name, email)")
+      .eq("course_id", courseId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("getCourseApplications error:", error.message);
+      return [];
+    }
+    return data ?? [];
+  },
+
+  // -------------------------
   // AVATAR UPLOAD (bucket `avatars`, path `<userId>/avatar.<ext>` — supabase/storage_setup.sql)
   // -------------------------
   uploadAvatar: async (userId: string, file: File): Promise<string | null> => {
@@ -840,10 +945,26 @@ export const api = {
     if (USE_SUPABASE) {
       const { data: courses, error: courseError } = await supabase
         .from("courses")
-        .select("id, students, rating, revenue")
+        .select("id, rating, revenue")
         .eq("instructor_id", instructorId);
       if (courseError) return null;
-      const totalStudents = courses.reduce((acc, c) => acc + (c.students || 0), 0);
+
+      const courseIds = (courses ?? []).map((c: any) => c.id).filter((id: unknown) => typeof id === "number");
+      let totalStudents = 0;
+      if (courseIds.length > 0) {
+        const { data: enrollments, error: enrollErr } = await supabase
+          .from("enrollments")
+          .select("course_id")
+          .in("course_id", courseIds)
+          .neq("status", "dropped");
+        if (enrollErr) {
+          console.error("Supabase getInstructorStats enrollments error:", enrollErr.message);
+          totalStudents = 0;
+        } else {
+          totalStudents = (enrollments ?? []).length;
+        }
+      }
+
       const totalRevenue = courses.reduce((acc, c) => acc + (c.revenue || 0), 0);
       const avgRating = courses.length > 0
         ? courses.reduce((acc, c) => acc + (c.rating || 0), 0) / courses.length : 0;

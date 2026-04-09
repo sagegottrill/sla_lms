@@ -55,6 +55,27 @@ function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
   };
 }
 
+function mapAuthUserToFallbackAppUser(authUser: User): AppUser {
+  const meta = authUser.user_metadata || {};
+  const name =
+    (typeof meta.full_name === "string" && meta.full_name) ||
+    (typeof meta.name === "string" && meta.name) ||
+    authUser.email?.split("@")[0] ||
+    "User";
+  const avatar =
+    (typeof meta.avatar_url === "string" && meta.avatar_url) ||
+    (typeof meta.picture === "string" && meta.picture) ||
+    undefined;
+  return {
+    id: authUser.id,
+    name,
+    email: authUser.email ?? "",
+    role: "student",
+    avatar,
+    onboarding: { ...defaultOnboarding },
+  };
+}
+
 interface AuthContextType {
   user: User | null;
   appUser: AppUser | null;
@@ -107,8 +128,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** Google/OAuth users need a profiles row; trigger usually creates it, but this covers gaps. */
   const ensureProfileFromAuthUser = async (authUser: User) => {
     if (isUsingSupabasePlaceholders) return;
-    const { data: existing } = await supabase.from("profiles").select("id").eq("id", authUser.id).maybeSingle();
+    const { data: existing, error: existingErr } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", authUser.id)
+      .maybeSingle();
     if (existing) return;
+    if (existingErr) {
+      // If RLS blocks reads, we still want the user to be able to proceed with a valid auth session.
+      console.warn("ensureProfileFromAuthUser: could not read existing profile:", existingErr.message);
+    }
 
     const meta = authUser.user_metadata || {};
     const name =
@@ -141,20 +170,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (data && !error) {
         setAppUser(mapProfileRowToAppUser(data as Record<string, unknown>));
-        return;
+        return true;
       }
       if (authUser) {
         await ensureProfileFromAuthUser(authUser);
         const { data: retry } = await supabase.from("profiles").select("*").eq("id", userId).single();
         if (retry) {
           setAppUser(mapProfileRowToAppUser(retry as Record<string, unknown>));
-          return;
+          return true;
         }
       }
       console.error("Could not load profile:", error?.message);
     } catch (err) {
       console.error("Error loading profile:", err);
     }
+    if (authUser) {
+      // Do not block a valid session on profile RLS / missing row issues.
+      setAppUser(mapAuthUserToFallbackAppUser(authUser));
+    }
+    return false;
   };
 
   const loadUserProfileRef = useRef(loadUserProfile);
@@ -246,7 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error };
-    // Load profile before returning so callers never navigate with a stale/missing appUser (wrong role / student fallback).
+    // Try to load profile, but never block a valid session on profile fetch/RLS issues.
     if (data.user) {
       setUser(data.user);
       if (data.session) setSession(data.session);

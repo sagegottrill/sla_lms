@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Upload, Briefcase, GraduationCap, Target, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useProgram } from "@/hooks/useQueries";
 import { toast } from "sonner";
@@ -16,24 +16,12 @@ export default function ProgramApplicationPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [submitted, setSubmitted] = useState(false);
-  const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     fullName: "",
     email: "",
     phone: "",
-    country: "",
-    city: "",
-    currentRole: "",
-    company: "",
-    yearsExperience: "",
-    linkedIn: "",
-    education: "",
-    whyApply: "",
-    goals: "",
-    hearAbout: "",
-    resume: null as File | null,
   });
 
   const update = (key: string, val: string) => setForm((p) => ({ ...p, [key]: val }));
@@ -58,44 +46,39 @@ export default function ProgramApplicationPage() {
   }
 
   const validateStep = () => {
-    if (step === 1 && (!form.fullName.trim() || !form.email.trim() || !form.phone.trim())) {
+    if (!form.fullName.trim() || !form.email.trim() || !form.phone.trim()) {
       toast.error("Please fill in all required fields.");
       return false;
     }
-    if (step === 1 && !form.email.includes("@")) {
+    if (!form.email.includes("@")) {
       toast.error("Please enter a valid email address.");
-      return false;
-    }
-    if (step === 2 && (!form.currentRole.trim() || !form.yearsExperience)) {
-      toast.error("Please fill in your professional background.");
-      return false;
-    }
-    if (step === 3 && !form.whyApply.trim()) {
-      toast.error("Please tell us why you're applying.");
       return false;
     }
     return true;
   };
 
-  const handleNext = () => {
-    if (validateStep()) setStep((s) => Math.min(s + 1, 3));
-  };
-
   const handleSubmit = async () => {
     if (!validateStep() || !program) return;
-    if (user?.id) {
-      setSubmitting(true);
-      const result = await api.enrollUserInProgram(user.id, (program as { id: number }).id);
-      setSubmitting(false);
-      if (result === null) {
-        toast.error("Could not save your enrollment. Please try again.");
+    setSubmitting(true);
+    try {
+      const programId = (program as { id: number }).id;
+      const payload = {
+        user_id: user?.id ?? null,
+        program_id: programId,
+        full_name: form.fullName.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        status: "pending" as const,
+      };
+      const result = await api.createProgramApplication(payload);
+      if (!result) {
+        toast.error("Could not submit your application. Please try again.");
         return;
       }
-      void queryClient.invalidateQueries({ queryKey: queryKeys.participants.all() });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.base });
-      toast.success("You're enrolled in this cohort — you'll appear under Participants for admins.");
-    } else {
-      toast.success("Application details recorded. Sign in or create an account to complete enrollment.");
+      void queryClient.invalidateQueries({ queryKey: ["program_applications", "pending"] });
+      toast.success("Application submitted for review.");
+    } finally {
+      setSubmitting(false);
     }
     setSubmitted(true);
   };
@@ -131,10 +114,6 @@ export default function ProgramApplicationPage() {
                 <span className="text-foreground font-medium">{program.title}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Start date</span>
-                <span className="text-foreground">{startDisplay}</span>
-              </div>
-              <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Program fee</span>
                 <span className="font-bold text-foreground">₦{program.price}</span>
               </div>
@@ -144,8 +123,6 @@ export default function ProgramApplicationPage() {
               <ol className="text-sm text-muted-foreground space-y-2">
                 <li className="flex gap-2"><span className="text-primary font-bold">1.</span> Our team reviews your application (2–3 business days)</li>
                 <li className="flex gap-2"><span className="text-primary font-bold">2.</span> You'll receive an acceptance email at {form.email}</li>
-                <li className="flex gap-2"><span className="text-primary font-bold">3.</span> Complete payment to secure your spot</li>
-                <li className="flex gap-2"><span className="text-primary font-bold">4.</span> Get your onboarding pack and cohort details</li>
               </ol>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -182,160 +159,52 @@ export default function ProgramApplicationPage() {
           </div>
         </div>
 
-        {/* Step indicators */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          {[
-            { n: 1, label: "Personal Info", icon: GraduationCap },
-            { n: 2, label: "Background", icon: Briefcase },
-            { n: 3, label: "Motivation", icon: Target },
-          ].map(({ n, label, icon: Icon }) => (
-            <div key={n} className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
-                step === n ? "gradient-card text-primary-foreground" : step > n ? "bg-secondary text-primary" : "bg-muted text-muted-foreground"
-              }`}>
-                {step > n ? <CheckCircle2 className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
-              </div>
-              <span className={`text-xs font-medium hidden sm:block ${step === n ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
-              {n < 3 && <div className="w-8 sm:w-12 h-0.5 bg-border ml-1" />}
-            </div>
-          ))}
-        </div>
-
         {/* Form */}
-        <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
           className="bg-card rounded-2xl shadow-sm border-0 p-6 space-y-5">
 
-          {step === 1 && (
-            <>
-              <h2 className="font-display text-lg font-bold text-foreground">Personal Information</h2>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Full Name *</label>
-                  <input value={form.fullName} onChange={(e) => update("fullName", e.target.value)} placeholder="Amara Osei"
-                    className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Email Address *</label>
-                  <input type="email" value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="amara@example.com"
-                    className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </div>
-              </div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Phone Number *</label>
-                  <input value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+234 800 000 0000"
-                    className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Country</label>
-                  <select value={form.country} onChange={(e) => update("country", e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                    <option value="">Select country</option>
-                    {["Nigeria", "Kenya", "Ghana", "South Africa", "Tanzania", "Uganda", "Rwanda", "Ethiopia", "Cameroon", "Senegal", "Other"].map(c =>
-                      <option key={c}>{c}</option>
-                    )}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">City</label>
-                <input value={form.city} onChange={(e) => update("city", e.target.value)} placeholder="Lagos"
-                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-              </div>
-            </>
-          )}
-
-          {step === 2 && (
-            <>
-              <h2 className="font-display text-lg font-bold text-foreground">Professional Background</h2>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Current Role *</label>
-                  <input value={form.currentRole} onChange={(e) => update("currentRole", e.target.value)} placeholder="Marketing Manager"
-                    className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Company / Organisation</label>
-                  <input value={form.company} onChange={(e) => update("company", e.target.value)} placeholder="Flutterwave"
-                    className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </div>
-              </div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Years of Experience *</label>
-                  <select value={form.yearsExperience} onChange={(e) => update("yearsExperience", e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                    <option value="">Select</option>
-                    {["0–1 years", "2–3 years", "4–5 years", "6–10 years", "10+ years"].map(y => <option key={y}>{y}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Highest Education</label>
-                  <select value={form.education} onChange={(e) => update("education", e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                    <option value="">Select</option>
-                    {["Secondary / A-Levels", "Diploma / HND", "Bachelor's Degree", "Master's Degree", "PhD / Doctorate", "Professional Certification", "Self-taught"].map(e => <option key={e}>{e}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">LinkedIn Profile</label>
-                <input value={form.linkedIn} onChange={(e) => update("linkedIn", e.target.value)} placeholder="https://linkedin.com/in/your-profile"
-                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Resume / CV (optional)</label>
-                <label className="flex items-center justify-center gap-2 w-full py-4 rounded-xl border-2 border-dashed border-border bg-muted/30 text-sm text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors">
-                  <Upload className="w-4 h-4" />
-                  {form.resume ? form.resume.name : "Click to upload PDF or DOCX"}
-                  <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(e) => setForm((p) => ({ ...p, resume: e.target.files?.[0] || null }))} />
-                </label>
-              </div>
-            </>
-          )}
-
-          {step === 3 && (
-            <>
-              <h2 className="font-display text-lg font-bold text-foreground">Your Motivation</h2>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Why are you applying to this program? *</label>
-                <textarea value={form.whyApply} onChange={(e) => update("whyApply", e.target.value)} rows={4}
-                  placeholder="Tell us about your motivation, what you hope to achieve, and how this program fits your career goals..."
-                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Where do you see yourself in 2 years?</label>
-                <textarea value={form.goals} onChange={(e) => update("goals", e.target.value)} rows={3}
-                  placeholder="Describe your career aspirations and how completing this program will help you get there..."
-                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">How did you hear about us?</label>
-                <select value={form.hearAbout} onChange={(e) => update("hearAbout", e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                  <option value="">Select</option>
-                  {["Social Media", "Friend / Referral", "Google Search", "LinkedIn", "SLA Newsletter", "Event / Conference", "Other"].map(h => <option key={h}>{h}</option>)}
-                </select>
-              </div>
-            </>
-          )}
+          <h2 className="font-display text-lg font-bold text-foreground">Application</h2>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Full Name *</label>
+              <input
+                value={form.fullName}
+                onChange={(e) => update("fullName", e.target.value)}
+                placeholder="Amara Osei"
+                className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Phone Number *</label>
+              <input
+                value={form.phone}
+                onChange={(e) => update("phone", e.target.value)}
+                placeholder="+234 800 000 0000"
+                className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-1.5 block">Email Address *</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => update("email", e.target.value)}
+              placeholder="amara@example.com"
+              className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
 
           {/* Navigation */}
           <div className="flex items-center justify-between pt-2">
-            {step > 1 ? (
-              <Button variant="outline" onClick={() => setStep((s) => s - 1)} className="rounded-xl">Back</Button>
-            ) : <div />}
-            {step < 3 ? (
-              <Button onClick={handleNext} className="gradient-card text-primary-foreground rounded-xl hover:opacity-90">Continue</Button>
-            ) : (
-              <Button
-                onClick={() => void handleSubmit()}
-                disabled={submitting}
-                className="gradient-card text-primary-foreground rounded-xl hover:opacity-90 px-8"
-              >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Application"}
-              </Button>
-            )}
+            <div />
+            <Button
+              onClick={() => void handleSubmit()}
+              disabled={submitting}
+              className="gradient-card text-primary-foreground rounded-xl hover:opacity-90 px-8"
+            >
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Application"}
+            </Button>
           </div>
         </motion.div>
       </div>

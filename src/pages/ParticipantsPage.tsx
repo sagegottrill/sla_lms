@@ -120,13 +120,27 @@ export default function ParticipantsPage() {
       toast.info("No email addresses found to message.");
       return;
     }
-
-    const payload = emails.join("\n");
     try {
-      await navigator.clipboard.writeText(payload);
-      toast.success("Recipient emails copied. Paste into your message composer.");
-    } catch {
-      toast.info("Clipboard blocked. Select and copy emails manually in the roster export.");
+      const to = emails.join(",");
+      window.open(`mailto:${to}?subject=${encodeURIComponent("Update from She Leads Africa")}`, "_blank");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not open email composer.");
+    }
+  };
+
+  const handleDeleteParticipant = async (userId: string) => {
+    if (!userId) return;
+    setRemoving(true);
+    try {
+      await api.dropAllEnrollmentsForUser(userId);
+      await api.deleteProfile(userId);
+      toast.success("Participant deleted.");
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.base });
+      queryClient.invalidateQueries({ queryKey: queryKeys.participants.base });
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to delete participant.");
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -283,6 +297,12 @@ export default function ParticipantsPage() {
                             className="cursor-pointer font-medium text-xs py-2"
                           >
                             Copy email
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => void handleDeleteParticipant(String((p as any).user_id ?? ""))}
+                            className="cursor-pointer font-medium text-xs py-2 text-destructive focus:text-destructive"
+                          >
+                            Delete participant
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

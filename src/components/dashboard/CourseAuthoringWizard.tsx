@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, Video, FileText, HelpCircle, ChevronDown, ChevronRight,
@@ -37,6 +38,21 @@ interface QuizQuestion {
 /* ─── Helpers ─────────────────────────────────────────────────────── */
 const uid = () => Math.random().toString(36).slice(2, 9);
 
+async function uploadFileToCoursesBucket(file: File): Promise<string | null> {
+  const ext = file.name.split(".").pop() || "bin";
+  const path = `thumbnails/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from("courses").upload(path, file, {
+    upsert: true,
+    contentType: file.type,
+  });
+  if (error) {
+    toast.error(error.message);
+    return null;
+  }
+  const { data } = supabase.storage.from("courses").getPublicUrl(path);
+  return data.publicUrl;
+}
+
 const LESSON_ICONS: Record<LessonType, React.ElementType> = {
   video: Video,
   reading: FileText,
@@ -68,10 +84,15 @@ function StatusDot({ status }: { status: "draft" | "missing" | "ready" }) {
 }
 
 /* ─── Step 1: Identity ────────────────────────────────────────────── */
-function StepIdentity({ data, onChange }: {
+function StepIdentity({ data, onChange, courseThumbnailUrl, onCourseThumbnailUrl }: {
   data: { title: string; description: string; subject: string; objectives: string };
   onChange: (field: string, value: string) => void;
+  courseThumbnailUrl?: string | null;
+  onCourseThumbnailUrl?: (url: string) => void;
 }) {
+  const thumbInputRef = useRef<HTMLInputElement>(null);
+  const [thumbUploading, setThumbUploading] = useState(false);
+
   const fields = [
     { key: "title", label: "Course Title", placeholder: "e.g. BoostHer Digital Marketing Bootcamp", type: "input" },
     { key: "subject", label: "Subject Area", placeholder: "e.g. Digital Marketing, Finance, Leadership", type: "input" },
@@ -86,6 +107,44 @@ function StepIdentity({ data, onChange }: {
           Define the "shell" of your course. This is what learners and search indices will see first.
         </p>
       </div>
+      {onCourseThumbnailUrl ? (
+        <div className="space-y-2 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-4">
+          <label className="text-sm font-semibold text-foreground">Course thumbnail (cover image)</label>
+          <input
+            ref={thumbInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              setThumbUploading(true);
+              const url = await uploadFileToCoursesBucket(file);
+              setThumbUploading(false);
+              if (url) {
+                onCourseThumbnailUrl(url);
+                toast.success("Thumbnail uploaded.");
+              }
+            }}
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            {courseThumbnailUrl ? (
+              <img src={courseThumbnailUrl} alt="Course thumbnail" className="w-28 h-20 object-cover rounded-xl ring-1 ring-border" />
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-xl"
+              disabled={thumbUploading}
+              onClick={() => thumbInputRef.current?.click()}
+            >
+              {thumbUploading ? "Uploading…" : courseThumbnailUrl ? "Replace thumbnail" : "Upload thumbnail"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
       {fields.map(f => (
         <div key={f.key} className="space-y-2">
           <label className="text-sm font-semibold text-foreground">{f.label}</label>
@@ -214,12 +273,33 @@ function StepContent({ modules, setModules }: {
   setModules: React.Dispatch<React.SetStateAction<Module[]>>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const pendingLessonRef = useRef<{ modId: string; lesId: string } | null>(null);
 
-  const handleUpload = (modId: string, lesId: string) => {
-    // Simulated upload confirmation
-    setModules((m: Module[]) => m.map((mod: Module) => mod.id === modId ? {
-      ...mod, lessons: mod.lessons.map((l: Lesson) => l.id === lesId ? { ...l, contentLabel: "sample_video.mp4", expanded: false } : l)
-    } : mod));
+  const handlePickFile = (modId: string, lesId: string) => {
+    pendingLessonRef.current = { modId, lesId };
+    fileRef.current?.click();
+  };
+
+  const onLessonFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    const ctx = pendingLessonRef.current;
+    pendingLessonRef.current = null;
+    if (!file || !ctx) return;
+    const url = await uploadFileToCoursesBucket(file);
+    if (!url) return;
+    setModules((m: Module[]) =>
+      m.map((mod: Module) =>
+        mod.id === ctx.modId
+          ? {
+              ...mod,
+              lessons: mod.lessons.map((l: Lesson) =>
+                l.id === ctx.lesId ? { ...l, contentLabel: url, expanded: false } : l,
+              ),
+            }
+          : mod,
+      ),
+    );
     toast.success("File uploaded successfully!");
   };
 
@@ -234,7 +314,7 @@ function StepContent({ modules, setModules }: {
       <p className="text-sm text-muted-foreground">
         Click any lesson to open its inline upload zone. No page navigation needed.
       </p>
-      <input ref={fileRef} type="file" className="hidden" />
+      <input ref={fileRef} type="file" className="hidden" onChange={onLessonFileSelected} />
       {modules.map(mod => (
         <div key={mod.id} className="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 overflow-hidden">
           <div className="px-5 py-3 bg-muted/30 flex items-center gap-2">
@@ -269,7 +349,7 @@ function StepContent({ modules, setModules }: {
                         <div className="px-5 pb-4 pt-2 flex gap-4">
                           <div
                             className="flex-1 border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group"
-                            onClick={() => handleUpload(mod.id, les.id)}
+                            onClick={() => handlePickFile(mod.id, les.id)}
                           >
                             <Upload className="w-6 h-6 text-muted-foreground group-hover:text-primary mx-auto mb-2 transition-colors" />
                             <p className="text-sm font-semibold text-foreground">Upload {les.type === "video" ? "Video" : "File"}</p>
@@ -453,6 +533,8 @@ function StepSettings({ settings, onChange }: {
 export default function CourseAuthoringWizard() {
   const [step, setStep] = useState(0);
   const [previewMode, setPreviewMode] = useState(false);
+  /** Course cover URL (same bucket path pattern as lesson uploads; wired when this wizard persists to API). */
+  const [courseThumbnailUrl, setCourseThumbnailUrl] = useState<string | null>(null);
 
   const [identity, setIdentity] = useState({ title: "", description: "", subject: "", objectives: "" });
   const [modules, setModules] = useState<Module[]>([
@@ -471,7 +553,8 @@ export default function CourseAuthoringWizard() {
   const canGoBack = step > 0;
 
   const handlePublish = () => {
-    toast.success(`"${settings.title || identity.title || "New Course"}" published successfully! 🎉`);
+    const name = settings.title || identity.title || "New Course";
+    toast.success(`"${name}" published successfully! 🎉`);
   };
 
   const stepStatus = (): "draft" | "missing" | "ready" => {
@@ -481,7 +564,12 @@ export default function CourseAuthoringWizard() {
   };
 
   const stepComponents = [
-    <StepIdentity data={identity} onChange={handleIdentityChange} />,
+    <StepIdentity
+      data={identity}
+      onChange={handleIdentityChange}
+      courseThumbnailUrl={courseThumbnailUrl}
+      onCourseThumbnailUrl={setCourseThumbnailUrl}
+    />,
     <StepCurriculum modules={modules} setModules={setModules} />,
     <StepContent modules={modules} setModules={setModules} />,
     <StepAssessment questions={questions} setQuestions={setQuestions} />,

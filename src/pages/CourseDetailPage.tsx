@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Star, Clock, Users, Play, CheckCircle, ChevronDown, Globe, BookOpen, ArrowLeft, Loader2, Video, Check, Maximize, Minimize, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,12 +10,30 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { toVideoEmbedUrl } from "@/lib/videoEmbed";
 import { api } from "@/services/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export default function CourseDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const courseIdNum = Number(id);
   
-  const { appUser } = useAuth();
+  const { appUser, openAuthModal } = useAuth();
+
+  const [enrollModalOpen, setEnrollModalOpen] = useState(false);
+  const [enrollSubmitting, setEnrollSubmitting] = useState(false);
+  const [enrollForm, setEnrollForm] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    goal: "",
+  });
   
   // Enterprise State Management (Pillar 1): TanStack Query
   const { data: course, isLoading: loadingCourse } = useCourse(courseIdNum);
@@ -129,6 +147,7 @@ export default function CourseDetailPage() {
   const handleEnroll = async () => {
     if (!appUser) {
       toast.error("Please log in to enrol.");
+      openAuthModal("login");
       return;
     }
     
@@ -141,6 +160,54 @@ export default function CourseDetailPage() {
         error: "Failed to enrol. Please try again."
       }
     );
+  };
+
+  const openPaidEnrollModal = () => {
+    if (!appUser) {
+      toast.error("Please log in to continue to checkout.");
+      openAuthModal("login");
+      return;
+    }
+    setEnrollForm({
+      fullName: appUser.name || "",
+      email: appUser.email || "",
+      phone: "",
+      goal: "",
+    });
+    setEnrollModalOpen(true);
+  };
+
+  const handleSubmitCourseApplication = async () => {
+    if (!appUser || !course) return;
+    if (!enrollForm.fullName.trim() || !enrollForm.email.trim() || !enrollForm.phone.trim()) {
+      toast.error("Please fill in Full Name, Email, and Phone Number.");
+      return;
+    }
+    if (!enrollForm.email.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    setEnrollSubmitting(true);
+    try {
+      const result = await api.createCourseApplication({
+        user_id: appUser.id,
+        course_id: course.id,
+        full_name: enrollForm.fullName.trim(),
+        email: enrollForm.email.trim(),
+        phone: enrollForm.phone.trim(),
+        goal: enrollForm.goal.trim(),
+        status: "pending",
+      });
+      if (!result) {
+        toast.error("Could not save your details. Please try again.");
+        return;
+      }
+      toast.success("Details saved. Continue to payment.");
+      setEnrollModalOpen(false);
+      navigate(`/courses/${course.id}/checkout`);
+    } finally {
+      setEnrollSubmitting(false);
+    }
   };
 
   return (
@@ -313,9 +380,13 @@ export default function CourseDetailPage() {
                          {enrollMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "Enrol for Free"}
                        </Button>
                      ) : (
-                       <Link to={`/courses/${course.id}/checkout`} className="block">
-                         <Button className="w-full gradient-card text-primary-foreground rounded-xl h-11 font-semibold shadow-brand-sm hover:opacity-90">Enrol Now — ₦{course.price?.toLocaleString()}</Button>
-                       </Link>
+                       <Button
+                         type="button"
+                         onClick={openPaidEnrollModal}
+                         className="w-full gradient-card text-primary-foreground rounded-xl h-11 font-semibold shadow-brand-sm hover:opacity-90"
+                       >
+                         Enrol Now — ₦{course.price?.toLocaleString()}
+                       </Button>
                      )}
                      
                      {!enrolled && (
@@ -360,9 +431,9 @@ export default function CourseDetailPage() {
                 {enrollMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Enrol for Free"}
             </Button>
             ) : (
-            <Link to={`/courses/${course.id}/checkout`}>
-                <Button className="gradient-card text-primary-foreground rounded-xl font-semibold px-6">Enrol — ₦{course.price?.toLocaleString()}</Button>
-            </Link>
+            <Button type="button" onClick={openPaidEnrollModal} className="gradient-card text-primary-foreground rounded-xl font-semibold px-6">
+                Enrol — ₦{course.price?.toLocaleString()}
+            </Button>
             )}
         </div>
       )}
@@ -550,6 +621,73 @@ export default function CourseDetailPage() {
           )}
         </div>
       </div>
+
+      <Dialog open={enrollModalOpen} onOpenChange={setEnrollModalOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Before you checkout</DialogTitle>
+            <DialogDescription>
+              Tell us a bit about yourself. We&apos;ll save this with your enrolment request, then you can complete payment.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium text-foreground">Full Name</label>
+              <input
+                value={enrollForm.fullName}
+                onChange={(e) => setEnrollForm((f) => ({ ...f, fullName: e.target.value }))}
+                className="mt-1.5 w-full px-3 py-2 rounded-xl border bg-background text-sm"
+                placeholder="Your full name"
+                autoComplete="name"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">Email</label>
+              <input
+                type="email"
+                value={enrollForm.email}
+                onChange={(e) => setEnrollForm((f) => ({ ...f, email: e.target.value }))}
+                className="mt-1.5 w-full px-3 py-2 rounded-xl border bg-background text-sm"
+                placeholder="you@example.com"
+                autoComplete="email"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">Phone Number</label>
+              <input
+                value={enrollForm.phone}
+                onChange={(e) => setEnrollForm((f) => ({ ...f, phone: e.target.value }))}
+                className="mt-1.5 w-full px-3 py-2 rounded-xl border bg-background text-sm"
+                placeholder="+234 …"
+                autoComplete="tel"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">What do you hope to achieve from this course?</label>
+              <textarea
+                value={enrollForm.goal}
+                onChange={(e) => setEnrollForm((f) => ({ ...f, goal: e.target.value }))}
+                rows={3}
+                className="mt-1.5 w-full px-3 py-2 rounded-xl border bg-background text-sm resize-none"
+                placeholder="A short goal or outcome you’re aiming for…"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setEnrollModalOpen(false)} className="rounded-xl">
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleSubmitCourseApplication()}
+              disabled={enrollSubmitting}
+              className="gradient-card text-primary-foreground rounded-xl"
+            >
+              {enrollSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Continue to checkout"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

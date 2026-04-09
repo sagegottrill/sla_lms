@@ -45,6 +45,9 @@ export default function CourseBuilderPage() {
   const [published, setPublished] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageRef = useRef<HTMLInputElement>(null);
+  /** After a new course is first saved, we get a row `id` for course-scoped storage paths. */
+  const [savedNewCourseId, setSavedNewCourseId] = useState<number | null>(null);
+  const thumbnailCourseId = isEdit && editId > 0 ? editId : savedNewCourseId;
 
   // Step 1 — Course Info
   const [title, setTitle] = useState("");
@@ -188,6 +191,11 @@ export default function CourseBuilderPage() {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!thumbnailCourseId) {
+      toast.error("Save your course as a draft or publish once first so it has an ID, then upload the thumbnail.");
+      e.target.value = "";
+      return;
+    }
 
     setUploadingImage(true);
     try {
@@ -195,8 +203,8 @@ export default function CourseBuilderPage() {
       const options = { maxSizeMB: 0.5, maxWidthOrHeight: 1280, useWebWorker: true };
       const compressedFile = await imageCompression(file, options);
 
-      const fileExt = file.name.split(".").pop();
-      const filePath = `thumbnails/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const fileExt = file.name.split(".").pop() ?? "jpg";
+      const filePath = `thumbnails/${thumbnailCourseId}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('courses')
@@ -268,7 +276,12 @@ export default function CourseBuilderPage() {
       : createCourse.mutate.bind(createCourse, payload as any);
 
     mutate({
-      onSuccess: () => {
+      onSuccess: (data: unknown) => {
+        const row = data as { id?: number } | null | undefined;
+        if (!isEdit && row?.id != null) {
+          const nid = Number(row.id);
+          if (Number.isFinite(nid)) setSavedNewCourseId(nid);
+        }
         toast.success(status === "published" ? "Course published successfully!" : (isEdit ? "Course updated." : "Draft saved."));
         setPublished(status === "published");
         if (status === "published") setTimeout(() => navigate("/dashboard/courses"), 1500);

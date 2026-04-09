@@ -3,6 +3,9 @@ import { useSystemStats, useCourses, useProfiles } from "@/hooks/useQueries";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { api } from "@/services/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/react-query";
 import {
   Download, Users, BookOpen, FolderOpen, Award, BarChart3,
   Activity, ChevronRight, Server, Wifi, Database, Clock,
@@ -16,6 +19,12 @@ export default function AdminDashboard() {
   const { data: allCourses = [], isLoading: loadingCourses } = useCourses({ publishedOnly: false });
   const { data: allProfiles = [] } = useProfiles();
   const [showAllMetrics, setShowAllMetrics] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: pendingApps = [], isLoading: loadingPending } = useQuery({
+    queryKey: ["program_applications", "pending"],
+    queryFn: api.getPendingProgramApplications,
+  });
 
   const totalUsers = systemStats?.totalUsers ?? 0;
   const activeCourses = systemStats?.activeCourses ?? 0;
@@ -159,6 +168,62 @@ export default function AdminDashboard() {
 
         {/* ———— RIGHT COLUMN (Content Area) ———— */}
         <div className="lg:col-span-8 xl:col-span-9 space-y-6">
+
+          {/* Pending program approvals */}
+          <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-display font-semibold text-lg text-foreground">Pending Approvals</h2>
+                <p className="text-muted-foreground text-sm">Program applications awaiting review.</p>
+              </div>
+              {loadingPending ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : null}
+            </div>
+
+            {pendingApps.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No pending applications.</p>
+            ) : (
+              <div className="space-y-3">
+                {pendingApps.map((a: any) => (
+                  <div key={a.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-muted/20 ring-1 ring-black/5 dark:ring-white/10 border-0">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {(a.profiles?.name ?? "Applicant")} · {(a.profiles?.email ?? "—")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Program: {a.programs?.title ?? a.program_title ?? "—"}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="rounded-xl text-xs"
+                        onClick={async () => {
+                          await api.rejectProgramApplication(String(a.id));
+                          toast.success("Application rejected");
+                          queryClient.invalidateQueries({ queryKey: ["program_applications", "pending"] });
+                        }}
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        className="rounded-xl text-xs bg-[#0056D2] hover:bg-[#00419e] text-white"
+                        onClick={async () => {
+                          await api.approveProgramApplication(String(a.id), String(a.user_id), Number(a.program_id));
+                          toast.success("Application approved");
+                          queryClient.invalidateQueries({ queryKey: ["program_applications", "pending"] });
+                          queryClient.invalidateQueries({ queryKey: queryKeys.participants.base });
+                          queryClient.invalidateQueries({ queryKey: queryKeys.enrollments.base });
+                          queryClient.invalidateQueries({ queryKey: queryKeys.programs.base });
+                        }}
+                      >
+                        Approve
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Revenue Summary */}
           <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden p-6">
