@@ -44,7 +44,12 @@ export interface AppUser {
 
 function mapProfileRowToAppUser(data: Record<string, unknown>, authUser?: User | null): AppUser {
   const interests = parseJsonStringArray(data.interests);
-  const role = resolveEffectiveRole(data, authUser);
+  const profileEmail = typeof data.email === "string" ? data.email : "";
+  let role = resolveEffectiveRole(data, authUser);
+  // VITE_TRUSTED_ADMIN_EMAILS: UI matches intent even if DB row has not refreshed yet.
+  if (isTrustedBootstrapAdmin(authUser?.email ?? null) || isTrustedBootstrapAdmin(profileEmail || null)) {
+    role = "admin";
+  }
   const completed = isStaffRole(role) ? true : Boolean(data.onboarding_completed);
   return {
     id: String(data.id),
@@ -84,7 +89,8 @@ function mapAuthUserToFallbackAppUser(authUser: User): AppUser {
     (typeof meta.avatar_url === "string" && meta.avatar_url) ||
     (typeof meta.picture === "string" && meta.picture) ||
     undefined;
-  const role = roleFromAuthUser(authUser);
+  let role = roleFromAuthUser(authUser);
+  if (isTrustedBootstrapAdmin(authUser.email)) role = "admin";
   return {
     id: authUser.id,
     name,
@@ -203,24 +209,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // We do not persist from user_metadata alone (users could otherwise self-promote in DB).
     const syncProfileStaffToDatabase = async (row: Record<string, unknown>): Promise<Record<string, unknown>> => {
       if (!authUser || isUsingSupabasePlaceholders) return row;
-      const dbRole = normalizeUserRole(row.role);
+      let working: Record<string, unknown> = row;
       const uid = userId;
+      const pull = async () => {
+        const fresh = await api.getProfile(uid);
+        if (fresh) working = fresh as Record<string, unknown>;
+      };
 
-      if (isTrustedBootstrapAdmin(authUser.email)) {
+      let dbRole = normalizeUserRole(working.role);
+      const profileEmail = typeof working.email === "string" ? working.email : "";
+
+      if (isTrustedBootstrapAdmin(authUser.email) || isTrustedBootstrapAdmin(profileEmail)) {
         if (dbRole !== "admin") {
           const { error } = await supabase
             .from("profiles")
             .update({ role: "admin", onboarding_completed: true })
             .eq("id", uid);
           if (error) console.warn("Trusted admin bootstrap: profiles update failed:", error.message);
-          else {
-            const fresh = await api.getProfile(uid);
-            if (fresh) return fresh as Record<string, unknown>;
-          }
+          else await pull();
         }
-        return row;
       }
 
+      dbRole = normalizeUserRole(working.role);
       const fromApp = staffRoleFromAppMetadataOnly(authUser);
       if (dbRole === "student" && fromApp && isStaffRole(fromApp)) {
         const { error } = await supabase
@@ -228,12 +238,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .update({ role: fromApp, onboarding_completed: true })
           .eq("id", uid);
         if (error) console.warn("Sync staff from app_metadata: profiles update failed:", error.message);
-        else {
-          const fresh = await api.getProfile(uid);
-          if (fresh) return fresh as Record<string, unknown>;
+        else await pull();
+      }
+
+      // DB-side recovery: SECURITY DEFINER RPC (see supabase/rpc_recover_staff_profile.sql). Works when RLS blocks client UPDATE.
+      dbRole = normalizeUserRole(working.role);
+      if (dbRole === "student") {
+        const { data: rpcData, error: rpcErr } = await supabase.rpc("recover_my_staff_profile");
+        if (rpcErr) {
+          const m = (rpcErr.message ?? "").toLowerCase();
+          const fnMissing =
+            rpcErr.code === "42883" || m.includes("does not exist") || m.includes("could not find");
+          if (!fnMissing) console.warn("recover_my_staff_profile:", rpcErr.message);
+        } else if (rpcData && typeof rpcData === "object" && (rpcData as { ok?: boolean }).ok === true) {
+          await pull();
         }
       }
-      return row;
+
+      return working;
     };
 
     try {
