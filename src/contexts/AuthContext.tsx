@@ -39,9 +39,9 @@ export interface AppUser {
   onboarding: OnboardingData;
 }
 
-function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
+function mapProfileRowToAppUser(data: Record<string, unknown>, authUser?: User | null): AppUser {
   const interests = parseJsonStringArray(data.interests);
-  const role = resolveEffectiveRole(data);
+  const role = resolveEffectiveRole(data, authUser);
   const completed = isStaffRole(role) ? true : Boolean(data.onboarding_completed);
   return {
     id: String(data.id),
@@ -65,12 +65,13 @@ function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
   };
 }
 
-/** When the profiles row cannot be read yet, infer role from JWT metadata (invited staff, etc.). */
+/** When the profiles row cannot be read yet, infer role from JWT (prefer signed app_metadata). */
 function roleFromAuthUser(authUser: User): UserRole {
   const app = (authUser.app_metadata || {}) as Record<string, unknown>;
   const meta = (authUser.user_metadata || {}) as Record<string, unknown>;
-  const raw = app.role ?? app.user_role ?? meta.role;
-  return normalizeUserRole(raw);
+  const rawApp = app.role ?? app.user_role;
+  if (rawApp != null && rawApp !== "") return normalizeUserRole(rawApp);
+  return normalizeUserRole(meta.role);
 }
 
 function mapAuthUserToFallbackAppUser(authUser: User): AppUser {
@@ -138,6 +139,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const rq = useQueryClient();
+  /** Same user as `user` — refs stay in sync for realtime profile reloads (no stale closure). */
+  const authUserForProfileRef = useRef<User | null>(null);
+  useEffect(() => {
+    authUserForProfileRef.current = user;
+  }, [user]);
 
   // Modal state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -196,14 +202,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.getProfile(userId);
       if (data) {
-        setAppUser(mapProfileRowToAppUser(data as Record<string, unknown>));
+        setAppUser(mapProfileRowToAppUser(data as Record<string, unknown>, authUser));
         return true;
       }
       if (authUser) {
         await ensureProfileFromAuthUser(authUser);
         const retry = await api.getProfile(userId);
         if (retry) {
-          setAppUser(mapProfileRowToAppUser(retry as Record<string, unknown>));
+          setAppUser(mapProfileRowToAppUser(retry as Record<string, unknown>, authUser));
           return true;
         }
       }
@@ -231,7 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles", filter: `id=eq.${uid}` },
         () => {
-          void loadUserProfileRef.current(uid);
+          void loadUserProfileRef.current(uid, authUserForProfileRef.current);
         }
       )
       .subscribe();

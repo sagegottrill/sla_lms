@@ -41,12 +41,34 @@ export function isOnboardingRole(role: UserRole | undefined): boolean {
   return role !== undefined && ONBOARDING_ROLES.includes(role);
 }
 
+/** Minimal shape for reading staff role from the signed JWT (`app_metadata` only — not user-editable). */
+export type JwtAppMetadataSource = {
+  app_metadata?: Record<string, unknown> | null;
+};
+
+function staffRoleFromAppMetadata(authUser: JwtAppMetadataSource | null | undefined): UserRole | null {
+  if (!authUser) return null;
+  const app = (authUser.app_metadata || {}) as Record<string, unknown>;
+  const raw = app.role ?? app.user_role;
+  if (raw == null || raw === "") return null;
+  const r = normalizeUserRole(raw);
+  return isStaffRole(r) ? r : null;
+}
+
 /**
- * `profiles.role` is the source of truth (User management + RLS). Realtime updates to this row
- * immediately change access; do not override with auth metadata (avoids stale promotions).
+ * Prefer `profiles.role` whenever it is not a plain learner row. If the profile still says `student`
+ * but Supabase `app_metadata` carries a staff role (set by Auth hooks / service role), use that so
+ * promoted admins are not stuck behind learner onboarding when the profiles row was never updated.
  */
-export function resolveEffectiveRole(profileRow: Record<string, unknown>): UserRole {
-  return normalizeUserRole(profileRow.role);
+export function resolveEffectiveRole(
+  profileRow: Record<string, unknown>,
+  authUser?: JwtAppMetadataSource | null
+): UserRole {
+  const profileRole = normalizeUserRole(profileRow.role);
+  if (profileRole !== "student") return profileRole;
+  const fromJwt = staffRoleFromAppMetadata(authUser);
+  if (fromJwt) return fromJwt;
+  return profileRole;
 }
 
 type OnboardingSlice = { role: UserRole; onboarding?: { completed?: boolean } };
