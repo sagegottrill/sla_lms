@@ -11,6 +11,7 @@ import {
   ClipboardList, ListChecks,
 } from "lucide-react";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { normalizeUserRole } from "@/lib/userRole";
 import { cn } from "@/lib/utils";
 
 type NavItem = { label: string; icon: React.ElementType; href: string; badge?: string };
@@ -235,7 +236,8 @@ export default function DashboardSidebar() {
       </div>
     </aside>
   );
-  const groups = navByRole[appUser.role];
+  const role = normalizeUserRole(appUser.role);
+  const groups = navByRole[role] ?? navByRole.student;
 
   const toggleGroup = (group: string) => {
     setCollapsedGroups(prev => ({ ...prev, [group]: !prev[group] }));
@@ -359,8 +361,8 @@ export default function DashboardSidebar() {
             {!collapsed && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-foreground truncate">{appUser?.name || "User"}</p>
-                <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block", roleColors[appUser.role])}>
-                  {roleLabels[appUser.role]}
+                <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block", roleColors[role])}>
+                  {roleLabels[role]}
                 </span>
               </motion.div>
             )}

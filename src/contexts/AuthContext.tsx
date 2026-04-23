@@ -8,6 +8,7 @@ import {
   learnerNeedsOnboarding,
   isStaffRole,
   normalizeUserRole,
+  roleFromProfileRow,
   staffRoleFromAppMetadataOnly,
   type UserRole,
 } from "@/lib/userRole";
@@ -50,6 +51,7 @@ function mapProfileRowToAppUser(data: Record<string, unknown>, authUser?: User |
   if (isTrustedBootstrapAdmin(authUser?.email ?? null) || isTrustedBootstrapAdmin(profileEmail || null)) {
     role = "admin";
   }
+  role = normalizeUserRole(role);
   const completed = isStaffRole(role) ? true : Boolean(data.onboarding_completed);
   return {
     id: String(data.id),
@@ -91,6 +93,7 @@ function mapAuthUserToFallbackAppUser(authUser: User): AppUser {
     undefined;
   let role = roleFromAuthUser(authUser);
   if (isTrustedBootstrapAdmin(authUser.email)) role = "admin";
+  role = normalizeUserRole(role);
   return {
     id: authUser.id,
     name,
@@ -216,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (fresh) working = fresh as Record<string, unknown>;
       };
 
-      let dbRole = normalizeUserRole(working.role);
+      let dbRole = roleFromProfileRow(working as Record<string, unknown>);
       const profileEmail = typeof working.email === "string" ? working.email : "";
 
       if (isTrustedBootstrapAdmin(authUser.email) || isTrustedBootstrapAdmin(profileEmail)) {
@@ -230,7 +233,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      dbRole = normalizeUserRole(working.role);
+      dbRole = roleFromProfileRow(working as Record<string, unknown>);
       const fromApp = staffRoleFromAppMetadataOnly(authUser);
       if (dbRole === "student" && fromApp && isStaffRole(fromApp)) {
         const { error } = await supabase
@@ -242,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // DB-side recovery: SECURITY DEFINER RPC (see supabase/rpc_recover_staff_profile.sql). Works when RLS blocks client UPDATE.
-      dbRole = normalizeUserRole(working.role);
+      dbRole = roleFromProfileRow(working as Record<string, unknown>);
       if (dbRole === "student") {
         const { data: rpcData, error: rpcErr } = await supabase.rpc("recover_my_staff_profile");
         if (rpcErr) {

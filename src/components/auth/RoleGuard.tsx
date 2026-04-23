@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { normalizeUserRole } from "@/lib/userRole";
 
 type RoleGuardProps = {
   allow: readonly UserRole[];
@@ -15,6 +16,7 @@ type RoleGuardProps = {
 export function RoleGuard({ allow, children, redirectTo = "/dashboard" }: RoleGuardProps) {
   const { appUser } = useAuth();
   if (!appUser) return <Navigate to="/" replace />;
-  if (!allow.includes(appUser.role)) return <Navigate to={redirectTo} replace />;
+  const effectiveRole = normalizeUserRole(appUser.role);
+  if (!allow.includes(effectiveRole)) return <Navigate to={redirectTo} replace />;
   return <>{children}</>;
 }

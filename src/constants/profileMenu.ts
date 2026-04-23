@@ -7,6 +7,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/contexts/AuthContext";
+import { normalizeUserRole } from "@/lib/userRole";
 
 /** Profile dropdown items for dashboard shell + landing navbar (single source of truth). */
 export const dashboardProfileDropdownLinks: Record<
@@ -36,8 +37,9 @@ export const dashboardProfileDropdownLinks: Record<
 };
 
 export function getProfileLinksForRole(role: UserRole | undefined) {
-  if (!role) return [];
-  return dashboardProfileDropdownLinks[role] ?? dashboardProfileDropdownLinks.student;
+  if (role == null) return dashboardProfileDropdownLinks.student;
+  const normalized = normalizeUserRole(role as unknown);
+  return dashboardProfileDropdownLinks[normalized];
 }
 
 /** Landing navbar + mobile sheet: Dashboard, role-specific links, Help Center (single source with dashboard shell). */

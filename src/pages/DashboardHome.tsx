@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { normalizeUserRole } from "@/lib/userRole";
 import StudentDashboard from "./dashboards/StudentDashboard";
 import InstructorDashboard from "./dashboards/InstructorDashboard";
 import ProgramManagerDashboard from "./dashboards/ProgramManagerDashboard";
@@ -17,9 +18,9 @@ export default function DashboardHome() {
     admin: <AdminDashboard />,
   };
 
-  return (
-    <div>
-      {dashboards[appUser.role]}
-    </div>
-  );
+  // Normalize so we never index with a stray string (would render blank and feel like "wrong role").
+  const role = normalizeUserRole(appUser.role);
+  const panel = dashboards[role] ?? dashboards.student;
+
+  return <div>{panel}</div>;
 }

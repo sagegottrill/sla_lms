@@ -8,7 +8,9 @@ const ONBOARDING_ROLES: readonly UserRole[] = ["student"];
 
 export function normalizeUserRole(raw: unknown): UserRole {
   if (raw == null || raw === "") return "student";
-  const s = String(raw).toLowerCase().trim().replace(/[\s-]+/g, "_");
+  // Strip zero-width / BOM noise occasionally present in CSV imports or hand-edited cells.
+  const s0 = String(raw).replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+  const s = s0.toLowerCase().replace(/[\s-]+/g, "_");
   if (
     s === "admin" ||
     s === "administrator" ||
@@ -81,6 +83,21 @@ export function staffRoleFromAppMetadataOnly(authUser: JwtRoleClaimsSource | nul
 /** @deprecated Use JwtRoleClaimsSource */
 export type JwtAppMetadataSource = JwtRoleClaimsSource;
 
+/** First non-empty role-like field on a `profiles` row (Supabase column is usually `role`). */
+export function rawRoleFromProfileRow(profileRow: Record<string, unknown>): unknown {
+  const keys = ["role", "user_role", "userRole", "account_type", "accountType"] as const;
+  for (const k of keys) {
+    const v = profileRow[k];
+    if (v != null && v !== "") return v;
+  }
+  return null;
+}
+
+/** Canonical `UserRole` from a profiles API row (handles alternate keys and messy strings). */
+export function roleFromProfileRow(profileRow: Record<string, unknown>): UserRole {
+  return normalizeUserRole(rawRoleFromProfileRow(profileRow));
+}
+
 /**
  * Prefer `profiles.role` whenever it is not a plain learner row. If the profile still says `student`
  * but the session user carries a staff role in metadata (common when `profiles` was never updated
@@ -90,7 +107,7 @@ export function resolveEffectiveRole(
   profileRow: Record<string, unknown>,
   authUser?: JwtRoleClaimsSource | null
 ): UserRole {
-  const profileRole = normalizeUserRole(profileRow.role);
+  const profileRole = roleFromProfileRow(profileRow);
   if (profileRole !== "student") return profileRole;
   const fromClaims = staffRoleFromAuthClaims(authUser);
   if (fromClaims) return fromClaims;
