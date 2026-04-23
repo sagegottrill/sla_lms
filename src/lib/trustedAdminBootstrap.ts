@@ -3,6 +3,7 @@
  * `profiles.role = admin` on login when the row is wrong. Only people with deploy access can
  * set this; remove addresses after fixing `public.profiles` in Supabase.
  */
+// Parsed once at module load; env changes require a rebuild/redeploy (Vite static import.meta.env).
 const TRUSTED = new Set(
   String(import.meta.env.VITE_TRUSTED_ADMIN_EMAILS ?? "")
     .split(",")

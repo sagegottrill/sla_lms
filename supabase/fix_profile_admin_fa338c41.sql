@@ -1,6 +1,6 @@
--- One-off: user stuck in learner onboarding while intended as platform admin.
--- The app reads `public.profiles.role` first; if it stays `student`, dashboards and onboarding
--- behave as a learner until this row is corrected (or staff role exists in JWT app_metadata).
+-- One-off ops script (run once in SQL Editor, then verify in Table Editor).
+-- User stuck as learner: `public.profiles.role` drives UI + RLS; keep it aligned with real access.
+-- Alternative: set `VITE_TRUSTED_ADMIN_EMAILS` or Auth app_metadata + app sync — see AuthContext.
 --
 -- Target user id:
 --   fa338c41-4aa4-40d1-9f6e-82e9db7da4b8

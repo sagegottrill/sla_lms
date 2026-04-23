@@ -198,7 +198,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Load user profile from Supabase profiles table
   const loadUserProfile = async (userId: string, authUser?: User | null) => {
-    /** Persist staff role to `profiles` when JWT app_metadata or trusted-email bootstrap says so (RLS matches UI). */
+    // Dashboard + RLS both use `profiles.role`. If the row is stale `student`, self-serve recovery:
+    // (1) VITE_TRUSTED_ADMIN_EMAILS — deploy-time allowlist; (2) JWT app_metadata staff — cannot be forged by clients.
+    // We do not persist from user_metadata alone (users could otherwise self-promote in DB).
     const syncProfileStaffToDatabase = async (row: Record<string, unknown>): Promise<Record<string, unknown>> => {
       if (!authUser || isUsingSupabasePlaceholders) return row;
       const dbRole = normalizeUserRole(row.role);
