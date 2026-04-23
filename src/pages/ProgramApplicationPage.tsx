@@ -7,12 +7,14 @@ import { useProgram } from "@/hooks/useQueries";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/services/api";
+import { isCourseOrProgramRouteParam } from "@/lib/publicRoutes";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/react-query";
 
 export default function ProgramApplicationPage() {
   const { id } = useParams();
-  const { data: program, isLoading } = useProgram(Number(id));
+  const routeInvalid = id != null && id !== "" && !isCourseOrProgramRouteParam(id);
+  const { data: program, isLoading } = useProgram(id);
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [submitted, setSubmitted] = useState(false);
@@ -25,6 +27,17 @@ export default function ProgramApplicationPage() {
   });
 
   const update = (key: string, val: string) => setForm((p) => ({ ...p, [key]: val }));
+
+  if (routeInvalid) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-foreground font-semibold mb-4">Program not found</p>
+          <Link to="/programs"><Button variant="outline" className="rounded-xl">Browse Programs</Button></Link>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Star, Clock, Users, Play, CheckCircle, ChevronDown, Globe, BookOpen, ArrowLeft, Loader2, Video, Check, Maximize, Minimize, ClipboardList } from "lucide-react";
@@ -8,7 +8,8 @@ import { useCourse, useUserEnrollments, useEnrollUserMutation } from "@/hooks/us
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { toVideoEmbedUrl } from "@/lib/videoEmbed";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { coursePathSegment, isCourseOrProgramRouteParam } from "@/lib/publicRoutes";
 import { api } from "@/services/api";
 import {
   Dialog,
@@ -19,11 +20,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
+const VideoEmbedFrame = lazy(() => import("@/components/course/VideoEmbedFrame"));
+
 export default function CourseDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const courseIdNum = Number(id);
-  
+  const routeInvalid = id != null && id !== "" && !isCourseOrProgramRouteParam(id);
+
   const { appUser, openAuthModal } = useAuth();
 
   const [enrollModalOpen, setEnrollModalOpen] = useState(false);
@@ -36,7 +39,7 @@ export default function CourseDetailPage() {
   });
   
   // Enterprise State Management (Pillar 1): TanStack Query
-  const { data: course, isLoading: loadingCourse } = useCourse(courseIdNum);
+  const { data: course, isLoading: loadingCourse } = useCourse(id);
   const { data: enrollments = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
   const enrollMutation = useEnrollUserMutation();
 
@@ -48,15 +51,16 @@ export default function CourseDetailPage() {
   const [courseAssessments, setCourseAssessments] = useState<Array<{ id: string; title?: string }>>([]);
 
   useEffect(() => {
-    if (!Number.isFinite(courseIdNum)) return;
+    const cid = course?.id;
+    if (cid == null || !Number.isFinite(Number(cid))) return;
     let cancelled = false;
-    void api.getSkillsAssessments({ courseId: courseIdNum }).then((rows) => {
+    void api.getSkillsAssessments({ courseId: cid }).then((rows) => {
       if (!cancelled) setCourseAssessments(rows as Array<{ id: string; title?: string }>);
     });
     return () => {
       cancelled = true;
     };
-  }, [courseIdNum]);
+  }, [course?.id]);
 
   // Lights-Out mode: dim navbar when video is active
   useEffect(() => {
@@ -92,7 +96,8 @@ export default function CourseDetailPage() {
   }, [course]);
 
 
-  const enrolled = enrollments.some((e: any) => e.course_id === courseIdNum);
+  const enrolled =
+    !!course && enrollments.some((e: { course_id?: number }) => e.course_id === course.id);
 
   useEffect(() => {
     if (enrolled && !activeVideo && course?.curriculum?.length > 0) {
@@ -104,6 +109,23 @@ export default function CourseDetailPage() {
       }
     }
   }, [enrolled, course, activeVideo]);
+
+  if (routeInvalid) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md px-6">
+          <BookOpen className="w-16 h-16 mx-auto text-muted-foreground/25 mb-6" />
+          <h1 className="font-display text-2xl font-bold text-foreground mb-2">Course Not Found</h1>
+          <p className="text-muted-foreground mb-6">This course link is not valid.</p>
+          <Link to="/courses">
+            <Button className="gradient-card text-primary-foreground rounded-xl hover:opacity-90 gap-2">
+              <ArrowLeft className="w-4 h-4" /> Browse Courses
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (loadingCourse || loadingEnrollments) {
     return (
@@ -204,7 +226,7 @@ export default function CourseDetailPage() {
       }
       toast.success("Details saved. Continue to payment.");
       setEnrollModalOpen(false);
-      navigate(`/courses/${course.id}/checkout`);
+      navigate(`/courses/${coursePathSegment(course)}/checkout`);
     } finally {
       setEnrollSubmitting(false);
     }
@@ -241,13 +263,9 @@ export default function CourseDetailPage() {
                     <span className="text-xs font-semibold">{isTheaterMode ? "Exit Theater Mode" : "Theater Mode"}</span>
                   </button>
                 </div>
-                <iframe
-                  src={toVideoEmbedUrl(activeVideo)}
-                  className="w-full h-full"
-                  frameBorder="0"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
+                <Suspense fallback={<LoadingSpinner />}>
+                  <VideoEmbedFrame videoUrl={activeVideo} />
+                </Suspense>
               </div>
             ) : null}
 

@@ -5,6 +5,7 @@ import { parseJsonStringArray } from "../lib/profileFields";
 import { resolveEffectiveRole, learnerNeedsOnboarding, type UserRole } from "@/lib/userRole";
 import { queryClient, queryKeys } from "@/lib/react-query";
 import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/services/api";
 
 export type { UserRole };
 
@@ -168,21 +169,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Load user profile from Supabase profiles table
   const loadUserProfile = async (userId: string, authUser?: User | null) => {
     try {
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
-
-      if (data && !error) {
+      const data = await api.getProfile(userId);
+      if (data) {
         setAppUser(mapProfileRowToAppUser(data as Record<string, unknown>));
         return true;
       }
       if (authUser) {
         await ensureProfileFromAuthUser(authUser);
-        const { data: retry } = await supabase.from("profiles").select("*").eq("id", userId).single();
+        const retry = await api.getProfile(userId);
         if (retry) {
           setAppUser(mapProfileRowToAppUser(retry as Record<string, unknown>));
           return true;
         }
       }
-      console.error("Could not load profile:", error?.message);
+      console.error("Could not load profile for user:", userId);
     } catch (err) {
       console.error("Error loading profile:", err);
     }

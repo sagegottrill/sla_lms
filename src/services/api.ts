@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { UUID_ROUTE } from "@/lib/publicRoutes";
 import type { Course, Program } from "@/types";
 
 // Feature flag: if real Supabase URL is configured, use live data
@@ -7,6 +8,56 @@ const USE_SUPABASE = Boolean(
   import.meta.env.VITE_SUPABASE_ANON_KEY &&
   !import.meta.env.VITE_SUPABASE_URL.includes("placeholder")
 );
+
+/** Explicit row projections — avoids `select("*")` payload bloat on wide tables. */
+const COURSE_COLUMNS =
+  "id, public_id, program_id, instructor_id, title, subtitle, description, instructor, instructor_title, instructor_bio, instructor_avatar, category, level, rating, review_count, students, duration, language, last_updated, price, original_price, image, badge, bestseller, what_youll_learn, curriculum, reviews, status, created_at";
+
+const PROGRAM_COLUMNS =
+  "id, public_id, title, description, tagline, category, image, duration, start_date, deadline, price, original_price, enrolled, capacity, course_count, tag, level, highlights, courses, status, created_at";
+
+async function fetchCourseRowById(id: number): Promise<Course | undefined> {
+  if (!USE_SUPABASE) return undefined;
+  const { data, error } = await supabase.from("courses").select(COURSE_COLUMNS).eq("id", id).single();
+  if (error) {
+    console.error("Supabase getCourseById error:", error.message);
+    return undefined;
+  }
+  return data as Course;
+}
+
+async function fetchCourseRowByPublicId(publicId: string): Promise<Course | undefined> {
+  if (!USE_SUPABASE) return undefined;
+  const { data, error } = await supabase.from("courses").select(COURSE_COLUMNS).eq("public_id", publicId).maybeSingle();
+  if (error) {
+    console.error("Supabase getCourseByPublicId error:", error.message);
+    return undefined;
+  }
+  return (data ?? undefined) as Course | undefined;
+}
+
+async function fetchProgramRowById(id: number): Promise<Program | undefined> {
+  if (!USE_SUPABASE) return undefined;
+  const { data, error } = await supabase.from("programs").select(PROGRAM_COLUMNS).eq("id", id).single();
+  if (error) {
+    console.error("Supabase getProgramById error:", error.message);
+    return undefined;
+  }
+  return data as Program;
+}
+
+async function fetchProgramRowByPublicId(publicId: string): Promise<Program | undefined> {
+  if (!USE_SUPABASE) return undefined;
+  const { data, error } = await supabase.from("programs").select(PROGRAM_COLUMNS).eq("public_id", publicId).maybeSingle();
+  if (error) {
+    console.error("Supabase getProgramByPublicId error:", error.message);
+    return undefined;
+  }
+  return (data ?? undefined) as Program | undefined;
+}
+
+const PROFILE_COLUMNS =
+  "id, name, email, role, avatar_url, bio, headline, location, linkedin, career_goal, skills, interests, onboarding_completed, joined, created_at, updated_at";
 
 function defaultLandingPageConfig(): Record<string, unknown> {
   return {
@@ -22,7 +73,7 @@ export const api = {
   // -------------------------
   getCourses: async (options?: { publishedOnly?: boolean }): Promise<Course[]> => {
     if (USE_SUPABASE) {
-      let q = supabase.from("courses").select("*").order("created_at", { ascending: false });
+      let q = supabase.from("courses").select(COURSE_COLUMNS).order("created_at", { ascending: false });
       if (options?.publishedOnly) {
         q = q.eq("status", "published");
       }
@@ -56,12 +107,18 @@ export const api = {
     return null;
   },
 
-  getCourseById: async (id: number): Promise<Course | undefined> => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from("courses").select("*").eq("id", id).single();
-      if (error) { console.error("Supabase getCourseById error:", error.message); return undefined; }
-      return data as Course;
+  getCourseById: async (id: number): Promise<Course | undefined> => fetchCourseRowById(id),
+
+  /** Resolve `/courses/:segment` where segment is `public_id` (UUID) or legacy numeric `id`. */
+  getCourseByRouteParam: async (param: string | undefined): Promise<Course | undefined> => {
+    if (!param) return undefined;
+    const t = param.trim();
+    if (/^\d+$/.test(t)) {
+      const n = Number(t);
+      if (!Number.isFinite(n) || n < 1) return undefined;
+      return fetchCourseRowById(n);
     }
+    if (UUID_ROUTE.test(t)) return fetchCourseRowByPublicId(t);
     return undefined;
   },
 
@@ -70,7 +127,7 @@ export const api = {
   // -------------------------
   getPrograms: async (options?: { activeCatalog?: boolean }): Promise<Program[]> => {
     if (USE_SUPABASE) {
-      let q = supabase.from("programs").select("*").order("created_at", { ascending: false });
+      let q = supabase.from("programs").select(PROGRAM_COLUMNS).order("created_at", { ascending: false });
       if (options?.activeCatalog) {
         q = q.in("status", ["upcoming", "active"]);
       }
@@ -95,7 +152,7 @@ export const api = {
     try {
       const { data: programs, error: programsErr } = await supabase
         .from("programs")
-        .select("*");
+        .select(PROGRAM_COLUMNS);
 
       if (programsErr) {
         console.error("Supabase getUserPrograms programs error:", programsErr.message);
@@ -204,12 +261,18 @@ export const api = {
     return null;
   },
 
-  getProgramById: async (id: number): Promise<Program | undefined> => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from("programs").select("*").eq("id", id).single();
-      if (error) { console.error("Supabase getProgramById error:", error.message); return undefined; }
-      return data as Program;
+  getProgramById: async (id: number): Promise<Program | undefined> => fetchProgramRowById(id),
+
+  /** Resolve `/programs/:segment/...` where segment is `public_id` (UUID) or legacy numeric `id`. */
+  getProgramByRouteParam: async (param: string | undefined): Promise<Program | undefined> => {
+    if (!param) return undefined;
+    const t = param.trim();
+    if (/^\d+$/.test(t)) {
+      const n = Number(t);
+      if (!Number.isFinite(n) || n < 1) return undefined;
+      return fetchProgramRowById(n);
     }
+    if (UUID_ROUTE.test(t)) return fetchProgramRowByPublicId(t);
     return undefined;
   },
 
@@ -653,7 +716,7 @@ export const api = {
     if (USE_SUPABASE) {
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select(PROFILE_COLUMNS)
         .order("created_at", { ascending: false });
       if (error) { console.error("Supabase getProfiles error:", error.message); return []; }
       return data;
@@ -665,7 +728,7 @@ export const api = {
     if (USE_SUPABASE) {
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select(PROFILE_COLUMNS)
         .eq("id", userId)
         .single();
       if (error) { console.error("Supabase getProfile error:", error.message); return null; }
@@ -912,9 +975,9 @@ export const api = {
   getSystemStats: async () => {
     if (USE_SUPABASE) {
       const [users, courses, programs, payments, enrollments] = await Promise.all([
-        supabase.from("profiles").select("*", { count: "exact", head: true }),
-        supabase.from("courses").select("*", { count: "exact", head: true }),
-        supabase.from("programs").select("*", { count: "exact", head: true }),
+        supabase.from("profiles").select("id", { count: "exact", head: true }),
+        supabase.from("courses").select("id", { count: "exact", head: true }),
+        supabase.from("programs").select("id", { count: "exact", head: true }),
         supabase.from("payments").select("amount"),
         supabase.from("enrollments").select("progress")
       ]);
@@ -1033,7 +1096,7 @@ export const api = {
   getInstructorCourses: async (instructorId: string) => {
     if (USE_SUPABASE) {
       const { data, error } = await supabase
-        .from("courses").select("*").eq("instructor_id", instructorId)
+        .from("courses").select(COURSE_COLUMNS).eq("instructor_id", instructorId)
         .order("created_at", { ascending: false });
       if (error) return [];
       return data;

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useCourses, useUserEnrollments } from "@/hooks/useQueries";
+import { coursePathSegment } from "@/lib/publicRoutes";
 
 const tabs = ["All", "In Progress", "Completed", "Not Started", "Frozen"];
 
@@ -99,7 +100,7 @@ export default function MyCourses() {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {filtered.map((course: any, i: number) => (
-          <Link to={`/courses/${course.id}`} key={course.id}>
+          <Link to={`/courses/${coursePathSegment(course)}`} key={course.id}>
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
             className="bg-card rounded-2xl shadow-sm border-0 overflow-hidden hover:shadow-brand-sm transition-shadow group cursor-pointer">
             <div className="relative aspect-video overflow-hidden">

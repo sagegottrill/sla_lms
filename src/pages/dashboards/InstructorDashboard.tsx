@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInstructorStats, useInstructorCourses } from "@/hooks/useQueries";
+import { coursePathSegment } from "@/lib/publicRoutes";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
@@ -163,7 +164,7 @@ export default function InstructorDashboard() {
 
                     {/* Left: Course Metas */}
                     <div className="flex-1 min-w-0 flex flex-col justify-center">
-                      <Link to={`/courses/${c.id}`} className="block">
+                      <Link to={`/courses/${coursePathSegment(c)}`} className="block">
                         <h3 className="text-lg font-bold font-display text-foreground group-hover:text-primary transition-colors mb-1 line-clamp-1">
                           {c.title}
                         </h3>

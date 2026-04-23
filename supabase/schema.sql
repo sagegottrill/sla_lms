@@ -68,6 +68,7 @@
   -- ============================================================
   create table public.programs (
     id             serial primary key,               -- integer to match frontend
+    public_id      uuid not null default gen_random_uuid(),
     title          text not null,
     description    text not null default '',
     tagline        text,
@@ -95,6 +96,7 @@
   -- ============================================================
   create table public.courses (
     id                  serial primary key,          -- integer to match frontend
+    public_id           uuid not null default gen_random_uuid(),
     program_id          int references public.programs on delete set null,
     instructor_id       uuid references public.profiles on delete set null,
     title               text not null,
@@ -166,6 +168,8 @@
   create index if not exists idx_enrollments_user_id on public.enrollments(user_id);
   create index if not exists idx_enrollments_status on public.enrollments(status);
   create index if not exists idx_courses_program_id on public.courses(program_id);
+  create unique index if not exists idx_courses_public_id on public.courses(public_id);
+  create unique index if not exists idx_programs_public_id on public.programs(public_id);
 
   -- ============================================================
   -- PAYMENTS

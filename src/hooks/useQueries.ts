@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/react-query";
 import { api } from "@/services/api";
+import { isCourseOrProgramRouteParam } from "@/lib/publicRoutes";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -20,12 +21,26 @@ export const useCourses = (options?: { publishedOnly?: boolean }) => {
   });
 };
 
-export const useCourse = (id: number) => {
+/**
+ * @param routeOrNumericId — URL `:id` segment (public UUID or legacy number), or a positive number from dashboard builders.
+ */
+export const useCourse = (routeOrNumericId: string | number | undefined) => {
   const { appUser } = useAuth();
+  const enabled =
+    routeOrNumericId !== undefined &&
+    routeOrNumericId !== null &&
+    routeOrNumericId !== "" &&
+    (typeof routeOrNumericId === "number"
+      ? routeOrNumericId > 0
+      : isCourseOrProgramRouteParam(routeOrNumericId));
+  const key = routeOrNumericId ?? "";
   return useQuery({
-    queryKey: queryKeys.courses.detail(appUser?.role, id),
-    queryFn: () => api.getCourseById(id),
-    enabled: !!id, // Only fetch if ID exists
+    queryKey: queryKeys.courses.detail(appUser?.role, key),
+    queryFn: () =>
+      typeof routeOrNumericId === "number"
+        ? api.getCourseById(routeOrNumericId)
+        : api.getCourseByRouteParam(routeOrNumericId),
+    enabled,
   });
 };
 
@@ -84,12 +99,26 @@ export const usePrograms = (options?: { activeCatalog?: boolean }) => {
   });
 };
 
-export const useProgram = (id: number) => {
+/**
+ * @param routeOrNumericId — URL segment (UUID or legacy number), or positive id from dashboard.
+ */
+export const useProgram = (routeOrNumericId: string | number | undefined) => {
   const { appUser } = useAuth();
+  const enabled =
+    routeOrNumericId !== undefined &&
+    routeOrNumericId !== null &&
+    routeOrNumericId !== "" &&
+    (typeof routeOrNumericId === "number"
+      ? routeOrNumericId > 0
+      : isCourseOrProgramRouteParam(routeOrNumericId));
+  const key = routeOrNumericId ?? "";
   return useQuery({
-    queryKey: queryKeys.programs.detail(appUser?.role, id),
-    queryFn: () => api.getProgramById(id),
-    enabled: !!id,
+    queryKey: queryKeys.programs.detail(appUser?.role, key),
+    queryFn: () =>
+      typeof routeOrNumericId === "number"
+        ? api.getProgramById(routeOrNumericId)
+        : api.getProgramByRouteParam(routeOrNumericId),
+    enabled,
   });
 };
 

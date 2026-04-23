@@ -2,6 +2,11 @@
 -- SLA CONNECT HER LMS — Enterprise Architecture Migration
 -- Pillar 2: Database Architecture & Security & Indexing
 -- ============================================================
+-- ⚠️  For NEW production policy baselines, prefer `production_rls_baseline.sql`
+--     + `SECURITY_BASELINE.md`. This file uses `auth.jwt() ->> 'user_role'`, which
+--     only works if you add a custom JWT claim hook. The baseline file uses
+--     `public.profiles.role` instead and matches the shipped app.
+-- ============================================================
 
 -- ------------------------------------------------------------
 -- 1. DROP EXISTING POLICIES & SETUP TABLES

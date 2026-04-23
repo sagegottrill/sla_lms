@@ -1,5 +1,7 @@
 export interface Course {
   id: number;
+  /** Opaque id for public URLs when column exists in DB */
+  public_id?: string | null;
   /** Set on create; links course to authoring user in Supabase */
   instructor_id?: string;
   title: string;
@@ -28,6 +30,7 @@ export interface Course {
 
 export interface Program {
   id: number;
+  public_id?: string | null;
   title: string;
   description: string;
   category: string;

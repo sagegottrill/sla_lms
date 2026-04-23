@@ -8,6 +8,7 @@ import type { Course } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { initializePaystackPayment } from "@/lib/paystack";
+import { coursePathSegment, isCourseOrProgramRouteParam } from "@/lib/publicRoutes";
 
 type PaymentMethod = "card" | "mobile_money" | "bank_transfer";
 
@@ -25,8 +26,9 @@ export default function CheckoutPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { appUser } = useAuth();
+  const routeInvalid = id != null && id !== "" && !isCourseOrProgramRouteParam(id);
 
-  const { data: course, isLoading: loading } = useCourse(Number(id));
+  const { data: course, isLoading: loading } = useCourse(id);
   const { data: enrollments = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
   const enrollMutation = useEnrollUserMutation();
 
@@ -119,6 +121,17 @@ export default function CheckoutPage() {
   }, [course, form, method, currency, convertPrice, priceNgn, receiptId]);
 
   const update = (key: string, val: string) => setForm((p) => ({ ...p, [key]: val }));
+
+  if (routeInvalid) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-foreground font-semibold mb-4">Course not found</p>
+          <Link to="/courses"><Button variant="outline" className="rounded-xl">Browse Courses</Button></Link>
+        </div>
+      </div>
+    );
+  }
 
   if (loading || loadingEnrollments) {
     return (
@@ -285,7 +298,7 @@ export default function CheckoutPage() {
               Enrollment is being confirmed. Use your downloaded receipt as proof of payment.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link to={`/courses/${course.id}`}>
+              <Link to={`/courses/${coursePathSegment(course)}`}>
                 <Button className="gradient-card text-primary-foreground rounded-xl px-8">Start Learning</Button>
               </Link>
               <Link to="/dashboard/courses">
@@ -303,7 +316,7 @@ export default function CheckoutPage() {
       {/* Header */}
       <div className="border-b border-border bg-card">
         <div className="max-w-5xl mx-auto px-5 sm:px-6 py-4 flex items-center justify-between">
-          <Link to={`/courses/${course.id}`} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to={`/courses/${coursePathSegment(course)}`} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-4 h-4" /> Back to course
           </Link>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

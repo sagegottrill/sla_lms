@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Star, Clock, Users, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { coursePathSegment } from "@/lib/publicRoutes";
 
 const badgeStyles: Record<string, string> = {
   Bestseller: "bg-secondary text-primary",
@@ -16,7 +17,7 @@ const badgeStyles: Record<string, string> = {
 
 function CourseCard({ course, index }: { course: Course; index: number }) {
   return (
-    <Link to={`/courses/${course.id}`}>
+    <Link to={`/courses/${coursePathSegment(course)}`}>
     <motion.div
       initial={{ opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}

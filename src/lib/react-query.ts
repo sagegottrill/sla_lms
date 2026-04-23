@@ -41,14 +41,16 @@ export const queryKeys = {
     base: ['courses'] as const,
     all: (role: string = 'public') => ['courses', role, 'all'] as const,
     list: (role: string = 'public', filters: Record<string, any>) => ['courses', role, 'list', filters] as const,
-    detail: (role: string = 'public', id: number) => ['courses', role, 'detail', { id }] as const,
+    detail: (role: string = 'public', routeKey: string | number) =>
+      ['courses', role, 'detail', { key: routeKey }] as const,
   },
   
   // Programs
   programs: {
     base: ['programs'] as const,
     all: (role: string = 'public') => ['programs', role, 'all'] as const,
-    detail: (role: string = 'public', id: number) => ['programs', role, 'detail', { id }] as const,
+    detail: (role: string = 'public', routeKey: string | number) =>
+      ['programs', role, 'detail', { key: routeKey }] as const,
   },
 
   // Enrollments

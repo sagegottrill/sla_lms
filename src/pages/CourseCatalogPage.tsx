@@ -9,6 +9,7 @@ import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 
 import { useCourses } from "@/hooks/useQueries";
+import { coursePathSegment } from "@/lib/publicRoutes";
 import { FilterChips } from "@/components/dashboard/FilterChips";
 
 const categoryData = [
@@ -263,7 +264,7 @@ export default function CourseCatalogPage() {
                   key={course.id}
                   className="bg-card md:rounded-2xl shadow-sm border-0 md:overflow-hidden hover:shadow-lg transition-all duration-200 group flex flex-row md:flex-col p-4 md:p-0 rounded-xl"
                 >
-                  <Link to={`/courses/${course.id}`} className="block relative shrink-0 md:aspect-video overflow-hidden w-20 h-20 rounded-[4px] md:w-full md:h-auto md:rounded-none">
+                  <Link to={`/courses/${coursePathSegment(course)}`} className="block relative shrink-0 md:aspect-video overflow-hidden w-20 h-20 rounded-[4px] md:w-full md:h-auto md:rounded-none">
                     <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     {course.bestseller && (
                       <span className="hidden md:inline-block absolute top-3 left-3 bg-secondary text-primary text-[10px] font-bold px-2.5 py-1 rounded-full">BESTSELLER</span>
@@ -272,7 +273,7 @@ export default function CourseCatalogPage() {
                   </Link>
                   <div className="pl-4 md:p-4 flex flex-col flex-1 min-w-0">
                     <span className="hidden md:block text-xs text-secondary font-semibold mb-1.5">{course.category}</span>
-                    <Link to={`/courses/${course.id}`}>
+                    <Link to={`/courses/${coursePathSegment(course)}`}>
                       <h3 className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors mb-1 leading-snug">{course.title}</h3>
                     </Link>
                     <p className="text-xs text-muted-foreground mb-1 md:mb-2 line-clamp-1">{course.instructor}</p>
@@ -305,7 +306,7 @@ export default function CourseCatalogPage() {
                     <div className="mt-auto flex items-center justify-between">
                       <span className="text-base md:text-lg font-display font-bold text-foreground pr-2">₦{course.price}</span>
                       <Link
-                        to={`/courses/${course.id}`}
+                        to={`/courses/${coursePathSegment(course)}`}
                         className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-lg gradient-card text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
                       >
                         Enrol Now <ArrowRight className="w-3 h-3" />

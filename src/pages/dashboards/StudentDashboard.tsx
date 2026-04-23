@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCourses, useUserEnrollments } from "@/hooks/useQueries";
+import { coursePathSegment } from "@/lib/publicRoutes";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Star, Clock, GraduationCap, HelpCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -90,7 +91,7 @@ export default function StudentDashboard() {
                 inProgressCourses.slice(0, 4).map((c: any) => (
                   <Link
                     key={c.id}
-                    to={`/courses/${c.id}`}
+                    to={`/courses/${coursePathSegment(c)}`}
                     className="flex items-start gap-3 group rounded-xl -mx-1 px-1 py-1 hover:bg-muted/50 transition-colors"
                   >
                     <Star className="w-4 h-4 text-primary/70 shrink-0 mt-0.5" />
@@ -301,7 +302,7 @@ export default function StudentDashboard() {
                         <span className="text-xs font-semibold text-muted-foreground">{c.instructor || "CONNECT HER"}</span>
                       </div>
                       
-                      <Link to={`/courses/${c.id}`} className="block">
+                      <Link to={`/courses/${coursePathSegment(c)}`} className="block">
                         <h3 className="text-lg sm:text-xl font-bold font-display text-foreground group-hover:text-primary transition-colors mb-2">
                           {c.title}
                         </h3>
@@ -330,7 +331,7 @@ export default function StudentDashboard() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Link to={`/courses/${c.id}`}>
+                        <Link to={`/courses/${coursePathSegment(c)}`}>
                           <Button className="bg-[#0056D2] hover:bg-[#00419e] text-white font-bold px-6 h-9 transition-colors">
                             Resume
                           </Button>

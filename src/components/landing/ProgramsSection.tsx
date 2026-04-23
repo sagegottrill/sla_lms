@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { BookOpen, Clock, Users, ArrowRight, CalendarDays, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { programPathSegment } from "@/lib/publicRoutes";
 
 const tagStyles: Record<string, string> = {
   "Most Popular": "bg-primary text-primary-foreground",
@@ -146,7 +147,7 @@ export default function ProgramsSection() {
                       </>
                     )}
                   </div>
-                  <Link to={`/programs/${program.id}/apply`}>
+                  <Link to={`/programs/${programPathSegment(program)}/apply`}>
                     <Button size="sm" className="rounded-xl text-xs px-4 h-8 gradient-card text-primary-foreground hover:opacity-90 gap-1">
                       Enroll Now <ArrowRight className="w-3 h-3" />
                     </Button>

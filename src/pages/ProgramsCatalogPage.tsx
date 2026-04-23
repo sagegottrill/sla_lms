@@ -3,12 +3,14 @@ import { useState, useEffect } from "react";
 import { Search, Users, Calendar, Clock, BookOpen, ChevronRight, Award, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/lib/supabase";
+import { api } from "@/services/api";
+import { programPathSegment } from "@/lib/publicRoutes";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 
 interface Program {
   id: number;
+  public_id?: string | null;
   title: string;
   tagline?: string | null;
   description: string;
@@ -137,7 +139,7 @@ function ProgramCard({ prog }: { prog: Program }) {
             ))}
           </div>
         )}
-        <Link to={`/programs/${prog.id}/apply`}>
+        <Link to={`/programs/${programPathSegment(prog)}/apply`}>
           <Button className="w-full gradient-card text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 flex items-center justify-center gap-2">
             Apply Now <ChevronRight className="w-4 h-4" />
           </Button>
@@ -156,15 +158,11 @@ export default function ProgramsCatalogPage() {
   useEffect(() => {
     const fetchPrograms = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("programs")
-        .select("*")
-        .in("status", ["upcoming", "active"])
-        .order("created_at", { ascending: false });
-      if (!error && data) setPrograms(data as Program[]);
+      const data = await api.getPrograms({ activeCatalog: true });
+      setPrograms(data as Program[]);
       setLoading(false);
     };
-    fetchPrograms();
+    void fetchPrograms();
   }, []);
 
   const filtered = programs.filter(p => {
