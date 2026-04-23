@@ -2,7 +2,13 @@ import React, { createContext, useContext, useEffect, useState, useRef, ReactNod
 import { User, Session } from "@supabase/supabase-js";
 import { isUsingSupabasePlaceholders, supabase } from "../lib/supabase";
 import { parseJsonStringArray } from "../lib/profileFields";
-import { resolveEffectiveRole, learnerNeedsOnboarding, type UserRole } from "@/lib/userRole";
+import {
+  resolveEffectiveRole,
+  learnerNeedsOnboarding,
+  normalizeUserRole,
+  isStaffRole,
+  type UserRole,
+} from "@/lib/userRole";
 import { queryClient, queryKeys } from "@/lib/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/services/api";
@@ -57,6 +63,14 @@ function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
   };
 }
 
+/** When the profiles row cannot be read yet, infer role from JWT metadata (invited staff, etc.). */
+function roleFromAuthUser(authUser: User): UserRole {
+  const app = (authUser.app_metadata || {}) as Record<string, unknown>;
+  const meta = (authUser.user_metadata || {}) as Record<string, unknown>;
+  const raw = app.role ?? app.user_role ?? meta.role;
+  return normalizeUserRole(raw);
+}
+
 function mapAuthUserToFallbackAppUser(authUser: User): AppUser {
   const meta = authUser.user_metadata || {};
   const name =
@@ -68,13 +82,18 @@ function mapAuthUserToFallbackAppUser(authUser: User): AppUser {
     (typeof meta.avatar_url === "string" && meta.avatar_url) ||
     (typeof meta.picture === "string" && meta.picture) ||
     undefined;
+  const role = roleFromAuthUser(authUser);
   return {
     id: authUser.id,
     name,
     email: authUser.email ?? "",
-    role: "student",
+    role,
     avatar,
-    onboarding: { ...defaultOnboarding },
+    onboarding: {
+      ...defaultOnboarding,
+      // Staff must never be routed to the learner onboarding wizard when profile fetch lags or fails once.
+      completed: isStaffRole(role) ? true : defaultOnboarding.completed,
+    },
   };
 }
 
@@ -138,8 +157,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
     if (existing) return;
     if (existingErr) {
-      // If RLS blocks reads, we still want the user to be able to proceed with a valid auth session.
-      console.warn("ensureProfileFromAuthUser: could not read existing profile:", existingErr.message);
+      // Do not insert/upsert if we could not verify absence — upsert with student role could overwrite an admin row.
+      console.warn("ensureProfileFromAuthUser: could not read existing profile, skipping create:", existingErr.message);
+      return;
     }
 
     const meta = authUser.user_metadata || {};
@@ -153,17 +173,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (typeof meta.picture === "string" && meta.picture) ||
       undefined;
 
-    await supabase.from("profiles").upsert(
-      {
-        id: authUser.id,
-        name,
-        email: authUser.email ?? "",
-        role: "student" as UserRole,
-        avatar_url: avatar,
-        onboarding_completed: false,
-      },
-      { onConflict: "id" },
-    );
+    const role = roleFromAuthUser(authUser);
+    const onboarding_completed = isStaffRole(role);
+
+    const { error: insertErr } = await supabase.from("profiles").insert({
+      id: authUser.id,
+      name,
+      email: authUser.email ?? "",
+      role,
+      avatar_url: avatar,
+      onboarding_completed,
+    });
+    if (insertErr && !String(insertErr.message || "").toLowerCase().includes("duplicate")) {
+      console.error("ensureProfileFromAuthUser insert error:", insertErr.message);
+    }
   };
 
   // Load user profile from Supabase profiles table
