@@ -67,9 +67,15 @@ function staffRoleFromSingleMeta(meta: Record<string, unknown>): UserRole | null
  */
 function staffRoleFromAuthClaims(authUser: JwtRoleClaimsSource | null | undefined): UserRole | null {
   if (!authUser) return null;
-  const fromApp = staffRoleFromSingleMeta((authUser.app_metadata || {}) as Record<string, unknown>);
+  const fromApp = staffRoleFromAppMetadataOnly(authUser);
   if (fromApp) return fromApp;
   return staffRoleFromSingleMeta((authUser.user_metadata || {}) as Record<string, unknown>);
+}
+
+/** Staff role from JWT `app_metadata` only (clients cannot forge this). */
+export function staffRoleFromAppMetadataOnly(authUser: JwtRoleClaimsSource | null | undefined): UserRole | null {
+  if (!authUser) return null;
+  return staffRoleFromSingleMeta((authUser.app_metadata || {}) as Record<string, unknown>);
 }
 
 /** @deprecated Use JwtRoleClaimsSource */

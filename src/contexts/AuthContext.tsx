@@ -7,8 +7,11 @@ import {
   inferRoleFromSessionUser,
   learnerNeedsOnboarding,
   isStaffRole,
+  normalizeUserRole,
+  staffRoleFromAppMetadataOnly,
   type UserRole,
 } from "@/lib/userRole";
+import { isTrustedBootstrapAdmin } from "@/lib/trustedAdminBootstrap";
 import { queryClient, queryKeys } from "@/lib/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/services/api";
@@ -195,17 +198,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Load user profile from Supabase profiles table
   const loadUserProfile = async (userId: string, authUser?: User | null) => {
+    /** Persist staff role to `profiles` when JWT app_metadata or trusted-email bootstrap says so (RLS matches UI). */
+    const syncProfileStaffToDatabase = async (row: Record<string, unknown>): Promise<Record<string, unknown>> => {
+      if (!authUser || isUsingSupabasePlaceholders) return row;
+      const dbRole = normalizeUserRole(row.role);
+      const uid = userId;
+
+      if (isTrustedBootstrapAdmin(authUser.email)) {
+        if (dbRole !== "admin") {
+          const { error } = await supabase
+            .from("profiles")
+            .update({ role: "admin", onboarding_completed: true })
+            .eq("id", uid);
+          if (error) console.warn("Trusted admin bootstrap: profiles update failed:", error.message);
+          else {
+            const fresh = await api.getProfile(uid);
+            if (fresh) return fresh as Record<string, unknown>;
+          }
+        }
+        return row;
+      }
+
+      const fromApp = staffRoleFromAppMetadataOnly(authUser);
+      if (dbRole === "student" && fromApp && isStaffRole(fromApp)) {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ role: fromApp, onboarding_completed: true })
+          .eq("id", uid);
+        if (error) console.warn("Sync staff from app_metadata: profiles update failed:", error.message);
+        else {
+          const fresh = await api.getProfile(uid);
+          if (fresh) return fresh as Record<string, unknown>;
+        }
+      }
+      return row;
+    };
+
     try {
       const data = await api.getProfile(userId);
       if (data) {
-        setAppUser(mapProfileRowToAppUser(data as Record<string, unknown>, authUser));
+        const row = await syncProfileStaffToDatabase(data as Record<string, unknown>);
+        setAppUser(mapProfileRowToAppUser(row, authUser));
         return true;
       }
       if (authUser) {
         await ensureProfileFromAuthUser(authUser);
         const retry = await api.getProfile(userId);
         if (retry) {
-          setAppUser(mapProfileRowToAppUser(retry as Record<string, unknown>, authUser));
+          const row = await syncProfileStaffToDatabase(retry as Record<string, unknown>);
+          setAppUser(mapProfileRowToAppUser(row, authUser));
           return true;
         }
       }
