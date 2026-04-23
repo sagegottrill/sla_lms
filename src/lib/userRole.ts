@@ -7,8 +7,27 @@ const STAFF_ROLES: readonly UserRole[] = ["admin", "program_manager", "instructo
 const ONBOARDING_ROLES: readonly UserRole[] = ["student"];
 
 export function normalizeUserRole(raw: unknown): UserRole {
-  const s = typeof raw === "string" ? raw.toLowerCase().trim() : "";
-  if (s === "admin" || s === "program_manager" || s === "instructor" || s === "student") return s;
+  if (raw == null || raw === "") return "student";
+  const s = String(raw).toLowerCase().trim().replace(/[\s-]+/g, "_");
+  if (
+    s === "admin" ||
+    s === "administrator" ||
+    s === "superadmin" ||
+    s === "super_admin" ||
+    s === "executive_admin" ||
+    s === "executive_administrator" ||
+    s === "school_admin" ||
+    s === "platform_admin" ||
+    s === "sysadmin" ||
+    s === "sys_admin" ||
+    s === "super_user"
+  )
+    return "admin";
+  // e.g. "district_administrator" after normalization (avoid bare *_admin — e.g. program_admin).
+  if (s.endsWith("_administrator")) return "admin";
+  if (s === "program_manager" || s === "programme_manager") return "program_manager";
+  if (s === "instructor" || s === "teacher" || s === "educator" || s === "tutor") return "instructor";
+  if (s === "student" || s === "learner") return "student";
   return "student";
 }
 
@@ -35,6 +54,8 @@ type OnboardingSlice = { role: UserRole; onboarding?: { completed?: boolean } };
 /** Onboarding applies to new `student` accounts until they complete it. */
 export function learnerNeedsOnboarding(appUser: OnboardingSlice | null | undefined): boolean {
   if (!appUser) return false;
+  // Staff must never enter the learner funnel, even if `onboarding_completed` is false in DB.
+  if (isStaffRole(appUser.role)) return false;
   if (!isOnboardingRole(appUser.role)) return false;
   return !appUser.onboarding?.completed;
 }

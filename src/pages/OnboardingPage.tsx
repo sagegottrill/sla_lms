@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { isOnboardingRole } from "@/lib/userRole";
+import { isOnboardingRole, isStaffRole } from "@/lib/userRole";
 import { useOnboardingStore, type OnboardingRoleChoice } from "@/store/useOnboardingStore";
 import { supabase } from "@/lib/supabase";
 import { api } from "@/services/api";
@@ -153,6 +153,8 @@ export default function OnboardingPage() {
   const avatarError = avatarForm.formState.errors.avatarUrl?.message;
 
   if (!user) return <Navigate to="/" replace />;
+  // Staff must never see this wizard (even via bookmark or stale client state).
+  if (appUser && isStaffRole(appUser.role)) return <Navigate to="/dashboard" replace />;
   // Onboarding is only for self-serve learners (students).
   if (appUser && !isOnboardingRole(appUser.role)) return <Navigate to="/dashboard" replace />;
   if (!needsOnboarding) return <Navigate to="/dashboard" replace />;

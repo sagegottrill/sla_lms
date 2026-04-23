@@ -41,11 +41,13 @@ export interface AppUser {
 
 function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
   const interests = parseJsonStringArray(data.interests);
+  const role = resolveEffectiveRole(data);
+  const completed = isStaffRole(role) ? true : Boolean(data.onboarding_completed);
   return {
     id: String(data.id),
     name: (typeof data.name === "string" && data.name) || "User",
     email: typeof data.email === "string" ? data.email : "",
-    role: resolveEffectiveRole(data),
+    role,
     avatar: typeof data.avatar_url === "string" ? data.avatar_url : undefined,
     careerGoal: typeof data.career_goal === "string" ? data.career_goal : undefined,
     bio: typeof data.bio === "string" ? data.bio : undefined,
@@ -54,7 +56,7 @@ function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
     linkedin: typeof data.linkedin === "string" ? data.linkedin : undefined,
     skills: parseJsonStringArray(data.skills),
     onboarding: {
-      completed: Boolean(data.onboarding_completed),
+      completed,
       careerGoal: typeof data.career_goal === "string" ? data.career_goal : "",
       interests,
       selectedCourses: [],
