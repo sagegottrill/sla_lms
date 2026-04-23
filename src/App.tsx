@@ -16,6 +16,13 @@ import { RoleGuard } from "./components/auth/RoleGuard";
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from "@/lib/react-query";
 
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const DashboardLayout = lazy(() => import("./components/dashboard/DashboardLayout"));
@@ -124,7 +131,9 @@ const App = () => (
               {/* Protected Dashboard */}
               <Route path="/dashboard" element={
                 <ErrorBoundary name="Dashboard">
-                  <DashboardLayout />
+                  <RequireAuth>
+                    <DashboardLayout />
+                  </RequireAuth>
                 </ErrorBoundary>
               }>
                 <Route index element={<DashboardHome />} />

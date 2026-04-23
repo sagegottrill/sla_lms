@@ -122,7 +122,7 @@ export default function RolesPage() {
             {expandedRole === rd.role && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
                 className="px-6 pb-6 pt-2 border-t border-border/40">
-                <div className="mt-4 grid sm:grid-cols-2 gap-6">
+                <div className="mt-4 grid sm:grid-cols-1 gap-6">
                   <div>
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">Permissions</p>
                     <div className="space-y-2.5">
@@ -133,17 +133,6 @@ export default function RolesPage() {
                         </div>
                       ))}
                     </div>
-                  </div>
-                  <div className="space-y-3">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">Actions</p>
-                    <Button variant="outline" className="w-full rounded-xl text-xs font-semibold h-10 border-border hover:bg-muted flex items-center justify-center gap-2">
-                      <Edit className="w-3.5 h-3.5" /> Edit Permissions
-                    </Button>
-                    {rd.role !== "admin" && (
-                      <Button className="w-full rounded-xl text-xs font-semibold h-10 bg-slate-900 hover:bg-slate-800 text-white border-0 flex items-center justify-center gap-2 transition-colors">
-                        <Plus className="w-3.5 h-3.5" /> Assign Users
-                      </Button>
-                    )}
                   </div>
                 </div>
               </motion.div>

@@ -121,70 +121,73 @@ export default function SettingsPage() {
       .catch((e: any) => toast.error(e?.message || "Password update failed."));
   };
 
-  const toggleNotification = (key: keyof typeof notifications) => {
-    setNotifications((prev) => {
-      const updated = { ...prev, [key]: !prev[key] };
-      toast.info(`${key.replace(/([A-Z])/g, " $1").trim()} ${updated[key] ? "enabled" : "disabled"}`);
+  const toggleNotification = async (key: keyof typeof notifications) => {
+    const prev = notifications;
+    const updated = { ...notifications, [key]: !notifications[key] };
+    setNotifications(updated);
+    toast.info(`${key.replace(/([A-Z])/g, " $1").trim()} ${updated[key] ? "enabled" : "disabled"}`);
 
-      // Persist to notification_preferences.prefs (email channel only).
-      if (appUser?.id && notificationPrefsRow) {
-        const existingPrefs = (notificationPrefsRow?.prefs ?? {}) as Record<string, any>;
-        const nextPrefs = { ...existingPrefs };
+    if (!appUser?.id || !notificationPrefsRow) return;
+    try {
+      const existingPrefs = (notificationPrefsRow?.prefs ?? {}) as Record<string, any>;
+      const nextPrefs = { ...existingPrefs };
 
-        const setEmailForCategory = (categoryKey: string, value: boolean) => {
-          const current = nextPrefs[categoryKey] ?? { email: true, sms: false, push: true };
-          nextPrefs[categoryKey] = { ...current, email: value };
-        };
+      const setEmailForCategory = (categoryKey: string, value: boolean) => {
+        const current = nextPrefs[categoryKey] ?? { email: true, sms: false, push: true };
+        nextPrefs[categoryKey] = { ...current, email: value };
+      };
 
-        if (key === "courseUpdates") setEmailForCategory("course_updates", updated.courseUpdates);
-        if (key === "deadlineReminders") setEmailForCategory("deadlines", updated.deadlineReminders);
-        if (key === "programAnnouncements") setEmailForCategory("program_updates", updated.programAnnouncements);
-        if (key === "jobAlerts") setEmailForCategory("job_matches", updated.jobAlerts);
-        if (key === "marketingEmails") setEmailForCategory("promotions", updated.marketingEmails);
+      if (key === "courseUpdates") setEmailForCategory("course_updates", updated.courseUpdates);
+      if (key === "deadlineReminders") setEmailForCategory("deadlines", updated.deadlineReminders);
+      if (key === "programAnnouncements") setEmailForCategory("program_updates", updated.programAnnouncements);
+      if (key === "jobAlerts") setEmailForCategory("job_matches", updated.jobAlerts);
+      if (key === "marketingEmails") setEmailForCategory("promotions", updated.marketingEmails);
 
-        api.upsertNotificationPreferences({
-          userId: appUser.id,
-          frequency: notificationPrefsRow?.frequency ?? "instant",
-          quietStart: notificationPrefsRow?.quiet_start ?? "22:00",
-          quietEnd: notificationPrefsRow?.quiet_end ?? "07:00",
-          prefs: nextPrefs,
-        }).then((r) => {
-          if (r) setNotificationPrefsRow(r);
-        });
-      }
-      return updated;
-    });
+      const r = await api.upsertNotificationPreferences({
+        userId: appUser.id,
+        frequency: notificationPrefsRow?.frequency ?? "instant",
+        quietStart: notificationPrefsRow?.quiet_start ?? "22:00",
+        quietEnd: notificationPrefsRow?.quiet_end ?? "07:00",
+        prefs: nextPrefs,
+      });
+      if (r) setNotificationPrefsRow(r);
+      else throw new Error("Upsert failed");
+    } catch (e: any) {
+      setNotifications(prev);
+      toast.error(e?.message ?? "Failed to save notification preferences.");
+    }
   };
 
-  const togglePrivacy = (key: keyof typeof privacy) => {
-    setPrivacy((prev) => {
-      const updated = { ...prev, [key]: !prev[key] };
-      toast.info(`${key.replace(/([A-Z])/g, " $1").trim()} ${updated[key] ? "enabled" : "disabled"}`);
+  const togglePrivacy = async (key: keyof typeof privacy) => {
+    const prev = privacy;
+    const updated = { ...privacy, [key]: !privacy[key] };
+    setPrivacy(updated);
+    toast.info(`${key.replace(/([A-Z])/g, " $1").trim()} ${updated[key] ? "enabled" : "disabled"}`);
 
-      // Persist to notification_preferences.prefs.privacy.
-      if (appUser?.id && notificationPrefsRow) {
-        const existingPrefs = (notificationPrefsRow?.prefs ?? {}) as Record<string, any>;
-        const nextPrefs = { ...existingPrefs, privacy: { ...(existingPrefs.privacy ?? {}) } };
-        nextPrefs.privacy = {
-          ...nextPrefs.privacy,
-          publicProfile: updated.publicProfile,
-          showProgress: updated.showProgress,
-          jobMatching: updated.jobMatching,
-        };
+    if (!appUser?.id || !notificationPrefsRow) return;
+    try {
+      const existingPrefs = (notificationPrefsRow?.prefs ?? {}) as Record<string, any>;
+      const nextPrefs = { ...existingPrefs, privacy: { ...(existingPrefs.privacy ?? {}) } };
+      nextPrefs.privacy = {
+        ...nextPrefs.privacy,
+        publicProfile: updated.publicProfile,
+        showProgress: updated.showProgress,
+        jobMatching: updated.jobMatching,
+      };
 
-        api.upsertNotificationPreferences({
-          userId: appUser.id,
-          frequency: notificationPrefsRow?.frequency ?? "instant",
-          quietStart: notificationPrefsRow?.quiet_start ?? "22:00",
-          quietEnd: notificationPrefsRow?.quiet_end ?? "07:00",
-          prefs: nextPrefs,
-        }).then((r) => {
-          if (r) setNotificationPrefsRow(r);
-        });
-      }
-
-      return updated;
-    });
+      const r = await api.upsertNotificationPreferences({
+        userId: appUser.id,
+        frequency: notificationPrefsRow?.frequency ?? "instant",
+        quietStart: notificationPrefsRow?.quiet_start ?? "22:00",
+        quietEnd: notificationPrefsRow?.quiet_end ?? "07:00",
+        prefs: nextPrefs,
+      });
+      if (r) setNotificationPrefsRow(r);
+      else throw new Error("Upsert failed");
+    } catch (e: any) {
+      setPrivacy(prev);
+      toast.error(e?.message ?? "Failed to save privacy preferences.");
+    }
   };
 
   const handleThemeChange = (t: string) => {

@@ -115,14 +115,23 @@ export default function ParticipantsPage() {
 
   const messageCohort = async () => {
     const roster = selected.size > 0 ? filtered.filter((p) => selected.has(p.id)) : filtered;
-    const emails = roster.map((p) => p.email).filter((e): e is string => typeof e === "string" && e.trim().length > 0);
-    if (emails.length === 0) {
+    const validEmails = Array.from(
+      new Set(
+        roster
+          .map((p) => (typeof p.email === "string" ? p.email.trim() : ""))
+          .filter((e) => e.length > 0 && e.includes("@")),
+      ),
+    ).join(",");
+
+    if (!validEmails) {
       toast.info("No email addresses found to message.");
       return;
     }
     try {
-      const to = emails.join(",");
-      window.open(`mailto:${to}?subject=${encodeURIComponent("Update from She Leads Africa")}`, "_blank");
+      window.open(
+        `mailto:${validEmails}?subject=${encodeURIComponent("Update from She Leads Africa")}`,
+        "_blank",
+      );
     } catch (e: any) {
       toast.error(e?.message ?? "Could not open email composer.");
     }
@@ -297,6 +306,19 @@ export default function ParticipantsPage() {
                             className="cursor-pointer font-medium text-xs py-2"
                           >
                             Copy email
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              const email = typeof p.email === "string" ? p.email.trim() : "";
+                              if (!email || !email.includes("@")) {
+                                toast.info("No valid email available for this learner.");
+                                return;
+                              }
+                              window.open(`mailto:${email}`, "_blank");
+                            }}
+                            className="cursor-pointer font-medium text-xs py-2"
+                          >
+                            Email participant
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => void handleDeleteParticipant(String((p as any).user_id ?? ""))}

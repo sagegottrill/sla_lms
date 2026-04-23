@@ -10,11 +10,13 @@ import Footer from "@/components/landing/Footer";
 interface Program {
   id: number;
   title: string;
+  tagline?: string | null;
   description: string;
   category: string;
   duration: string;
   start_date: string;
   deadline: string;
+  application_deadline?: string | null;
   capacity: number;
   enrolled?: number;
   price: number;
@@ -23,6 +25,7 @@ interface Program {
   courses: string[];
   course_count: number;
   status: string;
+  level?: string | null;
   cohort?: string;
   tag?: string;
   featured?: boolean;
@@ -37,10 +40,9 @@ function useCountdown(deadline: string | null) {
     if (!deadline) { setTimeLeft("Open"); return; }
     const calc = () => {
       const diff = new Date(deadline).getTime() - Date.now();
-      if (diff <= 0) { setTimeLeft("Closed"); return; }
+      if (diff <= 0) { setTimeLeft("Applications Closed"); return; }
       const d = Math.floor(diff / 86400000);
-      const h = Math.floor((diff % 86400000) / 3600000);
-      setTimeLeft(`${d}d ${h}h left`);
+      setTimeLeft(`${d} Days Left to Apply`);
     };
     calc();
     const t = setInterval(calc, 60000);
@@ -50,7 +52,8 @@ function useCountdown(deadline: string | null) {
 }
 
 function ProgramCard({ prog }: { prog: Program }) {
-  const countdown = useCountdown(prog.deadline);
+  const chosenDeadline = prog.application_deadline ?? prog.deadline ?? null;
+  const countdown = useCountdown(chosenDeadline);
   const enrolled = prog.enrolled || 0;
   const pct = prog.capacity > 0 ? Math.round((enrolled / prog.capacity) * 100) : 0;
   const spotsLeft = prog.capacity - enrolled;
@@ -71,7 +74,7 @@ function ProgramCard({ prog }: { prog: Program }) {
             <Award className="w-3 h-3" /> FEATURED
           </span>
         )}
-        {prog.deadline && (
+        {chosenDeadline && (
           <div className="absolute top-3 right-3 bg-destructive/90 text-destructive-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">
             {countdown}
           </div>
@@ -83,9 +86,29 @@ function ProgramCard({ prog }: { prog: Program }) {
             </span>
           )}
           <h3 className="font-display text-base font-bold text-primary-foreground line-clamp-1">{prog.title}</h3>
+          {prog.tagline ? (
+            <p className="text-[11px] text-primary-foreground/80 line-clamp-1 mt-0.5">
+              {prog.tagline}
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="p-6 space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {prog.level ? (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+              {prog.level}
+            </span>
+          ) : null}
+          {prog.category ? (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+              {prog.category}
+            </span>
+          ) : null}
+          <span className="ml-auto text-sm font-semibold text-foreground">
+            {prog.price > 0 ? `₦${Number(prog.price).toLocaleString()}` : "Free"}
+          </span>
+        </div>
         <p className="text-sm text-muted-foreground line-clamp-2">{prog.description}</p>
         <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
           {prog.start_date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Starts {new Date(prog.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}

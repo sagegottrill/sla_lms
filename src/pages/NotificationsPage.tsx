@@ -28,9 +28,14 @@ export default function NotificationsPage() {
   const { appUser } = useAuth();
   const { data: enrollments = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
 
+  const [systemSettings, setSystemSettings] = useState<any | null>(null);
+
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [readIds, setReadIds] = useState<Set<string>>(() => new Set());
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
+
+  const inactivityDays = Number(systemSettings?.inactivity_reminder_days ?? 3);
+  const deadlineHours = Number(systemSettings?.assessment_deadline_alert_hours ?? 48);
 
   const [reminders, setReminders] = useState([
     { id: "inactivity", label: "Inactivity Reminders", desc: "After 3 days of no activity", active: true },
@@ -44,18 +49,26 @@ export default function NotificationsPage() {
     const load = async () => {
       if (!appUser?.id) return;
 
-      const [prefsRow, notifRows] = await Promise.all([
+      const [prefsRow, notifRows, settingsRow] = await Promise.all([
         api.getNotificationPreferences(appUser.id),
         api.getUserNotificationState(appUser.id),
+        api.getSystemSettings(),
       ]);
 
       setNotificationPrefsRow(prefsRow);
+      setSystemSettings(settingsRow);
 
       const smart = (prefsRow?.prefs?.smart_reminders ?? {}) as Record<string, unknown>;
       setReminders((prev) =>
         prev.map((r) => ({
           ...r,
           active: typeof smart[r.id] === "boolean" ? Boolean(smart[r.id]) : r.active,
+          desc:
+            r.id === "inactivity"
+              ? `After ${Number.isFinite(inactivityDays) ? inactivityDays : 3} days of no activity`
+              : r.id === "deadline"
+                ? `${Number.isFinite(deadlineHours) ? deadlineHours : 48}h before quiz/assignment due`
+                : r.desc,
         }))
       );
 
@@ -98,6 +111,7 @@ export default function NotificationsPage() {
     const now = Date.now();
     const daysMs = 24 * 60 * 60 * 1000;
     const inactivityActive = reminders.find((r) => r.id === "inactivity")?.active ?? true;
+    const inactivityMs = (Number.isFinite(inactivityDays) ? inactivityDays : 3) * daysMs;
 
     const items: Array<Notif | null> = (enrollments ?? []).map((e: any) => {
       const courseTitle = e?.courses?.title ?? e?.courses?.name ?? e?.courses?.course_title ?? "Course";
@@ -108,7 +122,7 @@ export default function NotificationsPage() {
       const lastDate = rawLast ? new Date(rawLast) : null;
       const lastMs = lastDate && !isNaN(lastDate.getTime()) ? lastDate.getTime() : null;
 
-      const recentlyActive = lastMs !== null && now - lastMs <= 3 * daysMs;
+      const recentlyActive = lastMs !== null && now - lastMs <= inactivityMs;
 
       const type: NotifType =
         progress >= 100 ? "certificate" : recentlyActive ? "message" : "reminder";
@@ -170,51 +184,69 @@ export default function NotificationsPage() {
     if (!appUser?.id) return;
 
     const keysToMark = filteredNotifs.map((n) => n.id);
+    const prev = new Set(readIds);
     const next = new Set(readIds);
     for (const key of keysToMark) next.add(key);
     setReadIds(next);
 
-    await Promise.all(
-      keysToMark.map((notificationKey) =>
-        api.upsertUserNotificationState({
-          userId: appUser.id,
-          notificationKey,
-          read: true,
-          dismissed: false,
-        })
-      )
-    );
+    try {
+      await Promise.all(
+        keysToMark.map((notificationKey) =>
+          api.upsertUserNotificationState({
+            userId: appUser.id,
+            notificationKey,
+            read: true,
+            dismissed: false,
+          })
+        )
+      );
+    } catch (e: any) {
+      setReadIds(prev);
+      toast.error(e?.message ?? "Failed to update notification state.");
+    }
   };
 
   const markRead = async (id: string) => {
     if (!appUser?.id) return;
-    setReadIds((prev) => {
-      const next = new Set(prev);
+    const prev = new Set(readIds);
+    setReadIds((p) => {
+      const next = new Set(p);
       next.add(id);
       return next;
     });
 
-    await api.upsertUserNotificationState({
-      userId: appUser.id,
-      notificationKey: id,
-      read: true,
-      dismissed: false,
-    });
+    try {
+      await api.upsertUserNotificationState({
+        userId: appUser.id,
+        notificationKey: id,
+        read: true,
+        dismissed: false,
+      });
+    } catch (e: any) {
+      setReadIds(prev);
+      toast.error(e?.message ?? "Failed to mark as read.");
+    }
   };
 
   const deleteNotif = async (id: string) => {
     if (!appUser?.id) return;
-    setDismissedIds((prev) => {
-      const next = new Set(prev);
+    const prev = new Set(dismissedIds);
+    setDismissedIds((p) => {
+      const next = new Set(p);
       next.add(id);
       return next;
     });
 
-    await api.upsertUserNotificationState({
-      userId: appUser.id,
-      notificationKey: id,
-      dismissed: true,
-    });
+    try {
+      await api.upsertUserNotificationState({
+        userId: appUser.id,
+        notificationKey: id,
+        dismissed: true,
+      });
+    } catch (e: any) {
+      setDismissedIds(prev);
+      toast.error(e?.message ?? "Failed to dismiss notification.");
+    }
   };
 
   return (

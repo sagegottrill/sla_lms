@@ -45,3 +45,4 @@ create policy "Staff and course instructor can read course applications"
       where c.id = course_applications.course_id and c.instructor_id = auth.uid()
     )
   );
+      

@@ -4,6 +4,7 @@ import { isUsingSupabasePlaceholders, supabase } from "../lib/supabase";
 import { parseJsonStringArray } from "../lib/profileFields";
 import { resolveEffectiveRole, learnerNeedsOnboarding, type UserRole } from "@/lib/userRole";
 import { queryClient, queryKeys } from "@/lib/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 
 export type { UserRole };
 
@@ -114,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const rq = useQueryClient();
 
   // Modal state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -323,8 +325,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await supabase.auth.signOut();
+    rq.clear();
     setAppUser(null);
     setUser(null);
+    setSession(null);
   };
 
   const refreshProfile = async () => {

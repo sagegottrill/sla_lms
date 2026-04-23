@@ -470,41 +470,6 @@ export default function CourseDetailPage() {
             </section>
           )}
 
-          {courseAssessments.length > 0 && (
-            <section className="bg-card p-6 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <ClipboardList className="w-5 h-5 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="font-display text-lg font-bold text-foreground mb-1">Course assessments</h2>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Knowledge checks for this course ({courseAssessments.length}{" "}
-                    {courseAssessments.length === 1 ? "quiz" : "quizzes"}).
-                  </p>
-                  <ul className="space-y-1 mb-4">
-                    {courseAssessments.map((a) => (
-                      <li key={a.id} className="text-sm text-foreground">
-                        {a.title ?? "Assessment"}
-                      </li>
-                    ))}
-                  </ul>
-                  {appUser ? (
-                    <Link to={`/dashboard/skills?courseId=${course.id}`}>
-                      <Button className="rounded-xl gradient-card text-primary-foreground">Take assessments</Button>
-                    </Link>
-                  ) : (
-                    <Link to="/">
-                      <Button variant="outline" className="rounded-xl">
-                        Log in to take assessments
-                      </Button>
-                    </Link>
-                  )}
-                </div>
-              </div>
-            </section>
-          )}
-
           {/* Curriculum */}
           {course.curriculum?.length > 0 && (
             <section>
@@ -558,6 +523,41 @@ export default function CourseDetailPage() {
                     )}
                   </div>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {courseAssessments.length > 0 && (
+            <section className="bg-card p-6 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <ClipboardList className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="font-display text-lg font-bold text-foreground mb-1">Course assessments</h2>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Knowledge checks for this course ({courseAssessments.length}{" "}
+                    {courseAssessments.length === 1 ? "quiz" : "quizzes"}).
+                  </p>
+                  <ul className="space-y-1 mb-4">
+                    {courseAssessments.map((a) => (
+                      <li key={a.id} className="text-sm text-foreground">
+                        {a.title ?? "Assessment"}
+                      </li>
+                    ))}
+                  </ul>
+                  {appUser ? (
+                    <Link to={`/dashboard/skills?courseId=${course.id}`}>
+                      <Button className="rounded-xl gradient-card text-primary-foreground">Take assessments</Button>
+                    </Link>
+                  ) : (
+                    <Link to="/">
+                      <Button variant="outline" className="rounded-xl">
+                        Log in to take assessments
+                      </Button>
+                    </Link>
+                  )}
+                </div>
               </div>
             </section>
           )}

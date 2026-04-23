@@ -1,12 +1,51 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Download, CreditCard, Filter, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSystemStats } from "@/hooks/useQueries";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/services/api";
 
 export default function PaymentsPage() {
   const [filter, setFilter] = useState("All");
   const { data: stats, isLoading } = useSystemStats();
   const totalRevenue = stats?.totalRevenue ?? 0;
+
+  const { data: payments = [], isLoading: loadingPayments } = useQuery({
+    queryKey: ["payments", "ledger"],
+    queryFn: api.getPayments,
+  });
+
+  const normalized = useMemo(() => {
+    const mapStatus = (s: string) => {
+      if (s === "successful") return "Paid";
+      if (s === "pending") return "Pending";
+      if (s === "failed") return "Failed";
+      return s || "—";
+    };
+    return (payments as any[]).map((p) => {
+      const courseTitle = p?.courses?.title;
+      const programTitle = p?.programs?.title;
+      const item = courseTitle || programTitle || (p.course_id ? `Course #${p.course_id}` : p.program_id ? `Program #${p.program_id}` : "—");
+      const customer = p?.profiles?.name || p?.profiles?.email || "—";
+      return {
+        id: p.id,
+        created_at: p.created_at,
+        amount: Number(p.amount ?? 0),
+        currency: String(p.currency ?? "NGN"),
+        status: mapStatus(String(p.status ?? "")),
+        customer,
+        item,
+      };
+    });
+  }, [payments]);
+
+  const filteredRows = useMemo(() => {
+    if (filter === "All") return normalized;
+    if (filter === "Paid") return normalized.filter((r) => r.status === "Paid");
+    if (filter === "Pending") return normalized.filter((r) => r.status === "Pending");
+    if (filter === "Failed") return normalized.filter((r) => r.status === "Failed");
+    return normalized;
+  }, [normalized, filter]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
@@ -75,7 +114,7 @@ export default function PaymentsPage() {
         <div className="lg:col-span-8 xl:col-span-9 space-y-6">
 
           <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 hide-scrollbar w-max">
-            {["All", "Paid", "Pending", "Refunded"].map(f => (
+            {["All", "Paid", "Pending", "Failed"].map(f => (
               <button 
                 key={f} 
                 onClick={() => setFilter(f)}
@@ -95,28 +134,53 @@ export default function PaymentsPage() {
               <table className="w-full min-w-[700px]">
                 <thead className="bg-muted/20 border-b border-border/40">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">ID</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Date</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Customer</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Item</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Amount</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Currency</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Status</th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground tracking-widest uppercase">Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
-                  {isLoading ? (
+                  {(isLoading || loadingPayments) ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-20 text-center bg-card/20 text-muted-foreground">
+                      <td colSpan={6} className="px-6 py-20 text-center bg-card/20 text-muted-foreground">
                         Loading transactions…
                       </td>
                     </tr>
-                  ) : (
+                  ) : filteredRows.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-20 text-center bg-card/20">
+                      <td colSpan={6} className="px-6 py-20 text-center bg-card/20">
                         <CreditCard className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                         <p className="text-foreground font-medium mb-1">No transactions generated</p>
-                        <p className="text-sm text-muted-foreground">Ledgers will populate when Stripe/Paystack Webhooks fire.</p>
+                        <p className="text-sm text-muted-foreground">Transactions will appear here once payments are recorded in Supabase.</p>
                       </td>
                     </tr>
+                  ) : (
+                    filteredRows.map((r) => (
+                      <tr key={r.id} className="hover:bg-muted/10 transition-colors">
+                        <td className="px-6 py-4 text-sm text-muted-foreground font-medium">
+                          {r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-foreground font-medium">{r.customer}</td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">{r.item}</td>
+                        <td className="px-6 py-4 text-sm font-semibold text-foreground">
+                          {Number.isFinite(r.amount) ? r.amount.toLocaleString() : "—"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">{r.currency}</td>
+                        <td className="px-6 py-4 text-sm">
+                          <span className={`text-[11px] font-bold px-2 py-1 rounded-full ${
+                            r.status === "Paid" ? "bg-emerald-50 text-emerald-700" :
+                            r.status === "Pending" ? "bg-amber-50 text-amber-700" :
+                            r.status === "Failed" ? "bg-red-50 text-red-700" :
+                            "bg-muted text-muted-foreground"
+                          }`}>
+                            {r.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>

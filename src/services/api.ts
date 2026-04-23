@@ -762,7 +762,12 @@ export const api = {
       .select()
       .single();
     if (error) {
-      console.error("createProgramApplication error:", error.message);
+      console.error("createProgramApplication error:", {
+        message: error.message,
+        details: (error as any).details,
+        hint: (error as any).hint,
+        code: (error as any).code,
+      });
       return null;
     }
     return data;
@@ -939,6 +944,58 @@ export const api = {
       };
     }
     return { totalUsers: 0, activeCourses: 0, activePrograms: 0, totalRevenue: 0, totalHours: 0, completionRate: 0, totalCertificates: 0, satisfactionScore: "0.0" };
+  },
+
+  // -------------------------
+  // PAYMENTS LEDGER (Admin)
+  // -------------------------
+  getPayments: async () => {
+    if (!USE_SUPABASE) return [];
+    const { data, error } = await supabase
+      .from("payments")
+      .select(
+        "id, created_at, amount, currency, status, reference, method, receipt_id, user_id, course_id, program_id, profiles(name, email), courses(title), programs(title)",
+      )
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("Supabase getPayments error:", error.message);
+      return [];
+    }
+    return data ?? [];
+  },
+
+  // -------------------------
+  // SYSTEM SETTINGS (Admin)
+  // -------------------------
+  getSystemSettings: async () => {
+    if (!USE_SUPABASE) return null;
+    const { data, error } = await supabase
+      .from("system_settings")
+      .select("*")
+      .eq("id", "main")
+      .maybeSingle();
+    if (error) {
+      console.error("Supabase getSystemSettings error:", error.message);
+      return null;
+    }
+    return data ?? null;
+  },
+
+  updateSystemSettings: async (updates: Record<string, unknown>) => {
+    if (!USE_SUPABASE) return null;
+    const { data, error } = await supabase
+      .from("system_settings")
+      .upsert(
+        { id: "main", ...updates, updated_at: new Date().toISOString() },
+        { onConflict: "id" },
+      )
+      .select()
+      .single();
+    if (error) {
+      console.error("Supabase updateSystemSettings error:", error.message);
+      return null;
+    }
+    return data ?? null;
   },
 
   getInstructorStats: async (instructorId: string) => {

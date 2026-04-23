@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useCourses, useCreateProgramMutation, useUpdateProgramMutation, useProgram } from "@/hooks/useQueries";
+import { supabase } from "@/lib/supabase";
 
 const CATEGORIES = ["Data Science", "Technology", "Business", "Leadership", "Finance", "Marketing", "Health", "Design"];
+const LEVELS = ["All Levels", "Beginner", "Intermediate", "Advanced"] as const;
 
 type Partner = { id: number; name: string; logoUrl: string };
 type Course = { id: number; title: string; category: string; duration: string };
@@ -32,11 +34,14 @@ export default function ProgramBuilderPage() {
   }, [editId]);
 
   const [title, setTitle] = useState("");
+  const [tagline, setTagline] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
+  const [level, setLevel] = useState<(typeof LEVELS)[number]>("All Levels");
   const [duration, setDuration] = useState("");
   const [startDate, setStartDate] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [applicationDeadline, setApplicationDeadline] = useState("");
   const [capacity, setCapacity] = useState("");
   const [price, setPrice] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
@@ -48,6 +53,8 @@ export default function ProgramBuilderPage() {
   const [newPartnerName, setNewPartnerName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nextPartnerId = useRef(1);
+  const [savedNewProgramId, setSavedNewProgramId] = useState<number | null>(null);
+  const programIdForAssets = isEdit ? editId : savedNewProgramId;
 
   const allCourses = useMemo(
     () => (Array.isArray(allCoursesData) ? (allCoursesData as Array<Course & { status?: string }>) : []),
@@ -63,11 +70,18 @@ export default function ProgramBuilderPage() {
     if (!isEdit || !programData || hydrated) return;
     const p = programData as Record<string, unknown>;
     setTitle(String(p.title ?? ""));
+    setTagline(String((p as any).tagline ?? ""));
     setDescription(String(p.description ?? ""));
     setCategory(typeof p.category === "string" && p.category ? p.category : CATEGORIES[0]);
+    setLevel(
+      typeof (p as any).level === "string" && (p as any).level
+        ? String((p as any).level)
+        : "All Levels",
+    );
     setDuration(String(p.duration ?? ""));
     setStartDate(String(p.start_date ?? "").slice(0, 10));
     setDeadline(String(p.deadline ?? "").slice(0, 10));
+    setApplicationDeadline(String((p as any).application_deadline ?? "").slice(0, 10));
     setCapacity(String(p.capacity ?? ""));
     setPrice(p.price != null ? String(p.price) : "");
     setOriginalPrice(p.original_price != null ? String(p.original_price) : "");
@@ -75,6 +89,18 @@ export default function ProgramBuilderPage() {
     setImage(String(p.image ?? ""));
     const hl = p.highlights;
     if (Array.isArray(hl) && hl.length > 0) setHighlights(hl.map(String));
+    const rawPartners = (p as any).partners;
+    if (Array.isArray(rawPartners)) {
+      const mapped = rawPartners
+        .map((x: any, idx: number) => ({
+          id: idx + 1,
+          name: String(x?.name ?? x ?? ""),
+          logoUrl: String(x?.logo_url ?? x?.logoUrl ?? ""),
+        }))
+        .filter((x: Partner) => x.name.length > 0);
+      setPartners(mapped);
+      nextPartnerId.current = mapped.length > 0 ? Math.max(...mapped.map((x) => x.id)) + 1 : 1;
+    }
     setHydrated(true);
   }, [isEdit, programData, hydrated]);
 
@@ -106,20 +132,39 @@ export default function ProgramBuilderPage() {
     setPartners((prev) => prev.filter((p) => p.id !== id));
   };
 
-  const handleLogoUpload = (partnerId: number, file: File) => {
-    const url = URL.createObjectURL(file);
-    setPartners((prev) => prev.map((p) => (p.id === partnerId ? { ...p, logoUrl: url } : p)));
+  const handleLogoUpload = async (partnerId: number, file: File) => {
+    if (!programIdForAssets) {
+      toast.error("Save the program once first so it has an ID, then upload partner logos.");
+      return;
+    }
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `program-partners/${programIdForAssets}/${partnerId}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("courses").upload(path, file, {
+        upsert: true,
+        contentType: file.type,
+      });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("courses").getPublicUrl(path);
+      setPartners((prev) => prev.map((p) => (p.id === partnerId ? { ...p, logoUrl: data.publicUrl } : p)));
+      toast.success("Logo uploaded.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Logo upload failed.");
+    }
   };
 
   const buildPayload = (status: "upcoming" | "active") => {
     const selectedCourseTitles = availableCourses.filter((c) => selectedCourses.includes(c.id)).map((c) => c.title);
     return {
       title: title.trim(),
+      tagline: tagline.trim() || null,
       description: description.trim(),
       category,
+      level: level || null,
       duration: duration.trim() || "TBD",
       start_date: startDate || null,
       deadline: deadline || null,
+      application_deadline: applicationDeadline ? new Date(applicationDeadline).toISOString() : null,
       capacity: Number(capacity) || 100,
       price: Number(price) || 0,
       original_price: originalPrice.trim() ? Number(originalPrice) : null,
@@ -127,6 +172,9 @@ export default function ProgramBuilderPage() {
       highlights: highlights.filter(Boolean),
       courses: selectedCourseTitles,
       course_count: selectedCourses.length,
+      partners: partners
+        .filter((p) => p.name.trim().length > 0)
+        .map((p) => ({ name: p.name.trim(), logo_url: p.logoUrl || null })),
       status,
       tag: cohort.trim() || null,
     };
@@ -159,7 +207,12 @@ export default function ProgramBuilderPage() {
     }
 
     createProgram.mutate(payload, {
-      onSuccess: () => {
+      onSuccess: (data: unknown) => {
+        const row = data as { id?: number } | null | undefined;
+        if (row?.id != null) {
+          const nid = Number(row.id);
+          if (Number.isFinite(nid)) setSavedNewProgramId(nid);
+        }
         toast.success(status === "active" ? "Program launched!" : "Draft saved.");
         if (status === "active") setTimeout(() => navigate("/dashboard/programs"), 1500);
       },
@@ -243,6 +296,16 @@ export default function ProgramBuilderPage() {
               />
             </div>
             <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Tagline</label>
+              <input
+                value={tagline}
+                onChange={(e) => setTagline(e.target.value)}
+                placeholder="e.g. Build job-ready skills in 12 weeks"
+                className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Shown under the title on the public program card.</p>
+            </div>
+            <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Description</label>
               <textarea
                 value={description}
@@ -279,6 +342,23 @@ export default function ProgramBuilderPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Level</label>
+                <select
+                  value={level}
+                  onChange={(e) => setLevel(e.target.value as any)}
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm"
+                >
+                  {LEVELS.map((lv) => (
+                    <option key={lv} value={lv}>
+                      {lv}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
                 <label className="text-sm font-medium text-foreground mb-1.5 block">Start date</label>
                 <input
                   type="date"
@@ -296,6 +376,18 @@ export default function ProgramBuilderPage() {
                   className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Application deadline (countdown)</label>
+                <input
+                  type="date"
+                  value={applicationDeadline}
+                  onChange={(e) => setApplicationDeadline(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>

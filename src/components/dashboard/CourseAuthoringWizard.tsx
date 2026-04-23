@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -9,6 +9,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { api } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/react-query";
 
 /* ─── Types ───────────────────────────────────────────────────────── */
 type LessonType = "video" | "reading" | "quiz";
@@ -531,10 +536,22 @@ function StepSettings({ settings, onChange }: {
 
 /* ─── Main Wizard ─────────────────────────────────────────────────── */
 export default function CourseAuthoringWizard() {
+  const { appUser } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const courseIdFromUrl = useMemo(() => {
+    const raw = searchParams.get("courseId") ?? searchParams.get("id");
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [searchParams]);
+
   const [step, setStep] = useState(0);
   const [previewMode, setPreviewMode] = useState(false);
   /** Course cover URL (same bucket path pattern as lesson uploads; wired when this wizard persists to API). */
   const [courseThumbnailUrl, setCourseThumbnailUrl] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [identity, setIdentity] = useState({ title: "", description: "", subject: "", objectives: "" });
   const [modules, setModules] = useState<Module[]>([
@@ -549,12 +566,146 @@ export default function CourseAuthoringWizard() {
   const handleSettingsChange = (field: string, value: string | boolean) =>
     setSettings(p => ({ ...p, [field]: value } as typeof p));
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!courseIdFromUrl) return;
+
+    (async () => {
+      try {
+        const c: any = await api.getCourseById(courseIdFromUrl);
+        if (!c || cancelled) return;
+
+        setIdentity({
+          title: String(c.title ?? ""),
+          description: String(c.description ?? ""),
+          subject: String(c.category ?? ""),
+          objectives: Array.isArray(c.what_youll_learn) ? c.what_youll_learn.join("\n") : "",
+        });
+        setCourseThumbnailUrl(typeof c.image === "string" ? c.image : null);
+
+        const cur = Array.isArray(c.curriculum) ? c.curriculum : [];
+        const mapped: Module[] = cur.map((m: any) => {
+          const items = Array.isArray(m?.items) ? m.items : [];
+          return {
+            id: uid(),
+            title: String(m?.module ?? "Module"),
+            expanded: false,
+            lessons: items.map((it: any) => {
+              const title = typeof it === "string" ? it : String(it?.title ?? "Lesson");
+              const typeGuess: LessonType =
+                (it?.type === "reading" || it?.type === "quiz" || it?.type === "video") ? it.type : "reading";
+              const url =
+                typeof it === "object"
+                  ? (it?.content_url ?? it?.vimeo_url ?? it?.transcript_url ?? "")
+                  : "";
+              return {
+                id: uid(),
+                type: typeGuess,
+                title,
+                expanded: false,
+                contentLabel: typeof url === "string" && url.length > 0 ? url : undefined,
+              };
+            }),
+          };
+        });
+        if (mapped.length > 0) setModules(mapped);
+
+        setSettings((prev) => ({
+          ...prev,
+          title: String(c.title ?? prev.title),
+          status: (c.status === "published" ? "published" : "draft"),
+        }));
+      } catch (e: any) {
+        toast.error(e?.message ?? "Failed to load course for editing.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [courseIdFromUrl]);
+
   const canGoNext = step < STEP_LABELS.length - 1;
   const canGoBack = step > 0;
 
-  const handlePublish = () => {
-    const name = settings.title || identity.title || "New Course";
-    toast.success(`"${name}" published successfully! 🎉`);
+  const handlePublish = async () => {
+    if (!appUser?.id) {
+      toast.error("Please log in to publish.");
+      return;
+    }
+    const title = (settings.title || identity.title || "").trim();
+    if (!title) {
+      toast.error("Course title is required.");
+      setStep(0);
+      return;
+    }
+
+    // Ensure all lessons have content URLs before publishing.
+    const missingContent = modules.flatMap((m) => m.lessons).some((l) => !l.contentLabel);
+    if (missingContent) {
+      toast.error("Some lessons are missing uploaded content. Please upload all lesson files before publishing.");
+      setStep(2);
+      return;
+    }
+
+    const curriculum = modules.map((m) => ({
+      module: m.title,
+      lessons: m.lessons.length,
+      duration: "",
+      items: m.lessons.map((l) => {
+        const url = l.contentLabel ?? "";
+        return {
+          title: l.title,
+          type: l.type,
+          duration: "",
+          // Compatibility with existing course viewer patterns in this repo:
+          vimeo_url: l.type === "video" ? url : "",
+          transcript_url: l.type === "reading" ? url : "",
+          content_url: url,
+        };
+      }),
+    }));
+
+    const payload: Record<string, unknown> = {
+      title,
+      subtitle: "",
+      description: identity.description?.trim() ?? "",
+      instructor: appUser?.name ?? "Instructor",
+      instructor_id: appUser.id,
+      category: identity.subject?.trim() ?? "",
+      level: "Beginner",
+      price: 0,
+      original_price: null,
+      image: courseThumbnailUrl,
+      badge: "New",
+      bestseller: false,
+      language: "English",
+      last_updated: new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
+      status: "published",
+      what_youll_learn: String(identity.objectives ?? "")
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      curriculum,
+      reviews: [],
+    };
+
+    setSaving(true);
+    try {
+      if (courseIdFromUrl) {
+        await api.updateCourse(courseIdFromUrl, payload);
+      } else {
+        await api.createCourse(payload);
+      }
+
+      toast.success(`"${title}" published successfully!`);
+      queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
+      navigate("/dashboard/courses", { replace: true });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to publish course.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const stepStatus = (): "draft" | "missing" | "ready" => {
@@ -659,7 +810,9 @@ export default function CourseAuthoringWizard() {
 
         {step === STEP_LABELS.length - 1 ? (
           <Button size="sm" className="bg-primary text-white rounded-xl hover:bg-primary/90 flex items-center gap-2"
-            onClick={handlePublish}>
+            onClick={handlePublish}
+            disabled={saving}
+          >
             <Zap className="w-4 h-4" /> Publish Course
           </Button>
         ) : (

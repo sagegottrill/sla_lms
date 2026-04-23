@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSystemStats, useCourses, useProfiles } from "@/hooks/useQueries";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +20,22 @@ export default function AdminDashboard() {
   const { data: allProfiles = [] } = useProfiles();
   const [showAllMetrics, setShowAllMetrics] = useState(false);
   const queryClient = useQueryClient();
+
+  const { data: systemSettings } = useQuery({
+    queryKey: ["system_settings", "main"],
+    queryFn: api.getSystemSettings,
+  });
+
+  const [reminderInactivityDays, setReminderInactivityDays] = useState<number>(3);
+  const [reminderDeadlineHours, setReminderDeadlineHours] = useState<number>(48);
+
+  useEffect(() => {
+    if (!systemSettings) return;
+    const d = Number((systemSettings as any).inactivity_reminder_days ?? 3);
+    const h = Number((systemSettings as any).assessment_deadline_alert_hours ?? 48);
+    setReminderInactivityDays(Number.isFinite(d) ? d : 3);
+    setReminderDeadlineHours(Number.isFinite(h) ? h : 48);
+  }, [systemSettings]);
 
   const { data: pendingApps = [], isLoading: loadingPending } = useQuery({
     queryKey: ["program_applications", "pending"],
@@ -168,6 +184,63 @@ export default function AdminDashboard() {
 
         {/* ———— RIGHT COLUMN (Content Area) ———— */}
         <div className="lg:col-span-8 xl:col-span-9 space-y-6">
+
+          {/* Reminders (Admin-controlled thresholds) */}
+          <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="font-display font-semibold text-lg text-foreground">Reminders</h2>
+                <p className="text-muted-foreground text-sm">
+                  Admin-controlled thresholds (saved in the database).
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                className="rounded-xl text-xs"
+                onClick={async () => {
+                  const saved = await api.updateSystemSettings({
+                    inactivity_reminder_days: reminderInactivityDays,
+                    assessment_deadline_alert_hours: reminderDeadlineHours,
+                  });
+                  if (!saved) {
+                    toast.error("Failed to save system settings. Check Supabase/RLS.");
+                    return;
+                  }
+                  toast.success("Reminder settings saved.");
+                  queryClient.invalidateQueries({ queryKey: ["system_settings"] });
+                }}
+              >
+                Save
+              </Button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">
+                  Inactivity Reminder Threshold (Days)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={reminderInactivityDays}
+                  onChange={(e) => setReminderInactivityDays(Number(e.target.value) || 3)}
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">
+                  Assessment Deadline Alert (Hours)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={reminderDeadlineHours}
+                  onChange={(e) => setReminderDeadlineHours(Number(e.target.value) || 48)}
+                  className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            </div>
+          </div>
 
           {/* Pending program approvals */}
           <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden p-6">
