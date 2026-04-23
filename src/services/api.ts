@@ -59,6 +59,60 @@ async function fetchProgramRowByPublicId(publicId: string): Promise<Program | un
 const PROFILE_COLUMNS =
   "id, name, email, role, avatar_url, bio, headline, location, linkedin, career_goal, skills, interests, onboarding_completed, joined, created_at, updated_at";
 
+const ENROLLMENT_SELF_COLUMNS =
+  "id, user_id, course_id, program_id, status, progress, current_lesson, last_accessed, enrolled_at, completed_at";
+
+const CERTIFICATE_COLUMNS =
+  "id, user_id, course_id, program_id, course_title, instructor, duration, credential_id, completed_at";
+
+const PORTFOLIO_ITEM_COLUMNS =
+  "id, user_id, title, type, description, tags, file_url, link_url, created_at";
+
+/** Admin thresholds row (`id` = `main`); extend list if you add columns in Supabase. */
+const SYSTEM_SETTINGS_COLUMNS =
+  "id, inactivity_reminder_days, assessment_deadline_alert_hours, updated_at";
+
+const SITE_CONFIG_COLUMNS = "id, data, updated_at";
+
+const SKILLS_ASSESSMENT_COLUMNS =
+  "id, title, description, total_questions, course_id, program_id, category, duration, icon_name, created_at";
+
+const SKILLS_QUESTION_COLUMNS = "id, assessment_id, question_text, options, correct_index";
+
+const SKILLS_RESULT_COLUMNS = "id, user_id, assessment_id, score, total, level_name, created_at";
+
+const MARKETING_CAMPAIGN_COLUMNS =
+  "id, user_id, name, subject, audience, channel, scheduled_at, body, status, sent_at, created_at, updated_at";
+
+const FORUM_THREAD_COLUMNS =
+  "id, user_id, title, body, category, author_name, pinned, solved, likes, replies_count, created_at, updated_at";
+
+const EMAIL_TEMPLATE_COLUMNS = "id, user_id, name, category, subject, body, updated_at";
+
+const SAVED_REPORT_COLUMNS =
+  "id, user_id, name, metric, dimension, chart_type, date_range, created_at, updated_at";
+
+const CAREER_MILESTONE_COLUMNS =
+  "id, user_id, milestone_date, title, type, achieved, created_at, updated_at";
+
+const NOTIFICATION_PREFS_COLUMNS = "user_id, frequency, quiet_start, quiet_end, prefs, updated_at";
+
+const USER_NOTIFICATION_STATE_COLUMNS = "user_id, notification_key, read, dismissed, updated_at";
+
+const USER_RESUME_DRAFT_COLUMNS = "user_id, draft, updated_at";
+
+const PROFILE_NAME_EMAIL = "name, email";
+
+const COURSE_APPLICATION_COLUMNS =
+  "id, user_id, course_id, full_name, email, phone, goal, status, created_at";
+
+const PROGRAM_APPLICATION_COLUMNS =
+  "id, user_id, program_id, full_name, phone, email, status, created_at";
+
+const COURSE_APPLICATION_WITH_PROFILES = `${COURSE_APPLICATION_COLUMNS}, profiles(${PROFILE_NAME_EMAIL})`;
+
+const PROGRAM_APPLICATION_WITH_RELATIONS = `${PROGRAM_APPLICATION_COLUMNS}, profiles(${PROFILE_NAME_EMAIL}), programs(title)`;
+
 function defaultLandingPageConfig(): Record<string, unknown> {
   return {
     featured_course_ids: [] as number[],
@@ -86,7 +140,7 @@ export const api = {
 
   createCourse: async (courseData: Partial<Course> & Record<string, unknown>) => {
     if (USE_SUPABASE) {
-      const { data, error } = await supabase.from("courses").insert(courseData).select().single();
+      const { data, error } = await supabase.from("courses").insert(courseData).select(COURSE_COLUMNS).single();
       if (error) { console.error("Supabase createCourse error:", error.message); throw error; }
       return data;
     }
@@ -99,7 +153,7 @@ export const api = {
         .from("courses")
         .update(updates)
         .eq("id", id)
-        .select()
+        .select(COURSE_COLUMNS)
         .single();
       if (error) { console.error("Supabase updateCourse error:", error.message); throw error; }
       return data;
@@ -245,7 +299,7 @@ export const api = {
 
   createProgram: async (programData: Partial<Program>) => {
     if (USE_SUPABASE) {
-      const { data, error } = await supabase.from("programs").insert(programData).select().single();
+      const { data, error } = await supabase.from("programs").insert(programData).select(PROGRAM_COLUMNS).single();
       if (error) { console.error("Supabase createProgram error:", error.message); throw error; }
       return data;
     }
@@ -254,7 +308,7 @@ export const api = {
 
   updateProgram: async (id: number, updates: Partial<Program> & Record<string, unknown>) => {
     if (USE_SUPABASE) {
-      const { data, error } = await supabase.from("programs").update(updates).eq("id", id).select().single();
+      const { data, error } = await supabase.from("programs").update(updates).eq("id", id).select(PROGRAM_COLUMNS).single();
       if (error) { console.error("Supabase updateProgram error:", error.message); throw error; }
       return data;
     }
@@ -284,7 +338,8 @@ export const api = {
       const { data, error } = await supabase
         .from("enrollments")
         .insert({ user_id: userId, course_id: courseId, enrolled_at: new Date().toISOString() })
-        .select().single();
+        .select(ENROLLMENT_SELF_COLUMNS)
+        .single();
       if (error) { console.error("Supabase enrollUser error:", error.message); return null; }
       return data;
     }
@@ -303,7 +358,7 @@ export const api = {
           progress: 0,
           enrolled_at: new Date().toISOString(),
         })
-        .select()
+        .select(ENROLLMENT_SELF_COLUMNS)
         .single();
       if (error) {
         if ((error as { code?: string }).code === "23505") {
@@ -321,7 +376,7 @@ export const api = {
     if (USE_SUPABASE) {
       const { data, error } = await supabase
         .from("enrollments")
-        .select("*, courses(*)")
+        .select(`${ENROLLMENT_SELF_COLUMNS}, courses(${COURSE_COLUMNS})`)
         .eq("user_id", userId)
         .order("last_accessed", { ascending: false });
       if (error) { console.error("Supabase getUserEnrollments error:", error.message); return []; }
@@ -743,7 +798,8 @@ export const api = {
         .from("profiles")
         .update(updates)
         .eq("id", userId)
-        .select().single();
+        .select(PROFILE_COLUMNS)
+        .single();
       if (error) { console.error("Supabase updateProfile error:", error.message); throw error; }
       return data;
     }
@@ -766,7 +822,8 @@ export const api = {
         .from("profiles")
         .update({ role })
         .eq("id", userId)
-        .select().single();
+        .select(PROFILE_COLUMNS)
+        .single();
       if (error) { console.error("Supabase updateUserRole error:", error.message); return null; }
       return data;
     }
@@ -780,7 +837,7 @@ export const api = {
     if (!USE_SUPABASE) return [];
     const { data, error } = await supabase
       .from("program_applications")
-      .select("*, profiles(name, email), programs(title)")
+      .select(PROGRAM_APPLICATION_WITH_RELATIONS)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
     if (error) {
@@ -822,7 +879,7 @@ export const api = {
         email: payload.email,
         status: payload.status,
       })
-      .select()
+      .select(PROGRAM_APPLICATION_COLUMNS)
       .single();
     if (error) {
       console.error("createProgramApplication error:", {
@@ -860,7 +917,7 @@ export const api = {
         goal: payload.goal,
         status: payload.status,
       })
-      .select()
+      .select(COURSE_APPLICATION_COLUMNS)
       .single();
     if (error) {
       console.error("createCourseApplication error:", error.message);
@@ -873,7 +930,7 @@ export const api = {
     if (!USE_SUPABASE) return [];
     const { data, error } = await supabase
       .from("course_applications")
-      .select("*, profiles(name, email)")
+      .select(COURSE_APPLICATION_WITH_PROFILES)
       .eq("course_id", courseId)
       .order("created_at", { ascending: false });
     if (error) {
@@ -909,7 +966,7 @@ export const api = {
     if (USE_SUPABASE) {
       const { data, error } = await supabase
         .from("certificates")
-        .select("*")
+        .select(CERTIFICATE_COLUMNS)
         .eq("user_id", userId)
         .order("completed_at", { ascending: false });
       if (error) { console.error("Supabase getCertificates error:", error.message); return []; }
@@ -923,7 +980,8 @@ export const api = {
       const { data, error } = await supabase
         .from("certificates")
         .insert({ user_id: userId, course_id: courseId, course_title: courseTitle, instructor, duration })
-        .select().single();
+        .select(CERTIFICATE_COLUMNS)
+        .single();
       if (error) { console.error("Supabase issueCertificate error:", error.message); return null; }
       return data;
     }
@@ -937,7 +995,7 @@ export const api = {
     if (USE_SUPABASE) {
       const { data, error } = await supabase
         .from("portfolio_items")
-        .select("*")
+        .select(PORTFOLIO_ITEM_COLUMNS)
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       if (error) { console.error("Supabase getPortfolioItems error:", error.message); return []; }
@@ -953,7 +1011,8 @@ export const api = {
       const { data, error } = await supabase
         .from("portfolio_items")
         .insert({ user_id: userId, ...item })
-        .select().single();
+        .select(PORTFOLIO_ITEM_COLUMNS)
+        .single();
       if (error) { console.error("Supabase addPortfolioItem error:", error.message); return null; }
       return data;
     }
@@ -976,7 +1035,7 @@ export const api = {
     if (USE_SUPABASE) {
       const [users, courses, programs, payments, enrollments] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
-        supabase.from("courses").select("id", { count: "exact", head: true }),
+        supabase.from("courses").select("id, rating", { count: "exact" }),
         supabase.from("programs").select("id", { count: "exact", head: true }),
         supabase.from("payments").select("amount"),
         supabase.from("enrollments").select("progress")
@@ -991,9 +1050,10 @@ export const api = {
         : 0;
 
       const coursesData = courses.data || [];
-      const satisfactionScore = coursesData.length > 0 
-        ? (coursesData.reduce((acc, c) => acc + (c.rating || 0), 0) / coursesData.length).toFixed(1)
-        : "0.0";
+      const satisfactionScore =
+        courses.count && courses.count > 0
+          ? (coursesData.reduce((acc, c) => acc + (c.rating || 0), 0) / courses.count).toFixed(1)
+          : "0.0";
 
       return {
         totalUsers: users.count || 0,
@@ -1034,7 +1094,7 @@ export const api = {
     if (!USE_SUPABASE) return null;
     const { data, error } = await supabase
       .from("system_settings")
-      .select("*")
+      .select(SYSTEM_SETTINGS_COLUMNS)
       .eq("id", "main")
       .maybeSingle();
     if (error) {
@@ -1052,7 +1112,7 @@ export const api = {
         { id: "main", ...updates, updated_at: new Date().toISOString() },
         { onConflict: "id" },
       )
-      .select()
+      .select(SYSTEM_SETTINGS_COLUMNS)
       .single();
     if (error) {
       console.error("Supabase updateSystemSettings error:", error.message);
@@ -1065,7 +1125,7 @@ export const api = {
     if (USE_SUPABASE) {
       const { data: courses, error: courseError } = await supabase
         .from("courses")
-        .select("id, rating, revenue")
+        .select("id, rating")
         .eq("instructor_id", instructorId);
       if (courseError) return null;
 
@@ -1085,7 +1145,10 @@ export const api = {
         }
       }
 
-      const totalRevenue = courses.reduce((acc, c) => acc + (c.revenue || 0), 0);
+      const totalRevenue = courses.reduce(
+        (acc, c) => acc + ((c as { revenue?: number }).revenue ?? 0),
+        0,
+      );
       const avgRating = courses.length > 0
         ? courses.reduce((acc, c) => acc + (c.rating || 0), 0) / courses.length : 0;
       return { totalStudents, activeCourses: courses.length, avgRating: avgRating.toFixed(1), totalRevenue };
@@ -1109,7 +1172,11 @@ export const api = {
   // -------------------------
   getSiteConfig: async (id: string = "landing_page") => {
     if (USE_SUPABASE) {
-      const { data, error } = await supabase.from("site_config").select("*").eq("id", id).maybeSingle();
+      const { data, error } = await supabase
+        .from("site_config")
+        .select(SITE_CONFIG_COLUMNS)
+        .eq("id", id)
+        .maybeSingle();
       if (error) {
         console.error("Supabase getSiteConfig error:", error.message);
         return defaultLandingPageConfig();
@@ -1130,7 +1197,7 @@ export const api = {
           { id, data: configData, updated_at: new Date().toISOString() },
           { onConflict: "id" }
         )
-        .select()
+        .select(SITE_CONFIG_COLUMNS)
         .single();
       if (error) { console.error("Supabase updateSiteConfig error:", error.message); throw error; }
       return data?.data;
@@ -1147,7 +1214,10 @@ export const api = {
     globalOnly?: boolean;
   }) => {
     if (USE_SUPABASE) {
-      let query = supabase.from("skills_assessments").select("*").order("created_at", { ascending: false });
+      let query = supabase
+        .from("skills_assessments")
+        .select(SKILLS_ASSESSMENT_COLUMNS)
+        .order("created_at", { ascending: false });
       if (filters?.courseId != null) {
         query = query.eq("course_id", filters.courseId);
       } else if (filters?.programId != null) {
@@ -1163,7 +1233,7 @@ export const api = {
 
       const { data: questions, error: qErr } = await supabase
         .from("skills_questions")
-        .select("*")
+        .select(SKILLS_QUESTION_COLUMNS)
         .in("assessment_id", ids);
       if (qErr) { console.error("Supabase getSkillsQuestions error:", qErr.message); return assessments || []; }
 
@@ -1232,7 +1302,7 @@ export const api = {
     const { data: created, error: insErr } = await supabase
       .from("skills_assessments")
       .insert(row)
-      .select()
+      .select(SKILLS_ASSESSMENT_COLUMNS)
       .single();
     if (insErr || !created) {
       console.error("Supabase createAssessment error:", insErr?.message);
@@ -1267,7 +1337,7 @@ export const api = {
     if (USE_SUPABASE) {
       const { data, error } = await supabase
         .from("skills_results")
-        .select("*")
+        .select(SKILLS_RESULT_COLUMNS)
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       if (error) { console.error("Supabase getUserSkillsResults error:", error.message); return []; }
@@ -1281,7 +1351,8 @@ export const api = {
       const { data, error } = await supabase
         .from("skills_results")
         .insert({ user_id: userId, assessment_id: assessmentId, score, total, level_name: level })
-        .select().single();
+        .select(SKILLS_RESULT_COLUMNS)
+        .single();
       if (error) { console.error("Supabase saveSkillResult error:", error.message); return null; }
       return data;
     }
@@ -1295,7 +1366,7 @@ export const api = {
     if (!USE_SUPABASE) return [];
     const { data, error } = await supabase
       .from("marketing_campaigns")
-      .select("*")
+      .select(MARKETING_CAMPAIGN_COLUMNS)
       .order("created_at", { ascending: false });
     if (error) {
       console.error("Supabase getCampaigns error:", error.message);
@@ -1326,7 +1397,7 @@ export const api = {
         body: payload.body ?? "",
         status: "draft",
       })
-      .select()
+      .select(MARKETING_CAMPAIGN_COLUMNS)
       .single();
     if (error) {
       console.error("Supabase createCampaign error:", error.message);
@@ -1342,7 +1413,7 @@ export const api = {
     if (!USE_SUPABASE) return [];
     const { data, error } = await supabase
       .from("forum_threads")
-      .select("*")
+      .select(FORUM_THREAD_COLUMNS)
       .order("created_at", { ascending: false });
     if (error) {
       console.error("Supabase getForumThreads error:", error.message);
@@ -1368,7 +1439,7 @@ export const api = {
         category: payload.category ?? "General",
         author_name: payload.authorName,
       })
-      .select()
+      .select(FORUM_THREAD_COLUMNS)
       .single();
     if (error) {
       console.error("Supabase createForumThread error:", error.message);
@@ -1384,7 +1455,7 @@ export const api = {
     if (!USE_SUPABASE) return [];
     const { data, error } = await supabase
       .from("email_templates")
-      .select("*")
+      .select(EMAIL_TEMPLATE_COLUMNS)
       .order("updated_at", { ascending: false });
     if (error) {
       console.error("Supabase getEmailTemplates error:", error.message);
@@ -1410,7 +1481,7 @@ export const api = {
         subject: payload.subject ?? "",
         body: payload.body,
       })
-      .select()
+      .select(EMAIL_TEMPLATE_COLUMNS)
       .single();
     if (error) {
       console.error("Supabase createEmailTemplate error:", error.message);
@@ -1431,7 +1502,7 @@ export const api = {
         updated_at: new Date().toISOString(),
       })
       .eq("id", payload.templateId)
-      .select()
+      .select(EMAIL_TEMPLATE_COLUMNS)
       .single();
     if (error) {
       console.error("Supabase updateEmailTemplate error:", error.message);
@@ -1448,7 +1519,7 @@ export const api = {
     if (!userId) return [];
     const { data, error } = await supabase
       .from("saved_reports")
-      .select("*")
+      .select(SAVED_REPORT_COLUMNS)
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
     if (error) {
@@ -1482,8 +1553,12 @@ export const api = {
     if (payload.reportId) row.id = payload.reportId;
 
     const query = payload.reportId
-      ? supabase.from("saved_reports").upsert(row, { onConflict: "id" }).select().single()
-      : supabase.from("saved_reports").insert(row).select().single();
+      ? supabase
+          .from("saved_reports")
+          .upsert(row, { onConflict: "id" })
+          .select(SAVED_REPORT_COLUMNS)
+          .single()
+      : supabase.from("saved_reports").insert(row).select(SAVED_REPORT_COLUMNS).single();
 
     const { data, error } = await query;
     if (error) {
@@ -1515,7 +1590,7 @@ export const api = {
     if (!userId) return [];
     const { data, error } = await supabase
       .from("career_milestones")
-      .select("*")
+      .select(CAREER_MILESTONE_COLUMNS)
       .eq("user_id", userId)
       .order("created_at", { ascending: true });
     if (error) {
@@ -1542,7 +1617,7 @@ export const api = {
         type: payload.type,
         achieved: payload.achieved ?? true,
       })
-      .select()
+      .select(CAREER_MILESTONE_COLUMNS)
       .single();
     if (error) {
       console.error("Supabase addCareerMilestone error:", error.message);
@@ -1581,7 +1656,7 @@ export const api = {
         },
         { onConflict: "user_id" }
       )
-      .select()
+      .select(USER_RESUME_DRAFT_COLUMNS)
       .single();
     if (error) {
       console.error("Supabase upsertResumeDraft error:", error.message);
@@ -1598,7 +1673,7 @@ export const api = {
     if (!userId) return null;
     const { data, error } = await supabase
       .from("notification_preferences")
-      .select("*")
+      .select(NOTIFICATION_PREFS_COLUMNS)
       .eq("user_id", userId)
       .single();
     if (error) {
@@ -1629,7 +1704,7 @@ export const api = {
         },
         { onConflict: "user_id" }
       )
-      .select()
+      .select(NOTIFICATION_PREFS_COLUMNS)
       .single();
     if (error) {
       console.error("Supabase upsertNotificationPreferences error:", error.message);
@@ -1643,7 +1718,7 @@ export const api = {
     if (!userId) return [];
     const { data, error } = await supabase
       .from("user_notification_state")
-      .select("*")
+      .select(USER_NOTIFICATION_STATE_COLUMNS)
       .eq("user_id", userId);
     if (error) {
       console.error("Supabase getUserNotificationState error:", error.message);
@@ -1671,7 +1746,7 @@ export const api = {
         },
         { onConflict: "user_id,notification_key" }
       )
-      .select()
+      .select(USER_NOTIFICATION_STATE_COLUMNS)
       .single();
     if (error) {
       console.error("Supabase upsertUserNotificationState error:", error.message);
