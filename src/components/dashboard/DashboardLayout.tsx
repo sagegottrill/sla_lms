@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { Outlet, Navigate, useLocation, Link, useNavigate } from "react-router-dom";
 import { Bell, Menu, X, ChevronRight, Home, Settings, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { isStaffRole } from "@/lib/userRole";
 import DashboardSidebar from "./DashboardSidebar";
 import { useGlobalDashboardSync } from "@/hooks/useGlobalDashboardSync";
 import { useUIStore } from "@/store/useUIStore";
@@ -11,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { getProfileLinksForRole } from "@/constants/profileMenu";
 
 export default function DashboardLayout() {
-  const { isAuthenticated, appUser, logout, loading, needsOnboarding } = useAuth();
+  const { isAuthenticated, appUser, logout, loading } = useAuth();
   const { isTheaterMode } = useUIStore();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -33,12 +32,6 @@ export default function DashboardLayout() {
   }, []);
 
   useEffect(() => { setProfileOpen(false); }, [location.pathname]);
-
-  useEffect(() => {
-    if (!loading && isAuthenticated && appUser && needsOnboarding && !isStaffRole(appUser.role)) {
-      navigate("/onboarding", { replace: true });
-    }
-  }, [loading, isAuthenticated, appUser, needsOnboarding, navigate]);
 
   if (loading) {
     return (

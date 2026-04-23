@@ -4,8 +4,8 @@ import { isUsingSupabasePlaceholders, supabase } from "../lib/supabase";
 import { parseJsonStringArray } from "../lib/profileFields";
 import {
   resolveEffectiveRole,
+  inferRoleFromSessionUser,
   learnerNeedsOnboarding,
-  normalizeUserRole,
   isStaffRole,
   type UserRole,
 } from "@/lib/userRole";
@@ -65,13 +65,9 @@ function mapProfileRowToAppUser(data: Record<string, unknown>, authUser?: User |
   };
 }
 
-/** When the profiles row cannot be read yet, infer role from JWT (prefer signed app_metadata). */
+/** When the profiles row cannot be read yet, infer role from JWT metadata (app + user, incl. `roles` arrays). */
 function roleFromAuthUser(authUser: User): UserRole {
-  const app = (authUser.app_metadata || {}) as Record<string, unknown>;
-  const meta = (authUser.user_metadata || {}) as Record<string, unknown>;
-  const rawApp = app.role ?? app.user_role;
-  if (rawApp != null && rawApp !== "") return normalizeUserRole(rawApp);
-  return normalizeUserRole(meta.role);
+  return inferRoleFromSessionUser(authUser);
 }
 
 function mapAuthUserToFallbackAppUser(authUser: User): AppUser {

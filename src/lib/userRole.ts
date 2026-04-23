@@ -41,34 +41,59 @@ export function isOnboardingRole(role: UserRole | undefined): boolean {
   return role !== undefined && ONBOARDING_ROLES.includes(role);
 }
 
-/** Minimal shape for reading staff role from the signed JWT (`app_metadata` only — not user-editable). */
-export type JwtAppMetadataSource = {
+/** JWT / session user shape for inferring staff when `profiles.role` is still `student`. */
+export type JwtRoleClaimsSource = {
   app_metadata?: Record<string, unknown> | null;
+  user_metadata?: Record<string, unknown> | null;
 };
 
-function staffRoleFromAppMetadata(authUser: JwtAppMetadataSource | null | undefined): UserRole | null {
-  if (!authUser) return null;
-  const app = (authUser.app_metadata || {}) as Record<string, unknown>;
-  const raw = app.role ?? app.user_role;
+function staffRoleFromSingleMeta(meta: Record<string, unknown>): UserRole | null {
+  const raw = meta.role ?? meta.user_role ?? meta.userRole ?? meta.roles;
   if (raw == null || raw === "") return null;
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      const r = normalizeUserRole(item);
+      if (isStaffRole(r)) return r;
+    }
+    return null;
+  }
   const r = normalizeUserRole(raw);
   return isStaffRole(r) ? r : null;
 }
 
 /**
+ * Staff in signed `app_metadata` (service role / hooks), else `user_metadata` (signup options,
+ * Dashboard “User metadata”, some OAuth triggers). Prefer app first — safer when both exist.
+ */
+function staffRoleFromAuthClaims(authUser: JwtRoleClaimsSource | null | undefined): UserRole | null {
+  if (!authUser) return null;
+  const fromApp = staffRoleFromSingleMeta((authUser.app_metadata || {}) as Record<string, unknown>);
+  if (fromApp) return fromApp;
+  return staffRoleFromSingleMeta((authUser.user_metadata || {}) as Record<string, unknown>);
+}
+
+/** @deprecated Use JwtRoleClaimsSource */
+export type JwtAppMetadataSource = JwtRoleClaimsSource;
+
+/**
  * Prefer `profiles.role` whenever it is not a plain learner row. If the profile still says `student`
- * but Supabase `app_metadata` carries a staff role (set by Auth hooks / service role), use that so
- * promoted admins are not stuck behind learner onboarding when the profiles row was never updated.
+ * but the session user carries a staff role in metadata (common when `profiles` was never updated
+ * after promotion), use that so staff are not treated as learners.
  */
 export function resolveEffectiveRole(
   profileRow: Record<string, unknown>,
-  authUser?: JwtAppMetadataSource | null
+  authUser?: JwtRoleClaimsSource | null
 ): UserRole {
   const profileRole = normalizeUserRole(profileRow.role);
   if (profileRole !== "student") return profileRole;
-  const fromJwt = staffRoleFromAppMetadata(authUser);
-  if (fromJwt) return fromJwt;
+  const fromClaims = staffRoleFromAuthClaims(authUser);
+  if (fromClaims) return fromClaims;
   return profileRole;
+}
+
+/** When there is no `profiles` row yet (or fetch failed), infer role from session JWT metadata only. */
+export function inferRoleFromSessionUser(authUser: JwtRoleClaimsSource | null | undefined): UserRole {
+  return resolveEffectiveRole({ role: null }, authUser);
 }
 
 type OnboardingSlice = { role: UserRole; onboarding?: { completed?: boolean } };
