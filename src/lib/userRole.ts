@@ -30,11 +30,36 @@ export function resolveEffectiveRole(profileRow: Record<string, unknown>): UserR
   return normalizeUserRole(profileRow.role);
 }
 
+/**
+ * When the `profiles` row cannot be read (RLS/network), infer role from JWT metadata only for UI fallback.
+ * Does not write to the database; RLS remains authoritative for data access.
+ */
+export function inferRoleFromAuthUserForFallback(authUser: { app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> }): UserRole {
+  const tryMeta = (meta: Record<string, unknown> | undefined): UserRole | null => {
+    if (!meta) return null;
+    const keys = ["role", "user_role", "userRole", "account_type"] as const;
+    for (const k of keys) {
+      if (k in meta) {
+        const r = normalizeUserRole(meta[k]);
+        if (isStaffRole(r)) return r;
+      }
+    }
+    return null;
+  };
+  const fromApp = tryMeta(authUser.app_metadata);
+  if (fromApp) return fromApp;
+  const fromUser = tryMeta(authUser.user_metadata);
+  if (fromUser) return fromUser;
+  if (typeof authUser.user_metadata?.role === "string") return normalizeUserRole(authUser.user_metadata.role);
+  return "student";
+}
+
 type OnboardingSlice = { role: UserRole; onboarding?: { completed?: boolean } };
 
-/** Onboarding applies to new `student` accounts until they complete it. */
+/** Onboarding applies only to `student` until they complete it; staff never need the learner wizard. */
 export function learnerNeedsOnboarding(appUser: OnboardingSlice | null | undefined): boolean {
   if (!appUser) return false;
-  if (!isOnboardingRole(appUser.role)) return false;
+  const role = normalizeUserRole(appUser.role);
+  if (role !== "student") return false;
   return !appUser.onboarding?.completed;
 }

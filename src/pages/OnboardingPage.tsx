@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { isOnboardingRole } from "@/lib/userRole";
+import { isOnboardingRole, normalizeUserRole, isStaffRole } from "@/lib/userRole";
 import { useOnboardingStore, type OnboardingRoleChoice } from "@/store/useOnboardingStore";
 import { supabase } from "@/lib/supabase";
 import { api } from "@/services/api";
@@ -72,6 +72,15 @@ export default function OnboardingPage() {
   const [skillInput, setSkillInput] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // If an admin/instructor/PM opens /onboarding directly, leave immediately (belt-and-suspenders with guards below).
+  useEffect(() => {
+    if (!appUser) return;
+    const r = normalizeUserRole(appUser.role);
+    if (isStaffRole(r)) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [appUser, navigate]);
 
   const totalSteps = 5;
   const step = Math.max(0, Math.min(store.currentStep, totalSteps - 1));

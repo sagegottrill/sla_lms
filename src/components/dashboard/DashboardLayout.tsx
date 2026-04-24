@@ -33,8 +33,15 @@ export default function DashboardLayout() {
 
   useEffect(() => { setProfileOpen(false); }, [location.pathname]);
 
+  // Learner onboarding only — staff must never be bounced here (even if needsOnboarding were ever miscalculated).
   useEffect(() => {
-    if (!loading && isAuthenticated && appUser && needsOnboarding) {
+    if (
+      !loading &&
+      isAuthenticated &&
+      appUser &&
+      appUser.role === "student" &&
+      needsOnboarding
+    ) {
       navigate("/onboarding", { replace: true });
     }
   }, [loading, isAuthenticated, appUser, needsOnboarding, navigate]);

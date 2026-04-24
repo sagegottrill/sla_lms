@@ -2,7 +2,13 @@ import React, { createContext, useContext, useEffect, useState, useRef, ReactNod
 import { User, Session } from "@supabase/supabase-js";
 import { isUsingSupabasePlaceholders, supabase } from "../lib/supabase";
 import { parseJsonStringArray } from "../lib/profileFields";
-import { resolveEffectiveRole, learnerNeedsOnboarding, type UserRole } from "@/lib/userRole";
+import {
+  resolveEffectiveRole,
+  learnerNeedsOnboarding,
+  inferRoleFromAuthUserForFallback,
+  isStaffRole,
+  type UserRole,
+} from "@/lib/userRole";
 import { queryClient, queryKeys } from "@/lib/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/services/api";
@@ -35,11 +41,14 @@ export interface AppUser {
 
 function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
   const interests = parseJsonStringArray(data.interests);
+  const role = resolveEffectiveRole(data);
+  // Staff never use the learner onboarding flow; treat as completed even if the row flag is stale.
+  const onboardingCompleted = isStaffRole(role) ? true : Boolean(data.onboarding_completed);
   return {
     id: String(data.id),
     name: (typeof data.name === "string" && data.name) || "User",
     email: typeof data.email === "string" ? data.email : "",
-    role: resolveEffectiveRole(data),
+    role,
     avatar: typeof data.avatar_url === "string" ? data.avatar_url : undefined,
     careerGoal: typeof data.career_goal === "string" ? data.career_goal : undefined,
     bio: typeof data.bio === "string" ? data.bio : undefined,
@@ -48,7 +57,7 @@ function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
     linkedin: typeof data.linkedin === "string" ? data.linkedin : undefined,
     skills: parseJsonStringArray(data.skills),
     onboarding: {
-      completed: Boolean(data.onboarding_completed),
+      completed: onboardingCompleted,
       careerGoal: typeof data.career_goal === "string" ? data.career_goal : "",
       interests,
       selectedCourses: [],
@@ -68,13 +77,17 @@ function mapAuthUserToFallbackAppUser(authUser: User): AppUser {
     (typeof meta.avatar_url === "string" && meta.avatar_url) ||
     (typeof meta.picture === "string" && meta.picture) ||
     undefined;
+  const role = inferRoleFromAuthUserForFallback(authUser);
   return {
     id: authUser.id,
     name,
     email: authUser.email ?? "",
-    role: "student",
+    role,
     avatar,
-    onboarding: { ...defaultOnboarding },
+    onboarding: {
+      ...defaultOnboarding,
+      completed: isStaffRole(role) ? true : defaultOnboarding.completed,
+    },
   };
 }
 
