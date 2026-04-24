@@ -2,17 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef, ReactNod
 import { User, Session } from "@supabase/supabase-js";
 import { isUsingSupabasePlaceholders, supabase } from "../lib/supabase";
 import { parseJsonStringArray } from "../lib/profileFields";
-import {
-  resolveEffectiveRole,
-  inferRoleFromSessionUser,
-  learnerNeedsOnboarding,
-  isStaffRole,
-  normalizeUserRole,
-  roleFromProfileRow,
-  staffRoleFromAppMetadataOnly,
-  type UserRole,
-} from "@/lib/userRole";
-import { isTrustedBootstrapAdmin } from "@/lib/trustedAdminBootstrap";
+import { resolveEffectiveRole, learnerNeedsOnboarding, type UserRole } from "@/lib/userRole";
 import { queryClient, queryKeys } from "@/lib/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/services/api";
@@ -43,21 +33,13 @@ export interface AppUser {
   onboarding: OnboardingData;
 }
 
-function mapProfileRowToAppUser(data: Record<string, unknown>, authUser?: User | null): AppUser {
+function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
   const interests = parseJsonStringArray(data.interests);
-  const profileEmail = typeof data.email === "string" ? data.email : "";
-  let role = resolveEffectiveRole(data, authUser);
-  // VITE_TRUSTED_ADMIN_EMAILS: UI matches intent even if DB row has not refreshed yet.
-  if (isTrustedBootstrapAdmin(authUser?.email ?? null) || isTrustedBootstrapAdmin(profileEmail || null)) {
-    role = "admin";
-  }
-  role = normalizeUserRole(role);
-  const completed = isStaffRole(role) ? true : Boolean(data.onboarding_completed);
   return {
     id: String(data.id),
     name: (typeof data.name === "string" && data.name) || "User",
     email: typeof data.email === "string" ? data.email : "",
-    role,
+    role: resolveEffectiveRole(data),
     avatar: typeof data.avatar_url === "string" ? data.avatar_url : undefined,
     careerGoal: typeof data.career_goal === "string" ? data.career_goal : undefined,
     bio: typeof data.bio === "string" ? data.bio : undefined,
@@ -66,18 +48,13 @@ function mapProfileRowToAppUser(data: Record<string, unknown>, authUser?: User |
     linkedin: typeof data.linkedin === "string" ? data.linkedin : undefined,
     skills: parseJsonStringArray(data.skills),
     onboarding: {
-      completed,
+      completed: Boolean(data.onboarding_completed),
       careerGoal: typeof data.career_goal === "string" ? data.career_goal : "",
       interests,
       selectedCourses: [],
       experienceLevel: "",
     },
   };
-}
-
-/** When the profiles row cannot be read yet, infer role from JWT metadata (app + user, incl. `roles` arrays). */
-function roleFromAuthUser(authUser: User): UserRole {
-  return inferRoleFromSessionUser(authUser);
 }
 
 function mapAuthUserToFallbackAppUser(authUser: User): AppUser {
@@ -91,20 +68,13 @@ function mapAuthUserToFallbackAppUser(authUser: User): AppUser {
     (typeof meta.avatar_url === "string" && meta.avatar_url) ||
     (typeof meta.picture === "string" && meta.picture) ||
     undefined;
-  let role = roleFromAuthUser(authUser);
-  if (isTrustedBootstrapAdmin(authUser.email)) role = "admin";
-  role = normalizeUserRole(role);
   return {
     id: authUser.id,
     name,
     email: authUser.email ?? "",
-    role,
+    role: "student",
     avatar,
-    onboarding: {
-      ...defaultOnboarding,
-      // Staff must never be routed to the learner onboarding wizard when profile fetch lags or fails once.
-      completed: isStaffRole(role) ? true : defaultOnboarding.completed,
-    },
+    onboarding: { ...defaultOnboarding },
   };
 }
 
@@ -147,11 +117,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const rq = useQueryClient();
-  /** Same user as `user` — refs stay in sync for realtime profile reloads (no stale closure). */
-  const authUserForProfileRef = useRef<User | null>(null);
-  useEffect(() => {
-    authUserForProfileRef.current = user;
-  }, [user]);
 
   // Modal state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -173,9 +138,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
     if (existing) return;
     if (existingErr) {
-      // Do not insert/upsert if we could not verify absence — upsert with student role could overwrite an admin row.
-      console.warn("ensureProfileFromAuthUser: could not read existing profile, skipping create:", existingErr.message);
-      return;
+      // If RLS blocks reads, we still want the user to be able to proceed with a valid auth session.
+      console.warn("ensureProfileFromAuthUser: could not read existing profile:", existingErr.message);
     }
 
     const meta = authUser.user_metadata || {};
@@ -189,91 +153,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (typeof meta.picture === "string" && meta.picture) ||
       undefined;
 
-    const role = roleFromAuthUser(authUser);
-    const onboarding_completed = isStaffRole(role);
-
-    const { error: insertErr } = await supabase.from("profiles").insert({
-      id: authUser.id,
-      name,
-      email: authUser.email ?? "",
-      role,
-      avatar_url: avatar,
-      onboarding_completed,
-    });
-    if (insertErr && !String(insertErr.message || "").toLowerCase().includes("duplicate")) {
-      console.error("ensureProfileFromAuthUser insert error:", insertErr.message);
-    }
+    await supabase.from("profiles").upsert(
+      {
+        id: authUser.id,
+        name,
+        email: authUser.email ?? "",
+        role: "student" as UserRole,
+        avatar_url: avatar,
+        onboarding_completed: false,
+      },
+      { onConflict: "id" },
+    );
   };
 
   // Load user profile from Supabase profiles table
   const loadUserProfile = async (userId: string, authUser?: User | null) => {
-    // Dashboard + RLS both use `profiles.role`. If the row is stale `student`, self-serve recovery:
-    // (1) VITE_TRUSTED_ADMIN_EMAILS — deploy-time allowlist; (2) JWT app_metadata staff — cannot be forged by clients.
-    // We do not persist from user_metadata alone (users could otherwise self-promote in DB).
-    const syncProfileStaffToDatabase = async (row: Record<string, unknown>): Promise<Record<string, unknown>> => {
-      if (!authUser || isUsingSupabasePlaceholders) return row;
-      let working: Record<string, unknown> = row;
-      const uid = userId;
-      const pull = async () => {
-        const fresh = await api.getProfile(uid);
-        if (fresh) working = fresh as Record<string, unknown>;
-      };
-
-      let dbRole = roleFromProfileRow(working as Record<string, unknown>);
-      const profileEmail = typeof working.email === "string" ? working.email : "";
-
-      if (isTrustedBootstrapAdmin(authUser.email) || isTrustedBootstrapAdmin(profileEmail)) {
-        if (dbRole !== "admin") {
-          const { error } = await supabase
-            .from("profiles")
-            .update({ role: "admin", onboarding_completed: true })
-            .eq("id", uid);
-          if (error) console.warn("Trusted admin bootstrap: profiles update failed:", error.message);
-          else await pull();
-        }
-      }
-
-      dbRole = roleFromProfileRow(working as Record<string, unknown>);
-      const fromApp = staffRoleFromAppMetadataOnly(authUser);
-      if (dbRole === "student" && fromApp && isStaffRole(fromApp)) {
-        const { error } = await supabase
-          .from("profiles")
-          .update({ role: fromApp, onboarding_completed: true })
-          .eq("id", uid);
-        if (error) console.warn("Sync staff from app_metadata: profiles update failed:", error.message);
-        else await pull();
-      }
-
-      // DB-side recovery: SECURITY DEFINER RPC (see supabase/rpc_recover_staff_profile.sql). Works when RLS blocks client UPDATE.
-      dbRole = roleFromProfileRow(working as Record<string, unknown>);
-      if (dbRole === "student") {
-        const { data: rpcData, error: rpcErr } = await supabase.rpc("recover_my_staff_profile");
-        if (rpcErr) {
-          const m = (rpcErr.message ?? "").toLowerCase();
-          const fnMissing =
-            rpcErr.code === "42883" || m.includes("does not exist") || m.includes("could not find");
-          if (!fnMissing) console.warn("recover_my_staff_profile:", rpcErr.message);
-        } else if (rpcData && typeof rpcData === "object" && (rpcData as { ok?: boolean }).ok === true) {
-          await pull();
-        }
-      }
-
-      return working;
-    };
-
     try {
       const data = await api.getProfile(userId);
       if (data) {
-        const row = await syncProfileStaffToDatabase(data as Record<string, unknown>);
-        setAppUser(mapProfileRowToAppUser(row, authUser));
+        setAppUser(mapProfileRowToAppUser(data as Record<string, unknown>));
         return true;
       }
       if (authUser) {
         await ensureProfileFromAuthUser(authUser);
         const retry = await api.getProfile(userId);
         if (retry) {
-          const row = await syncProfileStaffToDatabase(retry as Record<string, unknown>);
-          setAppUser(mapProfileRowToAppUser(row, authUser));
+          setAppUser(mapProfileRowToAppUser(retry as Record<string, unknown>));
           return true;
         }
       }
@@ -301,7 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles", filter: `id=eq.${uid}` },
         () => {
-          void loadUserProfileRef.current(uid, authUserForProfileRef.current);
+          void loadUserProfileRef.current(uid);
         }
       )
       .subscribe();
