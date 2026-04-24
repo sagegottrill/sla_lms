@@ -59,6 +59,13 @@ async function fetchProgramRowByPublicId(publicId: string): Promise<Program | un
 const PROFILE_COLUMNS =
   "id, name, email, role, avatar_url, bio, headline, location, linkedin, career_goal, skills, interests, onboarding_completed, joined, created_at, updated_at";
 
+function isMissingRelationError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const msg = String(error.message ?? "").toLowerCase();
+  // PostgREST schema-cache missing relation and Postgres undefined_table.
+  return error.code === "PGRST205" || error.code === "42P01" || msg.includes("could not find the table");
+}
+
 function defaultLandingPageConfig(): Record<string, unknown> {
   return {
     featured_course_ids: [] as number[],
@@ -784,6 +791,10 @@ export const api = {
       .eq("status", "pending")
       .order("created_at", { ascending: false });
     if (error) {
+      if (isMissingRelationError(error)) {
+        // Optional enterprise table is not deployed in this Supabase project yet.
+        return [];
+      }
       console.error("getPendingProgramApplications error:", error.message);
       return [];
     }
@@ -792,14 +803,18 @@ export const api = {
 
   approveProgramApplication: async (applicationId: string, userId: string, programId: number) => {
     if (!USE_SUPABASE) return null;
-    await supabase.from("program_applications").update({ status: "approved" }).eq("id", applicationId);
+    const { error } = await supabase.from("program_applications").update({ status: "approved" }).eq("id", applicationId);
+    if (error && !isMissingRelationError(error)) {
+      console.error("approveProgramApplication error:", error.message);
+      return null;
+    }
     return api.enrollUserInProgram(userId, programId);
   },
 
   rejectProgramApplication: async (applicationId: string) => {
     if (!USE_SUPABASE) return null;
     const { error } = await supabase.from("program_applications").update({ status: "rejected" }).eq("id", applicationId);
-    if (error) console.error("rejectProgramApplication error:", error.message);
+    if (error && !isMissingRelationError(error)) console.error("rejectProgramApplication error:", error.message);
     return true;
   },
 
@@ -825,6 +840,9 @@ export const api = {
       .select()
       .single();
     if (error) {
+      if (isMissingRelationError(error)) {
+        return null;
+      }
       console.error("createProgramApplication error:", {
         message: error.message,
         details: (error as any).details,

@@ -6,6 +6,7 @@ import {
   resolveEffectiveRole,
   learnerNeedsOnboarding,
   inferRoleFromAuthUserForFallback,
+  forceAdminRoleByEmail,
   isStaffRole,
   type UserRole,
 } from "@/lib/userRole";
@@ -41,7 +42,8 @@ export interface AppUser {
 
 function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
   const interests = parseJsonStringArray(data.interests);
-  const role = resolveEffectiveRole(data);
+  const forcedRole = forceAdminRoleByEmail(typeof data.email === "string" ? data.email : null);
+  const role = forcedRole ?? resolveEffectiveRole(data);
   // Staff never use the learner onboarding flow; treat as completed even if the row flag is stale.
   const onboardingCompleted = isStaffRole(role) ? true : Boolean(data.onboarding_completed);
   return {
@@ -77,7 +79,8 @@ function mapAuthUserToFallbackAppUser(authUser: User): AppUser {
     (typeof meta.avatar_url === "string" && meta.avatar_url) ||
     (typeof meta.picture === "string" && meta.picture) ||
     undefined;
-  const role = inferRoleFromAuthUserForFallback(authUser);
+  const forcedRole = forceAdminRoleByEmail(authUser.email ?? null);
+  const role = forcedRole ?? inferRoleFromAuthUserForFallback(authUser);
   return {
     id: authUser.id,
     name,
@@ -184,14 +187,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.getProfile(userId);
       if (data) {
-        setAppUser(mapProfileRowToAppUser(data as Record<string, unknown>));
+        const mapped = mapProfileRowToAppUser(data as Record<string, unknown>);
+        console.log("DEBUG AUTH:", { phase: "profile-load-primary", profile: data, user: authUser, appUser: mapped });
+        setAppUser(mapped);
         return true;
       }
       if (authUser) {
         await ensureProfileFromAuthUser(authUser);
         const retry = await api.getProfile(userId);
         if (retry) {
-          setAppUser(mapProfileRowToAppUser(retry as Record<string, unknown>));
+          const mapped = mapProfileRowToAppUser(retry as Record<string, unknown>);
+          console.log("DEBUG AUTH:", { phase: "profile-load-retry", profile: retry, user: authUser, appUser: mapped });
+          setAppUser(mapped);
           return true;
         }
       }
@@ -201,7 +208,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     if (authUser) {
       // Do not block a valid session on profile RLS / missing row issues.
-      setAppUser(mapAuthUserToFallbackAppUser(authUser));
+      const fallback = mapAuthUserToFallbackAppUser(authUser);
+      console.log("DEBUG AUTH:", { phase: "profile-load-fallback", profile: null, user: authUser, appUser: fallback });
+      setAppUser(fallback);
     }
     return false;
   };
@@ -236,6 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (user && !error) {
           setUser(user);
+          console.log("DEBUG AUTH:", { phase: "initialize-auth-before-profile", profile: null, user, appUser: null });
           // Use ref so this effect is resilient to function identity changes.
           await loadUserProfileRef.current(user.id, user);
         }
@@ -258,6 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         setSession(session);
         setUser(session?.user ?? null);
+        console.log("DEBUG AUTH:", { phase: "auth-state-change", profile: null, user: session?.user ?? null, appUser });
         
         if (session?.user) {
           // Use ref to avoid stale closure issues inside this effect.

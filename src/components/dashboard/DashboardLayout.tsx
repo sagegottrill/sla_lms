@@ -42,9 +42,16 @@ export default function DashboardLayout() {
       appUser.role === "student" &&
       needsOnboarding
     ) {
+      console.trace("ONBOARDING REDIRECT TRACE", {
+        loading,
+        isAuthenticated,
+        role: appUser.role,
+        needsOnboarding,
+        path: location.pathname,
+      });
       navigate("/onboarding", { replace: true });
     }
-  }, [loading, isAuthenticated, appUser, needsOnboarding, navigate]);
+  }, [loading, isAuthenticated, appUser, needsOnboarding, navigate, location.pathname]);
 
   if (loading) {
     return (
