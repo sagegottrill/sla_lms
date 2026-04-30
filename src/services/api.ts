@@ -1697,4 +1697,262 @@ export const api = {
     }
     return data;
   },
+
+  // -------------------------
+  // TWILIO SMS/WHATSAPP NOTIFICATIONS
+  // -------------------------
+  sendTwilioMessage: async (payload: {
+    to: string;
+    message: string;
+    channel?: "sms" | "whatsapp";
+  }) => {
+    if (!USE_SUPABASE) {
+      console.warn("Supabase not configured. Cannot send Twilio message.");
+      return null;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke("twilio-notify", {
+        body: payload,
+      });
+
+      if (error) {
+        console.error("Twilio Edge Function error:", error.message);
+        throw new Error(error.message || "Failed to send message");
+      }
+
+      return data;
+    } catch (err: any) {
+      console.error("sendTwilioMessage error:", err?.message ?? err);
+      throw err;
+    }
+  },
+
+  // -------------------------
+  // PLACEMENT OUTCOMES
+  // -------------------------
+  getPlacementOutcomes: async () => {
+    if (!USE_SUPABASE) return [];
+    const { data, error } = await supabase
+      .from("placement_outcomes")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("Supabase getPlacementOutcomes error:", error.message);
+      return [];
+    }
+    return data ?? [];
+  },
+
+  createPlacementOutcome: async (payload: {
+    userId: string;
+    studentName: string;
+    program: string;
+    company?: string;
+    role?: string;
+    location?: string;
+    startDate?: string;
+    status: "placed" | "interviewing" | "searching";
+    salary?: string;
+    feedback?: number;
+  }) => {
+    if (!USE_SUPABASE) return null;
+    const { data, error } = await supabase
+      .from("placement_outcomes")
+      .insert({
+        user_id: payload.userId,
+        student_name: payload.studentName,
+        program: payload.program,
+        company: payload.company ?? "",
+        role: payload.role ?? "",
+        location: payload.location ?? "",
+        start_date: payload.startDate ?? "",
+        status: payload.status,
+        salary: payload.salary ?? "",
+        feedback: payload.feedback ?? 0,
+      })
+      .select()
+      .single();
+    if (error) {
+      console.error("Supabase createPlacementOutcome error:", error.message);
+      throw error;
+    }
+    return data;
+  },
+
+  updatePlacementOutcome: async (id: string, updates: Record<string, unknown>) => {
+    if (!USE_SUPABASE) return null;
+    const { data, error } = await supabase
+      .from("placement_outcomes")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      console.error("Supabase updatePlacementOutcome error:", error.message);
+      throw error;
+    }
+    return data;
+  },
+
+  deletePlacementOutcome: async (id: string) => {
+    if (!USE_SUPABASE) return false;
+    const { error } = await supabase
+      .from("placement_outcomes")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.error("Supabase deletePlacementOutcome error:", error.message);
+      return false;
+    }
+    return true;
+  },
+
+  // -------------------------
+  // INTERVIEW SCHEDULES
+  // -------------------------
+  getInterviewSchedules: async () => {
+    if (!USE_SUPABASE) return [];
+    const { data, error } = await supabase
+      .from("interview_schedules")
+      .select("*")
+      .order("interview_date", { ascending: true });
+    if (error) {
+      console.error("Supabase getInterviewSchedules error:", error.message);
+      return [];
+    }
+    return data ?? [];
+  },
+
+  createInterviewSchedule: async (payload: {
+    createdBy: string;
+    candidate: string;
+    role?: string;
+    interviewDate: string;
+    interviewTime?: string;
+    type?: "video" | "in-person" | "phone";
+    interviewer?: string;
+    notes?: string;
+  }) => {
+    if (!USE_SUPABASE) return null;
+    const { data, error } = await supabase
+      .from("interview_schedules")
+      .insert({
+        created_by: payload.createdBy,
+        candidate: payload.candidate,
+        role: payload.role ?? "",
+        interview_date: payload.interviewDate,
+        interview_time: payload.interviewTime ?? "09:00",
+        type: payload.type ?? "video",
+        interviewer: payload.interviewer ?? "",
+        notes: payload.notes ?? "",
+        status: "pending",
+      })
+      .select()
+      .single();
+    if (error) {
+      console.error("Supabase createInterviewSchedule error:", error.message);
+      throw error;
+    }
+    return data;
+  },
+
+  updateInterviewSchedule: async (id: string, updates: Record<string, unknown>) => {
+    if (!USE_SUPABASE) return null;
+    const { data, error } = await supabase
+      .from("interview_schedules")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      console.error("Supabase updateInterviewSchedule error:", error.message);
+      throw error;
+    }
+    return data;
+  },
+
+  deleteInterviewSchedule: async (id: string) => {
+    if (!USE_SUPABASE) return false;
+    const { error } = await supabase
+      .from("interview_schedules")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.error("Supabase deleteInterviewSchedule error:", error.message);
+      return false;
+    }
+    return true;
+  },
+
+  // -------------------------
+  // LEAD CAPTURES
+  // -------------------------
+  getLeadCaptures: async () => {
+    if (!USE_SUPABASE) return [];
+    const { data, error } = await supabase
+      .from("lead_captures")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("Supabase getLeadCaptures error:", error.message);
+      return [];
+    }
+    return data ?? [];
+  },
+
+  createLeadCapture: async (payload: {
+    email: string;
+    name?: string;
+    source?: string;
+    programInterest?: string;
+    notes?: string;
+  }) => {
+    if (!USE_SUPABASE) return null;
+    const { data, error } = await supabase
+      .from("lead_captures")
+      .insert({
+        email: payload.email,
+        name: payload.name ?? "",
+        source: payload.source ?? "website",
+        program_interest: payload.programInterest ?? "",
+        notes: payload.notes ?? "",
+        status: "new",
+      })
+      .select()
+      .single();
+    if (error) {
+      console.error("Supabase createLeadCapture error:", error.message);
+      throw error;
+    }
+    return data;
+  },
+
+  updateLeadCapture: async (id: string, updates: Record<string, unknown>) => {
+    if (!USE_SUPABASE) return null;
+    const { data, error } = await supabase
+      .from("lead_captures")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      console.error("Supabase updateLeadCapture error:", error.message);
+      throw error;
+    }
+    return data;
+  },
+
+  deleteLeadCapture: async (id: string) => {
+    if (!USE_SUPABASE) return false;
+    const { error } = await supabase
+      .from("lead_captures")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.error("Supabase deleteLeadCapture error:", error.message);
+      return false;
+    }
+    return true;
+  },
 };

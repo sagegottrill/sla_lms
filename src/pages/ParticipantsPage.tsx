@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Download, Users, Bell, Trash2, Mail, MoreHorizontal } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Search, Download, Users, Bell, Trash2, Mail, MoreHorizontal, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FilterChips } from "@/components/dashboard/FilterChips";
 
@@ -14,6 +14,23 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function ParticipantsPage() {
   const { data: participants = [], isLoading } = useProgramParticipants();
@@ -22,6 +39,76 @@ export default function ParticipantsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [removing, setRemoving] = useState(false);
   const queryClient = useQueryClient();
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const sendButtonRef = useRef<HTMLButtonElement>(null);
+  const triggerButtonRef = useRef<HTMLButtonElement>(null);
+
+  // SMS/WhatsApp modal state
+  const [smsModalOpen, setSmsModalOpen] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState<any>(null);
+  const [smsMessage, setSmsMessage] = useState("");
+  const [smsChannel, setSmsChannel] = useState<"sms" | "whatsapp">("sms");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [sending, setSending] = useState(false);
+
+  // Store the last focused element to return focus on close
+  const lastFocusedElement = useRef<HTMLElement | null>(null);
+
+  // Focus phone input when modal opens
+  useEffect(() => {
+    if (smsModalOpen) {
+      // Save currently focused element to return focus later
+      lastFocusedElement.current = document.activeElement as HTMLElement;
+      phoneInputRef.current?.focus();
+    }
+  }, [smsModalOpen]);
+
+  // Return focus to trigger button when modal closes
+  useEffect(() => {
+    if (!smsModalOpen && lastFocusedElement.current) {
+      lastFocusedElement.current.focus();
+      lastFocusedElement.current = null;
+    }
+  }, [smsModalOpen]);
+
+  // Focus trap for modal
+  useEffect(() => {
+    if (!smsModalOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+
+      const focusableElements = Array.from(
+        smsModalOpen ? 
+          document.querySelectorAll<HTMLElement>('[tabindex]:not([tabindex="-1"]):not([disabled])') : 
+          []
+      );
+      
+      if (focusableElements.length === 0) return;
+
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      
+      if (e.shiftKey) { // Shift + Tab
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else { // Tab
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [smsModalOpen]);
 
   const STATUS_OPTIONS = [
     { label: "On Track", value: "on-track" },
@@ -153,6 +240,39 @@ export default function ParticipantsPage() {
     }
   };
 
+  const openSmsModal = (participant: any) => {
+    setSelectedParticipant(participant);
+    setPhoneNumber(""); // Will need to be entered by admin
+    setSmsMessage("");
+    setSmsChannel("sms");
+    setSmsModalOpen(true);
+  };
+
+  const handleSendSms = async () => {
+    if (!phoneNumber || !smsMessage) {
+      toast.error("Please provide both phone number and message.");
+      return;
+    }
+
+    setSending(true);
+    try {
+      await api.sendTwilioMessage({
+        to: phoneNumber,
+        message: smsMessage,
+        channel: smsChannel,
+      });
+
+      toast.success(`${smsChannel === "whatsapp" ? "WhatsApp" : "SMS"} sent successfully!`);
+      setSmsModalOpen(false);
+      setSmsMessage("");
+      setPhoneNumber("");
+    } catch (e: any) {
+      toast.error(e?.message || `Failed to send ${smsChannel === "whatsapp" ? "WhatsApp" : "SMS"} message.`);
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
       
@@ -280,14 +400,15 @@ export default function ParticipantsPage() {
                     </td>
                     <td className="px-5 py-4 text-right">
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
-                            aria-label={`Open actions for ${p.name}`}
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
-                        </DropdownMenuTrigger>
+                         <DropdownMenuTrigger asChild>
+                           <button
+                             ref={triggerButtonRef}
+                             className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+                             aria-label={`Open actions for ${p.name}`}
+                           >
+                             <MoreHorizontal className="w-4 h-4" />
+                           </button>
+                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40 rounded-xl">
                           <DropdownMenuItem
                             onClick={async () => {
@@ -321,6 +442,13 @@ export default function ParticipantsPage() {
                             Email participant
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            onClick={() => openSmsModal(p)}
+                            className="cursor-pointer font-medium text-xs py-2"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 mr-2" />
+                            Send SMS / WhatsApp
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onClick={() => void handleDeleteParticipant(String((p as any).user_id ?? ""))}
                             className="cursor-pointer font-medium text-xs py-2 text-destructive focus:text-destructive"
                           >
@@ -337,6 +465,90 @@ export default function ParticipantsPage() {
           </table>
         </div>
       </div>
+
+      {/* SMS/WhatsApp Modal */}
+      <Dialog open={smsModalOpen} onOpenChange={setSmsModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Send {smsChannel === "whatsapp" ? "WhatsApp" : "SMS"} Message</DialogTitle>
+            <DialogDescription>
+              Send a message to {selectedParticipant?.name || "participant"} via {smsChannel === "whatsapp" ? "WhatsApp" : "SMS"}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="channel">Channel</Label>
+              <Select value={smsChannel} onValueChange={(val: "sms" | "whatsapp") => setSmsChannel(val)}>
+                <SelectTrigger id="channel">
+                  <SelectValue placeholder="Select channel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sms">SMS</SelectItem>
+                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                ref={phoneInputRef}
+                id="phone"
+                type="tel"
+                placeholder="+1234567890"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                Include country code (e.g., +1 for US, +234 for Nigeria)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="message">Message</Label>
+              <textarea
+                ref={messageTextareaRef}
+                id="message"
+                placeholder="Type your message here..."
+                value={smsMessage}
+                onChange={(e) => setSmsMessage(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendSms();
+                  }
+                }}
+                rows={4}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <p className="text-xs text-muted-foreground">
+                {smsMessage.length} characters
+              </p>
+            </div>
+          </div>
+
+           <DialogFooter>
+             <Button
+               ref={cancelButtonRef}
+               variant="outline"
+               onClick={() => setSmsModalOpen(false)}
+               disabled={sending}
+             >
+               Cancel
+             </Button>
+             <Button
+               ref={sendButtonRef}
+               onClick={handleSendSms}
+               disabled={sending || !phoneNumber || !smsMessage}
+               className="bg-[#0056D2] hover:bg-[#00419e]"
+             >
+               {sending ? "Sending..." : `Send ${smsChannel === "whatsapp" ? "WhatsApp" : "SMS"}`}
+             </Button>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

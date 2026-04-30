@@ -402,3 +402,192 @@ export const useUpdateSiteConfigMutation = () => {
     }
   });
 };
+
+// ============================================================================
+// CAMPAIGNS — React Query hooks (replaces useEffect anti-pattern)
+// ============================================================================
+export const useCampaigns = () => {
+  return useQuery({
+    queryKey: ['campaigns', 'all'],
+    queryFn: api.getCampaigns,
+  });
+};
+
+export const useCreateCampaignMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof api.createCampaign>[0]) =>
+      api.createCampaign(payload),
+    onSuccess: () => toast.success("Campaign created!"),
+    onError: () => toast.error("Failed to create campaign. Check Supabase connection/RLS."),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['campaigns'] }),
+  });
+};
+
+// ============================================================================
+// EMAIL TEMPLATES — React Query hooks (replaces useEffect anti-pattern)
+// ============================================================================
+export const useEmailTemplates = () => {
+  return useQuery({
+    queryKey: ['email-templates', 'all'],
+    queryFn: api.getEmailTemplates,
+  });
+};
+
+export const useCreateEmailTemplateMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof api.createEmailTemplate>[0]) =>
+      api.createEmailTemplate(payload),
+    onSuccess: () => toast.success("Template created"),
+    onError: () => toast.error("Failed to create template. Check Supabase connection/RLS."),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['email-templates'] }),
+  });
+};
+
+export const useUpdateEmailTemplateMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof api.updateEmailTemplate>[0]) =>
+      api.updateEmailTemplate(payload),
+    onSuccess: () => toast.success("Template saved"),
+    onError: () => toast.error("Failed to save template. Check Supabase connection/RLS."),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['email-templates'] }),
+  });
+};
+
+// ============================================================================
+// FORUMS — React Query hooks (replaces useEffect anti-pattern)
+// ============================================================================
+export const useForumThreads = () => {
+  return useQuery({
+    queryKey: ['forum-threads', 'all'],
+    queryFn: api.getForumThreads,
+  });
+};
+
+export const useCreateForumThreadMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof api.createForumThread>[0]) =>
+      api.createForumThread(payload),
+    onSuccess: () => toast.success("Thread posted!"),
+    onError: () => toast.error("Failed to post thread. Check Supabase connection/RLS."),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['forum-threads'] }),
+  });
+};
+
+// ============================================================================
+// PLACEMENT OUTCOMES — React Query hooks
+// ============================================================================
+export const usePlacementOutcomes = () => {
+  return useQuery({
+    queryKey: ['placement-outcomes', 'all'],
+    queryFn: api.getPlacementOutcomes,
+  });
+};
+
+export const useCreatePlacementMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof api.createPlacementOutcome>[0]) =>
+      api.createPlacementOutcome(payload),
+    onSuccess: () => toast.success("Placement outcome logged!"),
+    onError: () => toast.error("Failed to save placement. Check Supabase connection/RLS."),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['placement-outcomes'] }),
+  });
+};
+
+export const useUpdatePlacementMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Record<string, unknown> }) =>
+      api.updatePlacementOutcome(id, updates),
+    onSuccess: () => toast.success("Placement updated"),
+    onError: () => toast.error("Failed to update placement."),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['placement-outcomes'] }),
+  });
+};
+
+export const useDeletePlacementMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deletePlacementOutcome(id),
+    onSuccess: () => toast.success("Placement removed"),
+    onError: () => toast.error("Failed to delete placement."),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['placement-outcomes'] }),
+  });
+};
+
+// ============================================================================
+// INTERVIEW SCHEDULES — React Query hooks
+// ============================================================================
+export const useInterviewSchedules = () => {
+  return useQuery({
+    queryKey: ['interview-schedules', 'all'],
+    queryFn: api.getInterviewSchedules,
+  });
+};
+
+export const useCreateInterviewMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof api.createInterviewSchedule>[0]) =>
+      api.createInterviewSchedule(payload),
+    onSuccess: () => toast.success("Interview scheduled!"),
+    onError: () => toast.error("Failed to schedule interview. Check Supabase connection/RLS."),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['interview-schedules'] }),
+  });
+};
+
+export const useUpdateInterviewMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Record<string, unknown> }) =>
+      api.updateInterviewSchedule(id, updates),
+    onSuccess: () => toast.success("Interview updated"),
+    onError: () => toast.error("Failed to update interview."),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['interview-schedules'] }),
+  });
+};
+
+export const useDeleteInterviewMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteInterviewSchedule(id),
+    onSuccess: () => toast.success("Interview removed"),
+    onError: () => toast.error("Failed to delete interview."),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['interview-schedules'] }),
+  });
+};
+
+// ============================================================================
+// LEAD CAPTURES — React Query hooks
+// ============================================================================
+export const useLeadCaptures = () => {
+  return useQuery({
+    queryKey: ['lead-captures', 'all'],
+    queryFn: api.getLeadCaptures,
+  });
+};
+
+export const useUpdateLeadMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Record<string, unknown> }) =>
+      api.updateLeadCapture(id, updates),
+    onSuccess: () => toast.success("Lead updated"),
+    onError: () => toast.error("Failed to update lead."),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['lead-captures'] }),
+  });
+};
+
+export const useDeleteLeadMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteLeadCapture(id),
+    onSuccess: () => toast.success("Lead removed"),
+    onError: () => toast.error("Failed to delete lead."),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['lead-captures'] }),
+  });
+};
