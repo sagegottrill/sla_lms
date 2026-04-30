@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { FileText, Plus, Trash2, Download, BarChart3, PieChart, TrendingUp, Calendar, Filter, Play, Save, Settings, Eye, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -229,7 +229,7 @@ export default function ReportBuilderPage() {
           <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">Report Builder</h1>
           <p className="text-muted-foreground text-sm">Create and export custom programmatic reports</p>
         </div>
-        <Button onClick={startNew} className="rounded-full px-6 h-9 text-xs font-semibold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors shadow-sm">
+        <Button onClick={startNew} className="rounded-full px-6 h-9 text-xs font-semibold bg-primary hover:bg-primary/90 text-white border-0 transition-colors shadow-sm">
           <Plus className="w-3.5 h-3.5 mr-2" /> New Report
         </Button>
       </div>
@@ -309,10 +309,10 @@ export default function ReportBuilderPage() {
             <h3 className="font-display font-semibold text-lg text-foreground mb-4">Saved Reports</h3>
             <div className="space-y-3">
               {reports.map(r => (
-                <div key={r.id} className="bg-card rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-4 flex items-center justify-between gap-3 hover:border-[#0056D2]/40 transition-all cursor-pointer">
+                <div key={r.id} className="bg-card rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-4 flex items-center justify-between gap-3 hover:border-primary/40 transition-all cursor-pointer">
                   <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-[#f5f9ff] border border-blue-100 flex items-center justify-center shrink-0">
-                      {r.chartType === "bar" ? <BarChart3 className="w-4 h-4 text-[#0056D2]" /> : r.chartType === "line" ? <TrendingUp className="w-4 h-4 text-[#0056D2]" /> : <PieChart className="w-4 h-4 text-[#0056D2]" />}
+                    <div className="w-10 h-10 rounded-full bg-primary/5 border border-blue-100 flex items-center justify-center shrink-0">
+                      {r.chartType === "bar" ? <BarChart3 className="w-4 h-4 text-primary" /> : r.chartType === "line" ? <TrendingUp className="w-4 h-4 text-primary" /> : <PieChart className="w-4 h-4 text-primary" />}
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">{r.name}</p>

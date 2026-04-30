@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInstructorCourses, useCourses } from "@/hooks/useQueries";
 import { Link, useNavigate } from "react-router-dom";
@@ -51,7 +51,7 @@ export default function InstructorCoursesPage() {
         <div className="flex items-center gap-3">
           <Button 
             onClick={() => navigate('/dashboard/courses/new')}
-            className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors"
+            className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0 transition-colors"
           >
             Create New Course
           </Button>
@@ -141,7 +141,7 @@ export default function InstructorCoursesPage() {
                       <div className="flex items-center justify-end gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {(course.students || 0).toLocaleString()}</span>
                         {(course.rating || 0) > 0 && <span className="flex items-center gap-1 text-foreground/80"><Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" /> {course.rating}</span>}
-                        {(course.revenue || 0) > 0 && <span className="flex items-center gap-1 font-semibold text-[#0056D2]"><DollarSign className="w-3 h-3" /> {(course.revenue || 0).toLocaleString()}</span>}
+                        {(course.revenue || 0) > 0 && <span className="flex items-center gap-1 font-semibold text-primary"><DollarSign className="w-3 h-3" /> {(course.revenue || 0).toLocaleString()}</span>}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, DollarSign, Briefcase, Award, Plus, Edit2, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -184,10 +184,10 @@ export default function IncomeProgressionPage() {
           {/* KPI cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: DollarSign, label: "Current Income",  value: currentIncome > 0 ? `₦${currentIncome.toLocaleString()}` : '—',    sub: "per month",          color: "text-[#0056D2]" },
+              { icon: DollarSign, label: "Current Income",  value: currentIncome > 0 ? `₦${currentIncome.toLocaleString()}` : '—',    sub: "per month",          color: "text-primary" },
               { icon: TrendingUp, label: "Income Growth",   value: growth > 0 ? `+${growth}%` : '—', sub: "since SLA enrollment",color: "text-emerald-600" },
               { icon: Briefcase,  label: "Current Role",    value: "Pending", sub: "Awaiting Data",     color: "text-foreground" },
-              { icon: Award,      label: "Certificates",    value: "0",            sub: "completed",          color: "text-[#0056D2]" },
+              { icon: Award,      label: "Certificates",    value: "0",            sub: "completed",          color: "text-primary" },
             ].map(({ icon: Icon, label, value, sub, color }) => (
               <div key={label} className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
@@ -215,15 +215,15 @@ export default function IncomeProgressionPage() {
                   <AreaChart data={incomeHistory} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <defs>
                       <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor="#0056D2" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#0056D2" stopOpacity={0} />
+                        <stop offset="5%"  stopColor="hsl(var(--primary))" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(204 12% 88%)" vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₦${v/1000}k`} axisLine={false} tickLine={false} />
                     <Tooltip formatter={(v: number) => [`₦${v.toLocaleString()}`, "Monthly Income"]} />
-                    <Area type="monotone" dataKey="income" stroke="#0056D2" fill="url(#incomeGrad)" strokeWidth={3} />
+                    <Area type="monotone" dataKey="income" stroke="hsl(var(--primary))" fill="url(#incomeGrad)" strokeWidth={3} />
                   </AreaChart>
                 </ResponsiveContainer>
               )}
@@ -272,7 +272,7 @@ export default function IncomeProgressionPage() {
                     milestoneList.map((m, i) => (
                       <motion.div key={m.id} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}
                         className="flex gap-4 pl-10 relative">
-                        <div className={`absolute left-3 top-2 w-2.5 h-2.5 rounded-full border-2 ${m.achieved ? "bg-[#0056D2] border-[#0056D2]" : "bg-card border-border/80"}`} />
+                        <div className={`absolute left-3 top-2 w-2.5 h-2.5 rounded-full border-2 ${m.achieved ? "bg-primary border-primary" : "bg-card border-border/80"}`} />
                         <div className={`flex-1 p-4 rounded-xl ${m.achieved ? "bg-muted/30" : "bg-card border border-dashed border-border/60"}`}>
                           <div className="flex items-start justify-between gap-2 flex-wrap">
                             <div>
@@ -313,7 +313,7 @@ export default function IncomeProgressionPage() {
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₦${v/1000}k`} axisLine={false} tickLine={false} />
                   <Tooltip formatter={(v: number) => [`₦${v.toLocaleString()}`, "Avg. Monthly Income"]} cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }} />
-                  <Bar dataKey="avg" fill="#0056D2" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="avg" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -329,7 +329,7 @@ export default function IncomeProgressionPage() {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[600px]">
-                <thead className="bg-[#f5f9ff] dark:bg-muted/10 border-b border-border/40">
+                <thead className="bg-primary/5 dark:bg-muted/10 border-b border-border/40">
                   <tr>
                     {["Participant", "Program", "Pre-SLA", "Post-SLA", "Growth", "Organization", "Status"].map(h => (
                       <th key={h} className="px-6 py-4 text-left text-xs font-bold tracking-widest uppercase text-muted-foreground">{h}</th>

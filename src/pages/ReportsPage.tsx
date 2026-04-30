@@ -1,4 +1,4 @@
-import { Download, FileText, CheckCircle2, TrendingUp, Users, AlertCircle } from "lucide-react";
+﻿import { Download, FileText, CheckCircle2, TrendingUp, Users, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSystemStats } from "@/hooks/useQueries";
 
@@ -27,7 +27,7 @@ export default function ReportsPage() {
           <Button variant="outline" className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
              <Download className="w-3.5 h-3.5 mr-2" /> Export CSV
           </Button>
-          <Button className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors">
+          <Button className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0 transition-colors">
             <FileText className="w-3.5 h-3.5 mr-2" /> Full Report
           </Button>
         </div>

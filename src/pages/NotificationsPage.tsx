@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Bell, BookOpen, Award, Users, AlertTriangle, CheckCircle2, MessageSquare, Trash2, CheckCheck, Settings, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -266,7 +266,7 @@ export default function NotificationsPage() {
               <Settings className="w-3.5 h-3.5 mr-2" /> Preferences
             </Button>
           </Link>
-          <Button onClick={markAllRead} className="rounded-full px-5 h-9 text-xs font-semibold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors">
+          <Button onClick={markAllRead} className="rounded-full px-5 h-9 text-xs font-semibold bg-primary hover:bg-primary/90 text-white border-0 transition-colors">
             <CheckCheck className="w-3.5 h-3.5 mr-2" /> Mark all read
           </Button>
         </div>
@@ -343,7 +343,7 @@ export default function NotificationsPage() {
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
             <h3 className="font-display font-semibold text-lg text-foreground flex items-center gap-2 mb-3">
-              <Clock className="w-4 h-4 text-[#0056D2]" /> Smart Reminders
+              <Clock className="w-4 h-4 text-primary" /> Smart Reminders
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed mb-6">
               These settings apply to targeted automated alerts and direct administrator communications sent to your student profile. Manage your preferences below.
@@ -355,7 +355,7 @@ export default function NotificationsPage() {
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-sm font-semibold text-foreground">{r.label}</p>
                     <button onClick={() => toggleReminder(r.id)}
-                      className={`w-10 h-5 rounded-full flex items-center px-0.5 transition-colors ${r.active ? "bg-[#0056D2]" : "bg-border"}`}>
+                      className={`w-10 h-5 rounded-full flex items-center px-0.5 transition-colors ${r.active ? "bg-primary" : "bg-border"}`}>
                       <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${r.active ? "translate-x-5" : ""}`} />
                     </button>
                   </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useSystemStats, useCourses, useProfiles } from "@/hooks/useQueries";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -143,7 +143,7 @@ export default function AdminDashboard() {
                   <Award className="w-3.5 h-3.5" /> Certificates Issued
                 </p>
                 {loadingStats ? <Skeleton className="h-7 w-20" /> : (
-                  <p className="text-3xl font-bold text-[#0056D2]">{totalCertificates.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-primary">{totalCertificates.toLocaleString()}</p>
                 )}
               </div>
               <div>
@@ -279,7 +279,7 @@ export default function AdminDashboard() {
                         Reject
                       </Button>
                       <Button
-                        className="rounded-xl text-xs bg-[#0056D2] hover:bg-[#00419e] text-white"
+                        className="rounded-xl text-xs bg-primary hover:bg-primary/90 text-white"
                         onClick={async () => {
                           await api.approveProgramApplication(String(a.id), String(a.user_id), Number(a.program_id));
                           toast.success("Application approved");

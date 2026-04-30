@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import { Search, Download, Users, Bell, Trash2, Mail, MoreHorizontal, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FilterChips } from "@/components/dashboard/FilterChips";
@@ -298,7 +298,7 @@ export default function ParticipantsPage() {
           <Button onClick={exportRoster} variant="outline" className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted transition-colors">
              <Download className="w-3.5 h-3.5 mr-2" /> Export Roster
           </Button>
-          <Button onClick={messageCohort} className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors">
+          <Button onClick={messageCohort} className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0 transition-colors">
             <Mail className="w-3.5 h-3.5 mr-2" /> Message Cohort
           </Button>
         </div>
@@ -542,7 +542,7 @@ export default function ParticipantsPage() {
                ref={sendButtonRef}
                onClick={handleSendSms}
                disabled={sending || !phoneNumber || !smsMessage}
-               className="bg-[#0056D2] hover:bg-[#00419e]"
+               className="bg-primary hover:bg-primary/90"
              >
                {sending ? "Sending..." : `Send ${smsChannel === "whatsapp" ? "WhatsApp" : "SMS"}`}
              </Button>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Users, Layout, DollarSign, Target, TrendingUp, Search, Bell, 
@@ -130,7 +130,7 @@ export default function ProgramManagerDashboard() {
           <Button onClick={handleSync} variant="outline" className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
             <RefreshCw className="w-3.5 h-3.5 mr-2" /> Sync
           </Button>
-          <Button asChild className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0">
+          <Button asChild className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0">
             <Link to="/dashboard/programs/new">Create Cohort</Link>
           </Button>
         </div>
@@ -162,7 +162,7 @@ export default function ProgramManagerDashboard() {
               <div className="pt-3 border-t border-border/40">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Active Programs</p>
                 {statsLoading ? <Skeleton className="h-6 w-24" /> : (
-                  <p className="text-2xl font-bold text-[#0056D2]">{stats?.activePrograms || 0}</p>
+                  <p className="text-2xl font-bold text-primary">{stats?.activePrograms || 0}</p>
                 )}
               </div>
             </div>
@@ -310,8 +310,21 @@ export default function ProgramManagerDashboard() {
               {activeTab !== "participants" && (
                 <div className="py-20 text-center">
                    <FolderOpen className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                   <p className="text-foreground font-medium mb-1">No data available</p>
-                   <p className="text-sm text-muted-foreground">Select 'Participants' to view the active management roster.</p>
+                   <p className="text-foreground font-medium mb-1">
+                     {activeTab === "programs" ? "View all programs" : "Pending applications"}
+                   </p>
+                   <p className="text-sm text-muted-foreground mb-4">
+                     {activeTab === "programs"
+                       ? "Manage your cohort programs from the Programs page."
+                       : "Review and approve program applications from the Admin Dashboard."}
+                   </p>
+                   <Link
+                     to={activeTab === "programs" ? "/dashboard/programs" : "/dashboard"}
+                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-white transition-colors"
+                   >
+                     <ChevronRight className="w-3.5 h-3.5" />
+                     {activeTab === "programs" ? "Go to Programs" : "Go to Dashboard"}
+                   </Link>
                 </div>
               )}
             </div>

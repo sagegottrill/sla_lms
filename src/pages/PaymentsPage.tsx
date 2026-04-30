@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { Download, CreditCard, Filter, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSystemStats } from "@/hooks/useQueries";
@@ -91,8 +91,14 @@ export default function PaymentsPage() {
                   <CreditCard className="w-3.5 h-3.5" /> Settled Txs
                 </p>
                 <div className="flex items-end gap-2">
-                  <p className="text-3xl font-light text-foreground">0</p>
-                  <span className="text-[10px] font-bold text-muted-foreground mb-1">—</span>
+                  {isLoading || loadingPayments ? (
+                    <p className="text-3xl font-light text-foreground">—</p>
+                  ) : (
+                    <p className="text-3xl font-light text-foreground">
+                      {(payments as any[]).filter(p => p.status === "successful").length.toLocaleString()}
+                    </p>
+                  )}
+                  <span className="text-[10px] font-bold text-muted-foreground mb-1">paid</span>
                 </div>
               </div>
 
@@ -101,7 +107,7 @@ export default function PaymentsPage() {
                   <ArrowUpRight className="w-3.5 h-3.5" /> Net MRR
                 </p>
                 <div className="flex items-end gap-2">
-                  <p className="text-3xl font-bold text-[#0056D2]">₦{isLoading ? "—" : totalRevenue.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-primary">₦{isLoading ? "—" : totalRevenue.toLocaleString()}</p>
                   <span className="text-[10px] font-bold text-muted-foreground mb-1">—</span>
                 </div>
               </div>

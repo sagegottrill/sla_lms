@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInstructorStats, useInstructorCourses } from "@/hooks/useQueries";
@@ -44,23 +44,23 @@ export default function InstructorDashboard() {
             <h2 className="font-display font-semibold text-lg text-foreground mb-4">Command Center</h2>
             <div className="space-y-4 pl-1">
               <Link to="/dashboard/courses/new" className="flex items-start gap-3 group cursor-pointer block">
-                <Plus className="w-4 h-4 text-muted-foreground/50 shrink-0 mt-0.5 group-hover:text-[#0056D2] transition-colors" />
+                <Plus className="w-4 h-4 text-muted-foreground/50 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
                 <p className="text-sm text-foreground font-medium transition-colors group-hover:text-primary">
                   Create a new course
                 </p>
               </Link>
-              <div className="flex items-start gap-3 group cursor-pointer">
+              <Link to="/dashboard/earnings" className="flex items-start gap-3 group cursor-pointer block">
                 <LineChart className="w-4 h-4 text-muted-foreground/50 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
                 <p className="text-sm text-foreground font-medium transition-colors group-hover:text-primary">
                   View payout reports
                 </p>
-              </div>
-              <div className="flex items-start gap-3 group cursor-pointer">
+              </Link>
+              <Link to="/dashboard/profile" className="flex items-start gap-3 group cursor-pointer block">
                 <Settings className="w-4 h-4 text-muted-foreground/50 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
                 <p className="text-sm text-foreground font-medium transition-colors group-hover:text-primary">
                   Edit educator profile
                 </p>
-              </div>
+              </Link>
             </div>
           </div>
 
@@ -85,7 +85,7 @@ export default function InstructorDashboard() {
               <div className="pt-3 border-t border-border/40">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Total Payouts</p>
                 {loadingStats ? <Skeleton className="h-6 w-24" /> : (
-                  <p className="text-2xl font-bold text-[#0056D2]">₦{(statsData?.totalRevenue ?? 0).toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-primary">₦{(statsData?.totalRevenue ?? 0).toLocaleString()}</p>
                 )}
               </div>
             </div>
@@ -148,7 +148,7 @@ export default function InstructorDashboard() {
                   <p className="text-foreground font-semibold mb-2">No {activeTab} courses found</p>
                   <p className="text-sm text-muted-foreground mb-6">Build your curriculum and share your expertise.</p>
                   <Link to="/dashboard/courses/new">
-                    <Button className="bg-[#0056D2] hover:bg-[#00419e] font-bold px-8" size="lg">Create Course</Button>
+                    <Button className="bg-primary hover:bg-primary/90 font-bold px-8" size="lg">Create Course</Button>
                   </Link>
                 </div>
               ) : (

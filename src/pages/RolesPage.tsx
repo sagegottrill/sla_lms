@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Shield, UserCheck, Plus, Edit, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -93,7 +93,7 @@ export default function RolesPage() {
                 setSelectedUser({ id: String(first.id), role });
                 setNewRole(role);
               }}
-              className="rounded-full px-6 h-9 text-xs font-semibold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors shadow-sm"
+              className="rounded-full px-6 h-9 text-xs font-semibold bg-primary hover:bg-primary/90 text-white border-0 transition-colors shadow-sm"
             >
               <Plus className="w-3.5 h-3.5 mr-2" /> Assign Role
             </Button>
@@ -128,7 +128,7 @@ export default function RolesPage() {
                     <div className="space-y-2.5">
                       {rd.permissions.map(p => (
                         <div key={p} className="flex items-start gap-2.5 text-sm">
-                          <UserCheck className="w-4 h-4 text-[#0056D2] shrink-0 mt-0.5" />
+                          <UserCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                           <span className="text-foreground leading-snug">{p}</span>
                         </div>
                       ))}

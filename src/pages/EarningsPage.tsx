@@ -1,4 +1,4 @@
-import { Download, DollarSign, ArrowUpRight, CheckCircle2, Info, Clock } from "lucide-react";
+﻿import { Download, DollarSign, ArrowUpRight, CheckCircle2, Info, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { useSystemStats } from "@/hooks/useQueries";
@@ -61,7 +61,7 @@ export default function EarningsPage() {
                   <ArrowUpRight className="w-3.5 h-3.5" /> Monthly Velocity
                 </p>
                 <div className="flex items-end gap-2">
-                  <p className="text-3xl font-bold text-[#0056D2]">₦{isLoading ? "—" : totalRevenue.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-primary">₦{isLoading ? "—" : totalRevenue.toLocaleString()}</p>
                   <span className="text-[10px] font-bold text-muted-foreground mb-1">—</span>
                 </div>
               </div>

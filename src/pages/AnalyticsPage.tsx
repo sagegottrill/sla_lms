@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import { useSystemStats, useCourses, useProfiles, useUserEnrollments } from "@/hooks/useQueries";
 import { Download, TrendingUp, Users, BookOpen, Target, Loader2, RefreshCw, DollarSign, BarChart3, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import {
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from "recharts";
 
-const CHART_COLORS = ["#0056D2", "#0288d1", "#00897B", "#F4B400", "#E53935", "#7B1FA2"];
+const CHART_COLORS = ["hsl(var(--primary))", "#0288d1", "#00897B", "#F4B400", "#E53935", "#7B1FA2"];
 
 export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState("Last 12 months");
@@ -71,7 +71,7 @@ export default function AnalyticsPage() {
       { stage: "Site Visitors", value: totalVisitors, fill: "#e3f2fd" },
       { stage: "Registrations", value: registrations, fill: "#bbdefb" },
       { stage: "Enrollments", value: enrollments, fill: "#64b5f6" },
-      { stage: "Completions", value: completions, fill: "#0056D2" },
+      { stage: "Completions", value: completions, fill: "hsl(var(--primary))" },
     ];
   }, [allProfiles, allCourses, stats]);
 
@@ -106,7 +106,7 @@ export default function AnalyticsPage() {
           <Button variant="outline" onClick={handleRefresh} className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
             <RefreshCw className="w-3.5 h-3.5 mr-2" /> Sync
           </Button>
-          <Button onClick={() => toast.success("Analytics exported.")} className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors">
+          <Button onClick={() => toast.success("Analytics exported.")} className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0 transition-colors">
             <Download className="w-3.5 h-3.5 mr-2" /> Export
           </Button>
         </div>
@@ -150,7 +150,7 @@ export default function AnalyticsPage() {
                   contentStyle={{ borderRadius: 12, border: "1px solid var(--border)", fontSize: 12 }}
                   labelStyle={{ fontWeight: 600 }}
                 />
-                <Bar dataKey="learners" fill="#0056D2" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="learners" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -211,7 +211,7 @@ export default function AnalyticsPage() {
                   <div className="h-6 bg-muted/30 rounded-lg overflow-hidden">
                     <div
                       className="h-full rounded-lg transition-all duration-700"
-                      style={{ width: `${widthPct}%`, backgroundColor: CHART_COLORS[i] || "#0056D2" }}
+                      style={{ width: `${widthPct}%`, backgroundColor: CHART_COLORS[i] || "hsl(var(--primary))" }}
                     />
                   </div>
                 </div>
@@ -261,7 +261,7 @@ export default function AnalyticsPage() {
                     <td className="px-6 py-4 text-right font-medium text-foreground">
                       {(c.students || 0).toLocaleString()}
                     </td>
-                    <td className="px-6 py-4 text-right font-medium text-[#0056D2]">
+                    <td className="px-6 py-4 text-right font-medium text-primary">
                       {(c.revenue || 0) > 0 ? `₦${(c.revenue || 0).toLocaleString()}` : "Free"}
                     </td>
                   </tr>

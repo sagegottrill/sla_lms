@@ -1,26 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Mail, Smartphone, Send, Plus, Calendar, Users, Search } from "lucide-react";
+import { Mail, Smartphone, Send, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/services/api";
+import { useCampaigns, useCreateCampaignMutation } from "@/hooks/useQueries";
 
 export default function CampaignsPage() {
   const { appUser } = useAuth();
-  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const { data: campaigns = [], isLoading } = useCampaigns();
+  const createMutation = useCreateCampaignMutation();
   const [showCreate, setShowCreate] = useState(false);
   const [channelFilter, setChannelFilter] = useState<"all" | "email" | "sms" | "both">("all");
   const [form, setForm] = useState({ name: "", subject: "", audience: "", channel: "email" as "email" | "sms" | "both", scheduledDate: "", body: "" });
-
-  useEffect(() => {
-    const load = async () => {
-      if (!appUser) return;
-      const data = await api.getCampaigns();
-      setCampaigns(data);
-    };
-    load();
-  }, [appUser]);
 
   const filtered = useMemo(
     () => campaigns.filter((c) => channelFilter === "all" || c.channel === channelFilter),
@@ -38,7 +30,7 @@ export default function CampaignsPage() {
             Email & SMS marketing campaigns for learner engagement.
           </p>
         </div>
-        <Button onClick={() => setShowCreate(!showCreate)} className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors">
+        <Button onClick={() => setShowCreate(!showCreate)} className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0 transition-colors">
           <Plus className="w-3.5 h-3.5 mr-2" /> Create Campaign
         </Button>
       </div>
@@ -93,31 +85,30 @@ export default function CampaignsPage() {
               </div>
             </div>
             <div className="flex gap-3">
-              <Button onClick={() => {
-                if (!form.name.trim()) { toast.error("Name your campaign"); return; }
-                if (!appUser?.id) { toast.error("Please log in."); return; }
-
-                api.createCampaign({
-                  userId: appUser.id,
-                  name: form.name.trim(),
-                  subject: form.subject.trim(),
-                  audience: form.audience.trim(),
-                  channel: form.channel,
-                  scheduledAt: form.scheduledDate || null,
-                  body: form.body,
-                }).then((created) => {
-                  if (!created) {
-                    toast.error("Failed to create campaign. Check Supabase connection/RLS.");
-                    return;
-                  }
-                  toast.success("Campaign created!");
-                  setShowCreate(false);
-                  setForm({ name: "", subject: "", audience: "", channel: "email", scheduledDate: "", body: "" });
-                  setCampaigns((prev: any[]) => [created, ...prev]);
-                });
-              }}
-                className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0">
-                <Send className="w-3.5 h-3.5 mr-2" /> Create
+              <Button
+                onClick={() => {
+                  if (!form.name.trim()) { toast.error("Name your campaign"); return; }
+                  if (!appUser?.id) { toast.error("Please log in."); return; }
+                  createMutation.mutate({
+                    userId:      appUser.id,
+                    name:        form.name.trim(),
+                    subject:     form.subject.trim(),
+                    audience:    form.audience.trim(),
+                    channel:     form.channel,
+                    scheduledAt: form.scheduledDate || null,
+                    body:        form.body,
+                  }, {
+                    onSuccess: () => {
+                      setShowCreate(false);
+                      setForm({ name: "", subject: "", audience: "", channel: "email", scheduledDate: "", body: "" });
+                    },
+                  });
+                }}
+                disabled={createMutation.isPending}
+                className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0">
+                {createMutation.isPending
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-2" />Creating…</>
+                  : <><Send className="w-3.5 h-3.5 mr-2" />Create</>}
               </Button>
               <Button variant="outline" onClick={() => setShowCreate(false)} className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
                 Cancel
@@ -129,7 +120,12 @@ export default function CampaignsPage() {
 
       {/* Campaigns list */}
       <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden">
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-20 bg-card/20 text-muted-foreground">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary/40" />
+            <p className="text-sm">Loading campaigns…</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-20 bg-card/20">
             <Send className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-foreground font-medium mb-1">No campaigns found</p>

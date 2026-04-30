@@ -1,24 +1,25 @@
-import { useEffect, useState } from "react";
+﻿import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { MessageSquare, ThumbsUp, Pin, Search, Plus, ChevronDown, ChevronUp, Send, Tag } from "lucide-react";
+import { MessageSquare, ThumbsUp, Pin, Search, Plus, ChevronDown, ChevronUp, Loader2, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/services/api";
+import { useForumThreads, useCreateForumThreadMutation } from "@/hooks/useQueries";
 
 const categories = ["All", "General", "Career Advice", "Technical Help", "Programs", "Networking"];
 
 export default function ForumsPage() {
   const { appUser } = useAuth();
-  const [threads, setThreads] = useState<any[]>([]);
+  const { data: threads = [], isLoading } = useForumThreads();
+  const createMutation = useCreateForumThreadMutation();
+
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [openThread, setOpenThread] = useState<string | null>(null);
-  const [newReply, setNewReply] = useState<Record<number, string>>({});
   const [showNew, setShowNew] = useState(false);
   const [newThread, setNewThread] = useState({ title: "", body: "", category: "General" });
 
-  const filtered = threads.filter(t => {
+  const filtered = (threads as any[]).filter(t => {
     const matchCat = category === "All" || t.category === category;
     const matchSearch = t.title?.toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
@@ -26,38 +27,21 @@ export default function ForumsPage() {
 
   const toggleThread = (id: string) => setOpenThread(prev => prev === id ? null : id);
 
-  useEffect(() => {
-    const load = async () => {
-      const data = await api.getForumThreads();
-      setThreads(data);
-    };
-    if (appUser?.id) load();
-  }, [appUser?.id]);
-
-  const submitThread = async () => {
-    if (!appUser?.id) {
-      toast.error("Please log in to post a thread.");
-      return;
-    }
+  const submitThread = () => {
+    if (!appUser?.id) { toast.error("Please log in to post a thread."); return; }
     if (!newThread.title.trim()) return;
-
-    const created = await api.createForumThread({
-      userId: appUser.id,
-      title: newThread.title.trim(),
-      body: newThread.body.trim(),
-      category: newThread.category,
+    createMutation.mutate({
+      userId:     appUser.id,
+      title:      newThread.title.trim(),
+      body:       newThread.body.trim(),
+      category:   newThread.category,
       authorName: appUser.name ?? "User",
+    }, {
+      onSuccess: () => {
+        setNewThread({ title: "", body: "", category: "General" });
+        setShowNew(false);
+      },
     });
-
-    if (!created) {
-      toast.error("Failed to post thread. Check Supabase connection/RLS.");
-      return;
-    }
-
-    setThreads((prev) => [created, ...prev]);
-    setNewThread({ title: "", body: "", category: "General" });
-    setShowNew(false);
-    toast.success("Thread posted!");
   };
 
   return (
@@ -71,7 +55,7 @@ export default function ForumsPage() {
             Ask questions, share knowledge, connect with peers.
           </p>
         </div>
-        <Button onClick={() => setShowNew(true)} className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors">
+        <Button onClick={() => setShowNew(true)} className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0 transition-colors">
           <Plus className="w-3.5 h-3.5 mr-2" /> New Thread
         </Button>
       </div>
@@ -92,7 +76,15 @@ export default function ForumsPage() {
                 className="px-4 py-2 rounded-full ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm focus:outline-none appearance-none">
                 {categories.filter(c => c !== "All").map(c => <option key={c}>{c}</option>)}
               </select>
-              <Button onClick={submitThread} className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0">Post</Button>
+              <Button
+                onClick={submitThread}
+                disabled={createMutation.isPending || !newThread.title.trim()}
+                className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0"
+              >
+                {createMutation.isPending
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-2" />Posting…</>
+                  : "Post"}
+              </Button>
               <Button variant="outline" onClick={() => setShowNew(false)} className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">Cancel</Button>
             </div>
           </motion.div>
@@ -122,7 +114,12 @@ export default function ForumsPage() {
 
       {/* Thread list */}
       <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden">
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-20 bg-card/20 text-muted-foreground">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary/40" />
+            <p className="text-sm">Loading discussions…</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-20 bg-card/20">
             <MessageSquare className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-foreground font-medium mb-1">No discussions yet</p>
@@ -139,7 +136,7 @@ export default function ForumsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
-                        {thread.pinned && <span className="text-[10px] text-[#0056D2] font-semibold flex items-center gap-1"><Pin className="w-3 h-3" /> Pinned</span>}
+                        {thread.pinned && <span className="text-[10px] text-primary font-semibold flex items-center gap-1"><Pin className="w-3 h-3" /> Pinned</span>}
                         <span className="text-[10px] bg-muted px-2 py-0.5 rounded-md text-muted-foreground flex items-center gap-1">
                           <Tag className="w-2.5 h-2.5" />{thread.category}
                         </span>

@@ -1,7 +1,7 @@
 -- ============================================================
--- CONNECT HER LMS — Missing Tables Migration
+-- CONNECT HER LMS — Missing Tables Migration (idempotent)
+-- Safe to re-run: uses IF NOT EXISTS + DROP POLICY IF EXISTS
 -- Run in Supabase: Dashboard → SQL Editor → New query
--- These tables were referenced in the UI but never created.
 -- ============================================================
 
 -- ============================================================
@@ -25,6 +25,11 @@ create table if not exists public.placement_outcomes (
 );
 
 alter table public.placement_outcomes enable row level security;
+
+drop policy if exists "Placement outcomes readable by staff"   on public.placement_outcomes;
+drop policy if exists "Placement outcomes insertable by staff" on public.placement_outcomes;
+drop policy if exists "Placement outcomes updatable by staff"  on public.placement_outcomes;
+drop policy if exists "Placement outcomes deletable by staff"  on public.placement_outcomes;
 
 create policy "Placement outcomes readable by staff"
   on public.placement_outcomes for select
@@ -67,7 +72,7 @@ create policy "Placement outcomes deletable by staff"
   );
 
 create index if not exists idx_placement_outcomes_user_id on public.placement_outcomes(user_id);
-create index if not exists idx_placement_outcomes_status on public.placement_outcomes(status);
+create index if not exists idx_placement_outcomes_status  on public.placement_outcomes(status);
 
 -- ============================================================
 -- INTERVIEW SCHEDULES
@@ -90,6 +95,11 @@ create table if not exists public.interview_schedules (
 );
 
 alter table public.interview_schedules enable row level security;
+
+drop policy if exists "Interviews readable by staff"   on public.interview_schedules;
+drop policy if exists "Interviews insertable by staff" on public.interview_schedules;
+drop policy if exists "Interviews updatable by staff"  on public.interview_schedules;
+drop policy if exists "Interviews deletable by staff"  on public.interview_schedules;
 
 create policy "Interviews readable by staff"
   on public.interview_schedules for select
@@ -132,28 +142,32 @@ create policy "Interviews deletable by staff"
   );
 
 create index if not exists idx_interview_schedules_created_by on public.interview_schedules(created_by);
-create index if not exists idx_interview_schedules_status on public.interview_schedules(status);
-create index if not exists idx_interview_schedules_date on public.interview_schedules(interview_date);
+create index if not exists idx_interview_schedules_status     on public.interview_schedules(status);
+create index if not exists idx_interview_schedules_date       on public.interview_schedules(interview_date);
 
 -- ============================================================
 -- LEAD CAPTURES
 -- ============================================================
 create table if not exists public.lead_captures (
-  id              uuid default gen_random_uuid() primary key,
-  email           text not null,
-  name            text default '',
-  source          text default 'website'
-                  check (source in ('website', 'campaign', 'referral', 'social', 'organic', 'paid', 'other')),
-  status          text not null default 'new'
-                  check (status in ('new', 'contacted', 'qualified', 'converted', 'lost')),
+  id               uuid default gen_random_uuid() primary key,
+  email            text not null,
+  name             text default '',
+  source           text default 'website'
+                   check (source in ('website', 'campaign', 'referral', 'social', 'organic', 'paid', 'other')),
+  status           text not null default 'new'
+                   check (status in ('new', 'contacted', 'qualified', 'converted', 'lost')),
   program_interest text default '',
-  notes           text default '',
-  converted_at    timestamptz,
-  created_at      timestamptz default now(),
-  updated_at      timestamptz default now()
+  notes            text default '',
+  converted_at     timestamptz,
+  created_at       timestamptz default now(),
+  updated_at       timestamptz default now()
 );
 
 alter table public.lead_captures enable row level security;
+
+drop policy if exists "Leads readable by admin"              on public.lead_captures;
+drop policy if exists "Leads insertable by anyone (public form)" on public.lead_captures;
+drop policy if exists "Leads updatable by admin"             on public.lead_captures;
 
 create policy "Leads readable by admin"
   on public.lead_captures for select
@@ -179,8 +193,18 @@ create policy "Leads updatable by admin"
     )
   );
 
-create index if not exists idx_lead_captures_status on public.lead_captures(status);
-create index if not exists idx_lead_captures_email on public.lead_captures(email);
+create policy "Leads deletable by admin"
+  on public.lead_captures for delete
+  using (
+    exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+      and p.role = 'admin'
+    )
+  );
+
+create index if not exists idx_lead_captures_status     on public.lead_captures(status);
+create index if not exists idx_lead_captures_email      on public.lead_captures(email);
 create index if not exists idx_lead_captures_created_at on public.lead_captures(created_at desc);
 
 -- ============================================================
@@ -196,6 +220,10 @@ create table if not exists public.system_settings (
 );
 
 alter table public.system_settings enable row level security;
+
+drop policy if exists "System settings readable by authenticated" on public.system_settings;
+drop policy if exists "System settings updatable by admin"        on public.system_settings;
+drop policy if exists "System settings insertable by admin"       on public.system_settings;
 
 create policy "System settings readable by authenticated"
   on public.system_settings for select
@@ -221,13 +249,13 @@ create policy "System settings insertable by admin"
     )
   );
 
--- Seed default settings row
+-- Seed default row (safe to re-run)
 insert into public.system_settings (id, inactivity_reminder_days, assessment_deadline_alert_hours)
 values ('main', 3, 48)
 on conflict (id) do nothing;
 
 -- ============================================================
--- AUDIT LOGS (referenced by paystack webhook)
+-- AUDIT LOGS
 -- ============================================================
 create table if not exists public.audit_logs (
   id              uuid default gen_random_uuid() primary key,
@@ -243,6 +271,9 @@ create table if not exists public.audit_logs (
 
 alter table public.audit_logs enable row level security;
 
+drop policy if exists "Audit logs readable by admin"                on public.audit_logs;
+drop policy if exists "Audit logs insertable by service role only"  on public.audit_logs;
+
 create policy "Audit logs readable by admin"
   on public.audit_logs for select
   using (
@@ -255,18 +286,16 @@ create policy "Audit logs readable by admin"
 
 create policy "Audit logs insertable by service role only"
   on public.audit_logs for insert
-  with check (true); -- Service role bypasses RLS; anon/user inserts blocked by JWT
+  with check (true);
 
-create index if not exists idx_audit_logs_user_id on public.audit_logs(user_id);
+create index if not exists idx_audit_logs_user_id     on public.audit_logs(user_id);
 create index if not exists idx_audit_logs_action_type on public.audit_logs(action_type);
-create index if not exists idx_audit_logs_created_at on public.audit_logs(created_at desc);
-create index if not exists idx_audit_logs_target_id on public.audit_logs(target_id);
+create index if not exists idx_audit_logs_created_at  on public.audit_logs(created_at desc);
+create index if not exists idx_audit_logs_target_id   on public.audit_logs(target_id);
 
 -- ============================================================
--- PAYMENTS — add missing join columns if not present
+-- PAYMENTS — ensure indexes exist
 -- ============================================================
--- The payments table exists but getPayments needs profile/course/program joins.
--- These are FK references already in schema.sql, just ensuring indexes exist.
-create index if not exists idx_payments_user_id on public.payments(user_id);
+create index if not exists idx_payments_user_id    on public.payments(user_id);
 create index if not exists idx_payments_created_at on public.payments(created_at desc);
-create index if not exists idx_payments_status on public.payments(status);
+create index if not exists idx_payments_status     on public.payments(status);

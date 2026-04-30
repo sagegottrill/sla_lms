@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+﻿import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Download, UserPlus, Trash2,
@@ -219,7 +219,7 @@ export default function AdminUsersPage() {
           <Button variant="outline" onClick={handleExport} className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
             <Download className="w-3.5 h-3.5 mr-2" /> Export
           </Button>
-          <Button onClick={() => setShowAddModal(true)} className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0">
+          <Button onClick={() => setShowAddModal(true)} className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0">
             Invite User
           </Button>
         </div>
@@ -479,7 +479,7 @@ export default function AdminUsersPage() {
 
               <div className="flex gap-3 justify-end pt-6 border-t border-border/40">
                 <Button variant="ghost" onClick={() => setShowAddModal(false)} className="rounded-full h-10 px-6 font-semibold">Cancel</Button>
-                <Button onClick={handleAddUser} disabled={savingAdd} className="bg-[#0056D2] hover:bg-[#00419e] text-white rounded-full h-10 px-8 font-semibold">
+                <Button onClick={handleAddUser} disabled={savingAdd} className="bg-primary hover:bg-primary/90 text-white rounded-full h-10 px-8 font-semibold">
                   {savingAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Invite"}
                 </Button>
               </div>

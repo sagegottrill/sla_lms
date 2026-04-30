@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCourses, useUserEnrollments } from "@/hooks/useQueries";
@@ -324,16 +324,18 @@ export default function StudentDashboard() {
                     {/* Right: Next Action Context */}
                     <div className="rt-col md:w-64 lg:w-72 shrink-0 flex flex-col justify-center sm:border-l sm:border-border sm:pl-8">
                       <div className="mb-3">
-                        <h4 className="text-sm font-semibold text-foreground mb-1 line-clamp-2">Next: {c.title.split(":")[0] || "Module 1"} Fundamentals</h4>
+                        <h4 className="text-sm font-semibold text-foreground mb-1">
+                          {c.progress === 0 ? "Start learning" : `${c.progress}% complete — keep going`}
+                        </h4>
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Clock className="w-3.5 h-3.5" />
-                          <span>Video</span>
+                          <span>{c.duration || "Self-paced"}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Link to={`/courses/${coursePathSegment(c)}`}>
-                          <Button className="bg-[#0056D2] hover:bg-[#00419e] text-white font-bold px-6 h-9 transition-colors">
-                            Resume
+                          <Button className="bg-primary hover:bg-primary/90 text-white font-bold px-6 h-9 transition-colors">
+                            {c.progress === 0 ? "Start" : "Resume"}
                           </Button>
                         </Link>
                       </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { FolderOpen, Plus, Users, Calendar, BarChart2, Bell, Download, Edit, Trash2, Search, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -41,7 +41,7 @@ export default function ProgramManagerProgramsPage() {
              <Download className="w-3.5 h-3.5 mr-2" /> Export
           </Button>
           <Link to="/dashboard/programs/new">
-            <Button className="rounded-full px-6 h-9 text-xs font-bold bg-[#0056D2] hover:bg-[#00419e] text-white border-0 transition-colors">
+            <Button className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0 transition-colors">
               <Plus className="w-3.5 h-3.5 mr-2" /> New Cohort
             </Button>
           </Link>

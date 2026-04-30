@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+﻿import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, Navigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -510,7 +510,7 @@ export default function OnboardingPage() {
                    store.nextStep();
                  }}
                  disabled={!canContinue()}
-                 className="rounded-full px-8 font-bold bg-[#0056D2] hover:bg-[#00419e] text-white shadow-brand">
+                 className="rounded-full px-8 font-bold bg-primary hover:bg-primary/90 text-white shadow-brand">
                  Continue <ArrowRight className="w-4 h-4 ml-2" />
                </Button>
              ) : (
@@ -522,7 +522,7 @@ export default function OnboardingPage() {
                    )();
                  }}
                  disabled={finishing || !canContinue()}
-                 className="rounded-full px-10 font-bold bg-[#0056D2] hover:bg-[#00419e] text-white shadow-brand">
+                 className="rounded-full px-10 font-bold bg-primary hover:bg-primary/90 text-white shadow-brand">
                  {finishing ? (
                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Finalizing...</>
                  ) : (
