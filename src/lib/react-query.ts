@@ -83,9 +83,130 @@ export const queryKeys = {
     base: ['students'] as const,
     instructor: (instructorId: string) => ['students', 'instructor', { instructorId }] as const,
   },
-  
+
   myPrograms: {
     base: ['myPrograms'] as const,
     user: (userId: string) => ['myPrograms', 'user', { userId }] as const,
+  },
+
+  // Placement Outcomes
+  placementOutcomes: {
+    base: ['placementOutcomes'] as const,
+    all: () => ['placementOutcomes', 'all'] as const,
+  },
+
+  // Interview Schedules
+  interviewSchedules: {
+    base: ['interviewSchedules'] as const,
+    all: () => ['interviewSchedules', 'all'] as const,
+  },
+
+  // Lead Captures
+  leadCaptures: {
+    base: ['leadCaptures'] as const,
+    all: () => ['leadCaptures', 'all'] as const,
+  },
+
+  // System Settings
+  systemSettings: {
+    base: ['systemSettings'] as const,
+    main: () => ['systemSettings', 'main'] as const,
+  },
+
+  // Audit Logs
+  auditLogs: {
+    base: ['auditLogs'] as const,
+    all: () => ['auditLogs', 'all'] as const,
+  },
+
+  // Program Applications
+  programApplications: {
+    base: ['programApplications'] as const,
+    all: () => ['programApplications', 'all'] as const,
+    pending: () => ['programApplications', 'pending'] as const,
+  },
+
+  // Course Applications
+  courseApplications: {
+    base: ['courseApplications'] as const,
+    all: (courseId: number) => ['courseApplications', courseId] as const,
+  },
+
+  // Saved Reports
+  savedReports: {
+    base: ['savedReports'] as const,
+    all: (userId: string) => ['savedReports', userId] as const,
+  },
+
+  // Reports
+  reports: {
+    base: ['reports'] as const,
+    all: () => ['reports', 'all'] as const,
+  },
+
+  // Skills Assessments
+  skillsAssessments: {
+    base: ['skillsAssessments'] as const,
+    all: () => ['skillsAssessments', 'all'] as const,
+  },
+
+  // Skills Questions
+  skillsQuestions: {
+    base: ['skillsQuestions'] as const,
+    all: () => ['skillsQuestions', 'all'] as const,
+  },
+
+  // Skills Results
+  skillsResults: {
+    base: ['skillsResults'] as const,
+    all: (userId: string) => ['skillsResults', userId] as const,
+  },
+
+  // Campaigns
+  campaigns: {
+    base: ['campaigns'] as const,
+    all: () => ['campaigns', 'all'] as const,
+  },
+
+  // Forum Threads
+  forumThreads: {
+    base: ['forumThreads'] as const,
+    all: () => ['forumThreads', 'all'] as const,
+  },
+
+  // Email Templates
+  emailTemplates: {
+    base: ['emailTemplates'] as const,
+    all: () => ['emailTemplates', 'all'] as const,
+  },
+
+  // Notification Preferences
+  notificationPreferences: {
+    base: ['notificationPreferences'] as const,
+    all: () => ['notificationPreferences', 'all'] as const,
+  },
+
+  // User Notification State
+  userNotificationState: {
+    base: ['userNotificationState'] as const,
+    all: (userId: string) => ['userNotificationState', userId] as const,
+  },
+
+  // Career Milestones
+  careerMilestones: {
+    base: ['careerMilestones'] as const,
+    all: (userId: string) => ['careerMilestones', userId] as const,
+  },
+
+  // User Resume Drafts
+  userResumeDrafts: {
+    base: ['userResumeDrafts'] as const,
+    all: (userId: string) => ['userResumeDrafts', userId] as const,
+  },
+
+  // Site Config
+  siteConfig: {
+    base: ['siteConfig'] as const,
+    all: (id: string) => ['siteConfig', id] as const,
   },
 };
