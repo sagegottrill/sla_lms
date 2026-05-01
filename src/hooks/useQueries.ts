@@ -18,6 +18,7 @@ export const useCourses = (options?: { publishedOnly?: boolean }) => {
   return useQuery({
     queryKey: [...queryKeys.courses.all(appUser?.role), { publishedOnly }] as const,
     queryFn: () => api.getCourses({ publishedOnly }),
+    select: (data) => data.success ? data.data : [],
   });
 };
 
@@ -40,6 +41,7 @@ export const useCourse = (routeOrNumericId: string | number | undefined) => {
       typeof routeOrNumericId === "number"
         ? api.getCourseById(routeOrNumericId)
         : api.getCourseByRouteParam(routeOrNumericId),
+    select: (data) => data.success ? data.data : undefined,
     enabled,
   });
 };
@@ -96,6 +98,7 @@ export const usePrograms = (options?: { activeCatalog?: boolean }) => {
   return useQuery({
     queryKey: [...queryKeys.programs.all(appUser?.role), { activeCatalog }] as const,
     queryFn: () => api.getPrograms({ activeCatalog }),
+    select: (data) => data.success ? data.data : [],
   });
 };
 
@@ -118,6 +121,7 @@ export const useProgram = (routeOrNumericId: string | number | undefined) => {
       typeof routeOrNumericId === "number"
         ? api.getProgramById(routeOrNumericId)
         : api.getProgramByRouteParam(routeOrNumericId),
+    select: (data) => data.success ? data.data : undefined,
     enabled,
   });
 };
@@ -164,6 +168,7 @@ export const useUserEnrollments = (userId: string | undefined) => {
   return useQuery({
     queryKey: queryKeys.enrollments.user(appUser?.role, userId || ''),
     queryFn: () => api.getUserEnrollments(userId!),
+    select: (data) => data.success ? data.data : [],
     enabled: !!userId,
   });
 };
@@ -183,16 +188,16 @@ export const useEnrollUserMutation = () => {
       
       // 1. Intercept & Cancel in-flight queries
       await queryClient.cancelQueries({ queryKey });
-
+ 
       // 2. Snapshot prior state for fallback
       const previousEnrollments = queryClient.getQueryData(queryKey);
-
+ 
       // 3. Inject optimistic state (Inject placeholder until DB resolves)
       queryClient.setQueryData(queryKey, (old: any) => [
         ...(old || []),
         { id: 'temp-' + Date.now(), user_id: userId, course_id: courseId, status: 'active', enrolled_at: new Date().toISOString() }
       ]);
-
+ 
       // 4. Return context for rollback
       return { previousEnrollments, queryKey };
     },
@@ -202,7 +207,7 @@ export const useEnrollUserMutation = () => {
       if (context?.queryKey) {
         queryClient.setQueryData(context.queryKey, context.previousEnrollments);
       }
-      toast.error("We couldn't enroll that learner. Please try again.");
+      toast.error("We couldn't enroll that learner. Please try again."),
     },
     onSuccess: () => {
       toast.success("Enrollment updated");
@@ -229,6 +234,7 @@ export const useInstructorStudents = (instructorId: string | undefined) => {
   return useQuery({
     queryKey: queryKeys.students.instructor(instructorId ?? ""),
     queryFn: () => api.getInstructorStudents(instructorId!),
+    select: (data) => data.success ? data.data : [],
     enabled: !!instructorId,
   });
 };
@@ -238,6 +244,7 @@ export const useMyPrograms = () => {
   return useQuery({
     queryKey: queryKeys.myPrograms.user(appUser?.id ?? ""),
     queryFn: () => api.getUserPrograms(appUser!.id),
+    select: (data) => data.success ? data.data : [],
     enabled: !!appUser?.id,
   });
 };
@@ -248,6 +255,7 @@ export const useProfiles = () => {
   return useQuery({
     queryKey: queryKeys.profiles.all(appUser?.role),
     queryFn: api.getProfiles,
+    select: (data) => data.success ? data.data : [],
   });
 };
 
@@ -256,6 +264,7 @@ export const useProfile = (userId: string | undefined) => {
   return useQuery({
     queryKey: queryKeys.profiles.detail(appUser?.role, userId || ''),
     queryFn: () => api.getProfile(userId!),
+    select: (data) => data.success ? data.data : null,
     enabled: !!userId,
   });
 };

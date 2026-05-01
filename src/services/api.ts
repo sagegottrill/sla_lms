@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { UUID_ROUTE } from "@/lib/publicRoutes";
 import type { Course, Program } from "@/types";
+import { apiResponse, isApiSuccess, handleApiError } from "@/lib/utils/api";
 
 // Feature flag: if real Supabase URL is configured, use live data
 const USE_SUPABASE = Boolean(
@@ -78,83 +79,159 @@ export const api = {
   // -------------------------
   // COURSES
   // -------------------------
-  getCourses: async (options?: { publishedOnly?: boolean }): Promise<Course[]> => {
-    if (USE_SUPABASE) {
+  getCourses: async (options?: { publishedOnly?: boolean }): Promise<ApiResponse<Course[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
+    
+    try {
       let q = supabase.from("courses").select(COURSE_COLUMNS).order("created_at", { ascending: false });
       if (options?.publishedOnly) {
         q = q.eq("status", "published");
       }
       const { data, error } = await q;
-      if (error) { console.error("Supabase getCourses error:", error.message); return []; }
-      return (data ?? []) as Course[];
+      
+      if (error) {
+        console.error("Supabase getCourses error:", error.message);
+        return { data: [], error: error.message, success: false };
+      }
+      
+      return { data: (data ?? []) as Course[], error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getCourses error:", error.message);
+      return { data: [], error: error.message, success: false };
     }
-    return [];
   },
 
-  createCourse: async (courseData: Partial<Course> & Record<string, unknown>) => {
-    if (USE_SUPABASE) {
+  createCourse: async (courseData: Partial<Course> & Record<string, unknown>): Promise<ApiResponse<Course | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    
+    try {
       const { data, error } = await supabase.from("courses").insert(courseData).select().single();
-      if (error) { console.error("Supabase createCourse error:", error.message); throw error; }
-      return data;
+      
+      if (error) {
+        console.error("Supabase createCourse error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      
+      return { data: data, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase createCourse error:", error.message);
+      return { data: null, error: error.message, success: false };
     }
-    return null;
   },
 
-  updateCourse: async (id: number, updates: Partial<Course> & Record<string, unknown>) => {
-    if (USE_SUPABASE) {
+  updateCourse: async (id: number, updates: Partial<Course> & Record<string, unknown>): Promise<ApiResponse<Course | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    
+    try {
       const { data, error } = await supabase
         .from("courses")
         .update(updates)
         .eq("id", id)
         .select()
         .single();
-      if (error) { console.error("Supabase updateCourse error:", error.message); throw error; }
-      return data;
+      
+      if (error) {
+        console.error("Supabase updateCourse error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      
+      return { data: data, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase updateCourse error:", error.message);
+      return { data: null, error: error.message, success: false };
     }
-    return null;
   },
 
-  getCourseById: async (id: number): Promise<Course | undefined> => fetchCourseRowById(id),
-
-  /** Resolve `/courses/:segment` where segment is `public_id` (UUID) or legacy numeric `id`. */
-  getCourseByRouteParam: async (param: string | undefined): Promise<Course | undefined> => {
-    if (!param) return undefined;
-    const t = param.trim();
-    if (/^\d+$/.test(t)) {
-      const n = Number(t);
-      if (!Number.isFinite(n) || n < 1) return undefined;
-      return fetchCourseRowById(n);
+  getCourseById: async (id: number): Promise<ApiResponse<Course | undefined>> => {
+    if (!USE_SUPABASE) {
+      return { data: undefined, error: null, success: true };
     }
-    if (UUID_ROUTE.test(t)) return fetchCourseRowByPublicId(t);
-    return undefined;
+    
+    try {
+      const { data, error } = await supabase.from("courses").select(COURSE_COLUMNS).eq("id", id).single();
+      
+      if (error) {
+        console.error("Supabase getCourseById error:", error.message);
+        return { data: undefined, error: error.message, success: false };
+      }
+      
+      return { data: data as Course | undefined, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getCourseById error:", error.message);
+      return { data: undefined, error: error.message, success: false };
+    }
+  },
+
+  getCourseByRouteParam: async (param: string | undefined): Promise<ApiResponse<Course | undefined>> => {
+    if (!param) {
+      return { data: undefined, error: null, success: true };
+    }
+    
+    if (!USE_SUPABASE) {
+      return { data: undefined, error: null, success: true };
+    }
+    
+    try {
+      if (!param) return { data: undefined, error: null, success: true };
+      const t = param.trim();
+      if (/^\d+$/.test(t)) {
+        const n = Number(t);
+        if (!Number.isFinite(n) || n < 1) return { data: undefined, error: null, success: true };
+        const result = await this.getCourseById(n);
+        return result;
+      }
+      if (UUID_ROUTE.test(t)) {
+        const result = await this.getCourseByPublicId(t);
+        return result;
+      }
+      return { data: undefined, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getCourseByRouteParam error:", error.message);
+      return { data: undefined, error: error.message, success: false };
+    }
   },
 
   // -------------------------
   // PROGRAMS
   // -------------------------
-  getPrograms: async (options?: { activeCatalog?: boolean }): Promise<Program[]> => {
-    if (USE_SUPABASE) {
+  getPrograms: async (options?: { activeCatalog?: boolean }): Promise<ApiResponse<Program[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
+    
+    try {
       let q = supabase.from("programs").select(PROGRAM_COLUMNS).order("created_at", { ascending: false });
       if (options?.activeCatalog) {
         q = q.in("status", ["upcoming", "active"]);
       }
       const { data, error } = await q;
-      if (error) { console.error("Supabase getPrograms error:", error.message); return []; }
-      return (data ?? []) as Program[];
+      
+      if (error) {
+        console.error("Supabase getPrograms error:", error.message);
+        return { data: [], error: error.message, success: false };
+      }
+      
+      return { data: (data ?? []) as Program[], error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getPrograms error:", error.message);
+      return { data: [], error: error.message, success: false };
     }
-    return [];
   },
 
-  // -------------------------
-  // USER PROGRAMS
-  // -------------------------
-  // Derives a "program dashboard card" per user by:
-  // - reading program.courses (stored as course titles)
-  // - mapping those titles to course ids
-  // - pulling enrollments for the user across those course ids
-  getUserPrograms: async (userId: string) => {
-    if (!USE_SUPABASE) return [];
-    if (!userId) return [];
+  getUserPrograms: async (userId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
+    
+    if (!userId) {
+      return { data: [], error: null, success: true };
+    }
 
     try {
       const { data: programs, error: programsErr } = await supabase
@@ -163,18 +240,18 @@ export const api = {
 
       if (programsErr) {
         console.error("Supabase getUserPrograms programs error:", programsErr.message);
-        return [];
+        return { data: [], error: programsErr.message, success: false };
       }
 
       const programsArr = (programs ?? []).filter(
         (p: any) => Array.isArray(p?.courses) && p.courses.length > 0,
       );
-      if (programsArr.length === 0) return [];
+      if (programsArr.length === 0) return { data: [], error: null, success: true };
 
       const allCourseTitles = Array.from(
         new Set(programsArr.flatMap((p: any) => (p.courses ?? []).filter(Boolean))),
       );
-      if (allCourseTitles.length === 0) return [];
+      if (allCourseTitles.length === 0) return { data: [], error: null, success: true };
 
       const { data: coursesData, error: coursesErr } = await supabase
         .from("courses")
@@ -183,13 +260,13 @@ export const api = {
 
       if (coursesErr) {
         console.error("Supabase getUserPrograms courses error:", coursesErr.message);
-        return [];
+        return { data: [], error: coursesErr.message, success: false };
       }
 
       const coursesArr = (coursesData ?? []) as Array<{ id: number; title: string }>;
       const courseTitleToId = new Map<string, number>(coursesArr.map((c) => [c.title, c.id]));
       const courseIds = coursesArr.map((c) => c.id);
-      if (courseIds.length === 0) return [];
+      if (courseIds.length === 0) return { data: [], error: null, success: true };
 
       const { data: enrollments, error: enrollmentsErr } = await supabase
         .from("enrollments")
@@ -199,7 +276,7 @@ export const api = {
 
       if (enrollmentsErr) {
         console.error("Supabase getUserPrograms enrollments error:", enrollmentsErr.message);
-        return [];
+        return { data: [], error: enrollmentsErr.message, success: false };
       }
 
       const enrollmentByCourseId = new Map<number, { progress: number }>(
@@ -243,44 +320,100 @@ export const api = {
         })
         .filter(Boolean);
 
-      return mapped as Array<any>;
+      return { data: mapped as Array<any>, error: null, success: true };
     } catch (err: any) {
       console.error("Supabase getUserPrograms unexpected error:", err?.message ?? err);
-      return [];
+      return { data: [], error: err?.message ?? err, success: false };
     }
   },
 
-  createProgram: async (programData: Partial<Program>) => {
-    if (USE_SUPABASE) {
+  createProgram: async (programData: Partial<Program>): Promise<ApiResponse<Program | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    
+    try {
       const { data, error } = await supabase.from("programs").insert(programData).select().single();
-      if (error) { console.error("Supabase createProgram error:", error.message); throw error; }
-      return data;
+      
+      if (error) {
+        console.error("Supabase createProgram error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      
+      return { data: data, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase createProgram error:", error.message);
+      return { data: null, error: error.message, success: false };
     }
-    return null;
   },
 
-  updateProgram: async (id: number, updates: Partial<Program> & Record<string, unknown>) => {
-    if (USE_SUPABASE) {
+  updateProgram: async (id: number, updates: Partial<Program> & Record<string, unknown>): Promise<ApiResponse<Program | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    
+    try {
       const { data, error } = await supabase.from("programs").update(updates).eq("id", id).select().single();
-      if (error) { console.error("Supabase updateProgram error:", error.message); throw error; }
-      return data;
+      
+      if (error) {
+        console.error("Supabase updateProgram error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      
+      return { data: data, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase updateProgram error:", error.message);
+      return { data: null, error: error.message, success: false };
     }
-    return null;
   },
 
-  getProgramById: async (id: number): Promise<Program | undefined> => fetchProgramRowById(id),
-
-  /** Resolve `/programs/:segment/...` where segment is `public_id` (UUID) or legacy numeric `id`. */
-  getProgramByRouteParam: async (param: string | undefined): Promise<Program | undefined> => {
-    if (!param) return undefined;
-    const t = param.trim();
-    if (/^\d+$/.test(t)) {
-      const n = Number(t);
-      if (!Number.isFinite(n) || n < 1) return undefined;
-      return fetchProgramRowById(n);
+  getProgramById: async (id: number): Promise<ApiResponse<Program | undefined>> => {
+    if (!USE_SUPABASE) {
+      return { data: undefined, error: null, success: true };
     }
-    if (UUID_ROUTE.test(t)) return fetchProgramRowByPublicId(t);
-    return undefined;
+    
+    try {
+      const { data, error } = await supabase.from("programs").select(PROGRAM_COLUMNS).eq("id", id).single();
+      
+      if (error) {
+        console.error("Supabase getProgramById error:", error.message);
+        return { data: undefined, error: error.message, success: false };
+      }
+      
+      return { data: data as Program | undefined, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getProgramById error:", error.message);
+      return { data: undefined, error: error.message, success: false };
+    }
+  },
+
+  getProgramByRouteParam: async (param: string | undefined): Promise<ApiResponse<Program | undefined>> => {
+    if (!param) {
+      return { data: undefined, error: null, success: true };
+    }
+    
+    if (!USE_SUPABASE) {
+      return { data: undefined, error: null, success: true };
+    }
+    
+    try {
+      if (!param) return { data: undefined, error: null, success: true };
+      const t = param.trim();
+      if (/^\d+$/.test(t)) {
+        const n = Number(t);
+        if (!Number.isFinite(n) || n < 1) return { data: undefined, error: null, success: true };
+        const result = await this.getProgramById(n);
+        return result;
+      }
+      if (UUID_ROUTE.test(t)) {
+        const result = await this.getProgramByPublicId(t);
+        return result;
+      }
+      return { data: undefined, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getProgramByRouteParam error:", error.message);
+      return { data: undefined, error: error.message, success: false };
+    }
   },
 
   // -------------------------
@@ -324,22 +457,40 @@ export const api = {
     return null;
   },
 
-  getUserEnrollments: async (userId: string) => {
-    if (USE_SUPABASE) {
+  getUserEnrollments: async (userId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
+    
+    if (!userId) {
+      return { data: [], error: null, success: true };
+    }
+    
+    try {
       const { data, error } = await supabase
         .from("enrollments")
         .select("*, courses(*)")
         .eq("user_id", userId)
         .order("last_accessed", { ascending: false });
-      if (error) { console.error("Supabase getUserEnrollments error:", error.message); return []; }
-      return data || [];
+      
+      if (error) {
+        console.error("Supabase getUserEnrollments error:", error.message);
+        return { data: [], error: error.message, success: false };
+      }
+      
+      return { data: data || [], error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getUserEnrollments error:", error.message);
+      return { data: [], error: error.message, success: false };
     }
-    return [];
   },
 
-  // Admin: drop learner enrollments from active programs/courses.
-  dropAllEnrollmentsForUser: async (userId: string) => {
-    if (USE_SUPABASE) {
+  dropAllEnrollmentsForUser: async (userId: string): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) {
+      return { data: false, error: null, success: true };
+    }
+    
+    try {
       const { error } = await supabase
         .from("enrollments")
         .update({
@@ -352,11 +503,14 @@ export const api = {
 
       if (error) {
         console.error("Supabase dropAllEnrollmentsForUser error:", error.message);
-        throw error;
+        return { data: false, error: error.message, success: false };
       }
-      return true;
+      
+      return { data: true, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase dropAllEnrollmentsForUser error:", error.message);
+      return { data: false, error: error.message, success: false };
     }
-    return false;
   },
 
   // -------------------------
@@ -365,8 +519,10 @@ export const api = {
   // Combines:
   // - enrollments with program_id set (direct cohort / program membership)
   // - enrollments in courses listed on programs.courses (title-matched to catalog)
-  getProgramParticipants: async () => {
-    if (!USE_SUPABASE) return [];
+  getProgramParticipants: async (): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
 
     try {
       const { data: programs, error: programsErr } = await supabase
@@ -375,6 +531,7 @@ export const api = {
 
       if (programsErr) {
         console.error("Supabase getProgramParticipants programs error:", programsErr.message);
+        return { data: [], error: programsErr.message, success: false };
       }
 
       const programsArr = programsErr ? [] : (programs ?? []);
@@ -589,19 +746,23 @@ export const api = {
         }
       }
 
-      return participants;
+      return { data: participants, error: null, success: true };
     } catch (err: any) {
       console.error("Supabase getProgramParticipants unexpected error:", err?.message ?? err);
-      return [];
+      return { data: [], error: err?.message ?? err, success: false };
     }
   },
 
   // -------------------------
   // INSTRUCTOR: Students enrolled in instructor courses
   // -------------------------
-  getInstructorStudents: async (instructorId: string) => {
-    if (!USE_SUPABASE) return [];
-    if (!instructorId) return [];
+  getInstructorStudents: async (instructorId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
+    if (!instructorId) {
+      return { data: [], error: null, success: true };
+    }
 
     try {
       // 1) instructor courses -> course ids + titles
@@ -612,12 +773,12 @@ export const api = {
 
       if (coursesErr) {
         console.error("Supabase getInstructorStudents courses error:", coursesErr.message);
-        return [];
+        return { data: [], error: coursesErr.message, success: false };
       }
 
       const coursesArr = (coursesData ?? []) as Array<{ id: number; title: string }>;
       const courseIds = coursesArr.map((c) => c.id);
-      if (courseIds.length === 0) return [];
+      if (courseIds.length === 0) return { data: [], error: null, success: true };
 
       const courseIdToTitle = new Map<number, string>(coursesArr.map((c) => [c.id, c.title]));
 
@@ -629,7 +790,7 @@ export const api = {
 
       if (enrollmentsErr) {
         console.error("Supabase getInstructorStudents enrollments error:", enrollmentsErr.message);
-        return [];
+        return { data: [], error: enrollmentsErr.message, success: false };
       }
 
       const enrollArr = (enrollments ?? []) as Array<{
@@ -641,7 +802,7 @@ export const api = {
       }>;
 
       const userIds = Array.from(new Set(enrollArr.map((e) => e.user_id).filter(Boolean)));
-      if (userIds.length === 0) return [];
+      if (userIds.length === 0) return { data: [], error: null, success: true };
 
       // 3) profiles
       const { data: profiles, error: profilesErr } = await supabase
@@ -651,7 +812,7 @@ export const api = {
 
       if (profilesErr) {
         console.error("Supabase getInstructorStudents profiles error:", profilesErr.message);
-        return [];
+        return { data: [], error: profilesErr.message, success: false };
       }
 
       const profileById = new Map<string, any>((profiles ?? []).map((p: any) => [p.id, p]));
@@ -677,7 +838,9 @@ export const api = {
         } else {
           byUser.set(e.user_id, {
             progress: Math.max(prev.progress, progress),
-            lastActive: prev.lastActive && lastActive ? (prev.lastActive > lastActive ? prev.lastActive : lastActive) : (prev.lastActive ?? lastActive),
+            lastActive: prev.lastActive && lastActive
+              ? (prev.lastActive > lastActive ? prev.lastActive : lastActive)
+              : (prev.lastActive ?? lastActive),
             courseTitle: progress >= prev.progress ? courseTitle : prev.courseTitle,
           });
         }
@@ -709,82 +872,141 @@ export const api = {
         });
       }
 
-      return students;
+      return { data: students, error: null, success: true };
     } catch (err: any) {
       console.error("Supabase getInstructorStudents unexpected error:", err?.message ?? err);
-      return [];
+      return { data: [], error: err?.message ?? err, success: false };
     }
   },
 
   // -------------------------
   // PROFILES
   // -------------------------
-  getProfiles: async () => {
-    if (USE_SUPABASE) {
+  getProfiles: async (): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
+    
+    try {
       const { data, error } = await supabase
         .from("profiles")
         .select(PROFILE_COLUMNS)
         .order("created_at", { ascending: false });
-      if (error) { console.error("Supabase getProfiles error:", error.message); return []; }
-      return data;
+      
+      if (error) {
+        console.error("Supabase getProfiles error:", error.message);
+        return { data: [], error: error.message, success: false };
+      }
+      
+      return { data: data, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getProfiles error:", error.message);
+      return { data: [], error: error.message, success: false };
     }
-    return [];
   },
 
-  getProfile: async (userId: string) => {
-    if (USE_SUPABASE) {
+  getProfile: async (userId: string): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    
+    try {
       const { data, error } = await supabase
         .from("profiles")
         .select(PROFILE_COLUMNS)
         .eq("id", userId)
         .single();
-      if (error) { console.error("Supabase getProfile error:", error.message); return null; }
-      return data;
+      
+      if (error) {
+        console.error("Supabase getProfile error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      
+      return { data: data, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getProfile error:", error.message);
+      return { data: null, error: error.message, success: false };
     }
-    return null;
   },
 
-  updateProfile: async (userId: string, updates: Record<string, unknown>) => {
-    if (USE_SUPABASE) {
+  updateProfile: async (userId: string, updates: Record<string, unknown>): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    
+    try {
       const { data, error } = await supabase
         .from("profiles")
         .update(updates)
         .eq("id", userId)
         .select().single();
-      if (error) { console.error("Supabase updateProfile error:", error.message); throw error; }
-      return data;
+      
+      if (error) {
+        console.error("Supabase updateProfile error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      
+      return { data: data, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase updateProfile error:", error.message);
+      return { data: null, error: error.message, success: false };
     }
-    return null;
   },
 
-  deleteProfile: async (userId: string) => {
-    if (USE_SUPABASE) {
+  deleteProfile: async (userId: string): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) {
+      return { data: false, error: null, success: true };
+    }
+    
+    try {
       const { error } = await supabase.from("profiles").delete().eq("id", userId);
-      if (error) { console.error("Supabase deleteProfile error:", error.message); throw error; }
+      
+      if (error) {
+        console.error("Supabase deleteProfile error:", error.message);
+        return { data: false, error: error.message, success: false };
+      }
+      
+      return { data: true, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase deleteProfile error:", error.message);
+      return { data: false, error: error.message, success: false };
     }
   },
 
   // -------------------------
   // ADMIN: Change User Role
   // -------------------------
-  updateUserRole: async (userId: string, role: string) => {
-    if (USE_SUPABASE) {
+  updateUserRole: async (userId: string, role: string): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    
+    try {
       const { data, error } = await supabase
         .from("profiles")
         .update({ role })
         .eq("id", userId)
         .select().single();
-      if (error) { console.error("Supabase updateUserRole error:", error.message); return null; }
-      return data;
+      
+      if (error) {
+        console.error("Supabase updateUserRole error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      
+      return { data: data, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase updateUserRole error:", error.message);
+      return { data: null, error: error.message, success: false };
     }
-    return null;
   },
 
   // -------------------------
   // PROGRAM APPLICATIONS (Admin approvals)
   // -------------------------
-  getPendingProgramApplications: async () => {
-    if (!USE_SUPABASE) return [];
+  getPendingProgramApplications: async (): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
     const { data, error } = await supabase
       .from("program_applications")
       .select("*, profiles(name, email), programs(title)")
@@ -793,29 +1015,38 @@ export const api = {
     if (error) {
       if (isMissingRelationError(error)) {
         // Optional enterprise table is not deployed in this Supabase project yet.
-        return [];
+        return { data: [], error: null, success: true };
       }
       console.error("getPendingProgramApplications error:", error.message);
-      return [];
+      return { data: [], error: error.message, success: false };
     }
-    return data ?? [];
+    return { data: data ?? [], error: null, success: true };
   },
 
-  approveProgramApplication: async (applicationId: string, userId: string, programId: number) => {
-    if (!USE_SUPABASE) return null;
+  approveProgramApplication: async (applicationId: string, userId: string, programId: number): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
     const { error } = await supabase.from("program_applications").update({ status: "approved" }).eq("id", applicationId);
     if (error && !isMissingRelationError(error)) {
       console.error("approveProgramApplication error:", error.message);
-      return null;
+      return { data: null, error: error.message, success: false };
     }
-    return api.enrollUserInProgram(userId, programId);
+    const result = await api.enrollUserInProgram(userId, programId);
+    // Since enrollUserInProgram now returns ApiResponse, we need to handle it
+    if (result && result.success) {
+      return { data: result.data, error: null, success: true };
+    } else {
+      return { data: null, error: result?.error || "Failed to enroll user", success: false };
+    }
   },
 
-  rejectProgramApplication: async (applicationId: string) => {
-    if (!USE_SUPABASE) return null;
+  rejectProgramApplication: async (applicationId: string): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) return { data: false, error: null, success: true };
     const { error } = await supabase.from("program_applications").update({ status: "rejected" }).eq("id", applicationId);
-    if (error && !isMissingRelationError(error)) console.error("rejectProgramApplication error:", error.message);
-    return true;
+    if (error && !isMissingRelationError(error)) {
+      console.error("rejectProgramApplication error:", error.message);
+      return { data: false, error: error.message, success: false };
+    }
+    return { data: true, error: null, success: true };
   },
 
   createProgramApplication: async (payload: {
@@ -825,8 +1056,8 @@ export const api = {
     phone: string;
     email: string;
     status: "pending";
-  }) => {
-    if (!USE_SUPABASE) return null;
+  }): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
     const { data, error } = await supabase
       .from("program_applications")
       .insert({
@@ -841,7 +1072,7 @@ export const api = {
       .single();
     if (error) {
       if (isMissingRelationError(error)) {
-        return null;
+        return { data: null, error: null, success: true };
       }
       console.error("createProgramApplication error:", {
         message: error.message,
@@ -849,9 +1080,9 @@ export const api = {
         hint: (error as any).hint,
         code: (error as any).code,
       });
-      return null;
+      return { data: null, error: error.message, success: false };
     }
-    return data;
+    return { data: data, error: null, success: true };
   },
 
   // -------------------------
@@ -887,8 +1118,10 @@ export const api = {
     return data;
   },
 
-  getCourseApplications: async (courseId: number) => {
-    if (!USE_SUPABASE) return [];
+  getCourseApplications: async (courseId: number): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
     const { data, error } = await supabase
       .from("course_applications")
       .select("*, profiles(name, email)")
@@ -896,9 +1129,9 @@ export const api = {
       .order("created_at", { ascending: false });
     if (error) {
       console.error("getCourseApplications error:", error.message);
-      return [];
+      return { data: [], error: error.message, success: false };
     }
-    return data ?? [];
+    return { data: data ?? [], error: null, success: true };
   },
 
   // -------------------------
@@ -923,17 +1156,20 @@ export const api = {
   // -------------------------
   // CERTIFICATES
   // -------------------------
-  getCertificates: async (userId: string) => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase
-        .from("certificates")
-        .select("*")
-        .eq("user_id", userId)
-        .order("completed_at", { ascending: false });
-      if (error) { console.error("Supabase getCertificates error:", error.message); return []; }
-      return data || [];
+  getCertificates: async (userId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
     }
-    return [];
+    const { data, error } = await supabase
+      .from("certificates")
+      .select("*")
+      .eq("user_id", userId)
+      .order("completed_at", { ascending: false });
+    if (error) {
+      console.error("Supabase getCertificates error:", error.message);
+      return { data: [], error: error.message, success: false };
+    }
+    return { data: data ?? [], error: null, success: true };
   },
 
   issueCertificate: async (userId: string, courseId: number, courseTitle: string, instructor: string, duration: string) => {
@@ -951,47 +1187,65 @@ export const api = {
   // -------------------------
   // PORTFOLIO
   // -------------------------
-  getPortfolioItems: async (userId: string) => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase
-        .from("portfolio_items")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-      if (error) { console.error("Supabase getPortfolioItems error:", error.message); return []; }
-      return data || [];
+  getPortfolioItems: async (userId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
     }
-    return [];
+    const { data, error } = await supabase
+      .from("portfolio_items")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("Supabase getPortfolioItems error:", error.message);
+      return { data: [], error: error.message, success: false };
+    }
+    return { data: data ?? [], error: null, success: true };
   },
 
   addPortfolioItem: async (userId: string, item: {
     title: string; type: string; description: string; tags: string[]; file_url?: string; link_url?: string;
-  }) => {
-    if (USE_SUPABASE) {
+  }): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    try {
       const { data, error } = await supabase
         .from("portfolio_items")
         .insert({ user_id: userId, ...item })
         .select().single();
-      if (error) { console.error("Supabase addPortfolioItem error:", error.message); return null; }
-      return data;
+      if (error) {
+        console.error("Supabase addPortfolioItem error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      return { data: data, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase addPortfolioItem error:", error.message);
+      return { data: null, error: error.message, success: false };
     }
-    return null;
   },
 
-  deletePortfolioItem: async (itemId: string) => {
-    if (USE_SUPABASE) {
-      const { error } = await supabase.from("portfolio_items").delete().eq("id", itemId);
-      if (error) { console.error("Supabase deletePortfolioItem error:", error.message); return false; }
-      return true;
+  deletePortfolioItem: async (itemId: string): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) {
+      return { data: false, error: null, success: true };
     }
-    return false;
+    const { error } = await supabase.from("portfolio_items").delete().eq("id", itemId);
+    if (error) {
+      console.error("Supabase deletePortfolioItem error:", error.message);
+      return { data: false, error: error.message, success: false };
+    }
+    return { data: true, error: null, success: true };
   },
 
   // -------------------------
   // SYSTEM STATS (Admin / PM)
   // -------------------------
-  getSystemStats: async () => {
-    if (USE_SUPABASE) {
+  getSystemStats: async (): Promise<ApiResponse<any>> => {
+    if (!USE_SUPABASE) {
+      return { data: { totalUsers: 0, activeCourses: 0, activePrograms: 0, totalRevenue: 0, totalHours: 0, completionRate: 0, totalCertificates: 0, satisfactionScore: "0.0" }, error: null, success: true };
+    }
+    
+    try {
       const [users, courses, programs, payments, enrollments] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase.from("courses").select("id", { count: "exact", head: true }),
@@ -1007,31 +1261,43 @@ export const api = {
       const completionRate = enrolls.length > 0 
         ? Math.round((totalCertificates / enrolls.length) * 100) 
         : 0;
-
+      
       const coursesData = courses.data || [];
       const satisfactionScore = coursesData.length > 0 
         ? (coursesData.reduce((acc, c) => acc + (c.rating || 0), 0) / coursesData.length).toFixed(1)
         : "0.0";
-
+      
       return {
-        totalUsers: users.count || 0,
-        activeCourses: courses.count || 0,
-        activePrograms: programs.count || 0,
-        totalRevenue,
-        totalHours,
-        completionRate,
-        totalCertificates,
-        satisfactionScore
+        data: {
+          totalUsers: users.count || 0,
+          activeCourses: courses.count || 0,
+          activePrograms: programs.count || 0,
+          totalRevenue,
+          totalHours,
+          completionRate,
+          totalCertificates,
+          satisfactionScore
+        },
+        error: null,
+        success: true
+      };
+    } catch (error: any) {
+      console.error("Supabase getSystemStats error:", error.message);
+      return { 
+        data: { totalUsers: 0, activeCourses: 0, activePrograms: 0, totalRevenue: 0, totalHours: 0, completionRate: 0, totalCertificates: 0, satisfactionScore: "0.0" }, 
+        error: error.message, 
+        success: false 
       };
     }
-    return { totalUsers: 0, activeCourses: 0, activePrograms: 0, totalRevenue: 0, totalHours: 0, completionRate: 0, totalCertificates: 0, satisfactionScore: "0.0" };
   },
 
   // -------------------------
   // PAYMENTS LEDGER (Admin)
   // -------------------------
-  getPayments: async () => {
-    if (!USE_SUPABASE) return [];
+  getPayments: async (): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
     const { data, error } = await supabase
       .from("payments")
       .select(
@@ -1040,16 +1306,18 @@ export const api = {
       .order("created_at", { ascending: false });
     if (error) {
       console.error("Supabase getPayments error:", error.message);
-      return [];
+      return { data: [], error: error.message, success: false };
     }
-    return data ?? [];
+    return { data: data ?? [], error: null, success: true };
   },
 
   // -------------------------
   // SYSTEM SETTINGS (Admin)
   // -------------------------
-  getSystemSettings: async () => {
-    if (!USE_SUPABASE) return null;
+  getSystemSettings: async (): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
     const { data, error } = await supabase
       .from("system_settings")
       .select("*")
@@ -1057,13 +1325,15 @@ export const api = {
       .maybeSingle();
     if (error) {
       console.error("Supabase getSystemSettings error:", error.message);
-      return null;
+      return { data: null, error: error.message, success: false };
     }
-    return data ?? null;
+    return { data: data ?? null, error: null, success: true };
   },
 
-  updateSystemSettings: async (updates: Record<string, unknown>) => {
-    if (!USE_SUPABASE) return null;
+  updateSystemSettings: async (updates: Record<string, unknown>): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
     const { data, error } = await supabase
       .from("system_settings")
       .upsert(
@@ -1074,86 +1344,105 @@ export const api = {
       .single();
     if (error) {
       console.error("Supabase updateSystemSettings error:", error.message);
-      return null;
+      return { data: null, error: error.message, success: false };
     }
-    return data ?? null;
+    return { data: data ?? null, error: null, success: true };
   },
 
-  getInstructorStats: async (instructorId: string) => {
-    if (USE_SUPABASE) {
-      const { data: courses, error: courseError } = await supabase
-        .from("courses")
-        .select("id, rating, revenue")
-        .eq("instructor_id", instructorId);
-      if (courseError) return null;
+  getInstructorStats: async (instructorId: string): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    if (!instructorId) {
+      return { data: null, error: null, success: true };
+    }
+    const { data: courses, error: courseError } = await supabase
+      .from("courses")
+      .select("id, rating, revenue")
+      .eq("instructor_id", instructorId);
+    if (courseError) {
+      return { data: null, error: courseError.message, success: false };
+    }
 
-      const courseIds = (courses ?? []).map((c: any) => c.id).filter((id: unknown) => typeof id === "number");
-      let totalStudents = 0;
-      if (courseIds.length > 0) {
-        const { data: enrollments, error: enrollErr } = await supabase
-          .from("enrollments")
-          .select("course_id")
-          .in("course_id", courseIds)
-          .neq("status", "dropped");
-        if (enrollErr) {
-          console.error("Supabase getInstructorStats enrollments error:", enrollErr.message);
-          totalStudents = 0;
-        } else {
-          totalStudents = (enrollments ?? []).length;
-        }
+    const courseIds = (courses ?? []).map((c: any) => c.id).filter((id: unknown) => typeof id === "number");
+    let totalStudents = 0;
+    if (courseIds.length > 0) {
+      const { data: enrollments, error: enrollErr } = await supabase
+        .from("enrollments")
+        .select("course_id")
+        .in("course_id", courseIds)
+        .neq("status", "dropped");
+      if (enrollErr) {
+        console.error("Supabase getInstructorStats enrollments error:", enrollErr.message);
+        return { data: null, error: enrollErr.message, success: false };
       }
-
-      const totalRevenue = courses.reduce((acc, c) => acc + (c.revenue || 0), 0);
-      const avgRating = courses.length > 0
-        ? courses.reduce((acc, c) => acc + (c.rating || 0), 0) / courses.length : 0;
-      return { totalStudents, activeCourses: courses.length, avgRating: avgRating.toFixed(1), totalRevenue };
+      totalStudents = (enrollments ?? []).length;
     }
-    return null;
+
+    const totalRevenue = courses.reduce((acc, c) => acc + (c.revenue || 0), 0);
+    const avgRating = courses.length > 0
+      ? courses.reduce((acc, c) => acc + (c.rating || 0), 0) / courses.length : 0;
+    return { 
+      data: { totalStudents, activeCourses: courses.length, avgRating: avgRating.toFixed(1), totalRevenue }, 
+      error: null, 
+      success: true 
+    };
   },
 
-  getInstructorCourses: async (instructorId: string) => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase
-        .from("courses").select(COURSE_COLUMNS).eq("instructor_id", instructorId)
-        .order("created_at", { ascending: false });
-      if (error) return [];
-      return data;
+  getInstructorCourses: async (instructorId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
     }
-    return [];
+    if (!instructorId) {
+      return { data: [], error: null, success: true };
+    }
+    const { data, error } = await supabase
+      .from("courses")
+      .select(COURSE_COLUMNS)
+      .eq("instructor_id", instructorId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("Supabase getInstructorCourses error:", error.message);
+      return { data: [], error: error.message, success: false };
+    }
+    return { data: data, error: null, success: true };
   },
 
   // -------------------------
   // SITE CONFIG (CMS)
   // -------------------------
-  getSiteConfig: async (id: string = "landing_page") => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase.from("site_config").select("*").eq("id", id).maybeSingle();
-      if (error) {
-        console.error("Supabase getSiteConfig error:", error.message);
-        return defaultLandingPageConfig();
-      }
-      if (!data?.data || typeof data.data !== "object") {
-        return defaultLandingPageConfig();
-      }
-      return { ...defaultLandingPageConfig(), ...(data.data as Record<string, unknown>) };
+  getSiteConfig: async (id: string = "landing_page"): Promise<ApiResponse<any>> => {
+    if (!USE_SUPABASE) {
+      return { data: defaultLandingPageConfig(), error: null, success: true };
     }
-    return defaultLandingPageConfig();
+    const { data, error } = await supabase.from("site_config").select("*").eq("id", id).maybeSingle();
+    if (error) {
+      console.error("Supabase getSiteConfig error:", error.message);
+      return { data: defaultLandingPageConfig(), error: error.message, success: false };
+    }
+    if (!data?.data || typeof data.data !== "object") {
+      return { data: defaultLandingPageConfig(), error: null, success: true };
+    }
+    return { data: { ...defaultLandingPageConfig(), ...(data.data as Record<string, unknown>) }, error: null, success: true };
   },
 
-  updateSiteConfig: async (id: string, configData: unknown) => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase
-        .from("site_config")
-        .upsert(
-          { id, data: configData, updated_at: new Date().toISOString() },
-          { onConflict: "id" }
-        )
-        .select()
-        .single();
-      if (error) { console.error("Supabase updateSiteConfig error:", error.message); throw error; }
-      return data?.data;
+  updateSiteConfig: async (id: string, configData: unknown): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: configData, error: null, success: true };
     }
-    return configData;
+    const { data, error } = await supabase
+      .from("site_config")
+      .upsert(
+        { id, data: configData, updated_at: new Date().toISOString() },
+        { onConflict: "id" }
+      )
+      .select()
+      .single();
+    if (error) {
+      console.error("Supabase updateSiteConfig error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+    return { data: data?.data, error: null, success: true };
   },
 
   // -------------------------
@@ -1163,57 +1452,66 @@ export const api = {
     courseId?: number;
     programId?: number;
     globalOnly?: boolean;
-  }) => {
-    if (USE_SUPABASE) {
-      let query = supabase.from("skills_assessments").select("*").order("created_at", { ascending: false });
-      if (filters?.courseId != null) {
-        query = query.eq("course_id", filters.courseId);
-      } else if (filters?.programId != null) {
-        query = query.eq("program_id", filters.programId);
-      } else if (filters?.globalOnly) {
-        query = query.is("course_id", null).is("program_id", null);
-      }
-      const { data: assessments, error: aErr } = await query;
-      if (aErr) { console.error("Supabase getSkillsAssessments error:", aErr.message); return []; }
-
-      const ids = (assessments || []).map((a) => a.id);
-      if (ids.length === 0) return [];
-
-      const { data: questions, error: qErr } = await supabase
-        .from("skills_questions")
-        .select("*")
-        .in("assessment_id", ids);
-      if (qErr) { console.error("Supabase getSkillsQuestions error:", qErr.message); return assessments || []; }
-
-      const parseOptions = (raw: unknown): string[] => {
-        if (Array.isArray(raw)) return raw as string[];
-        if (typeof raw === "string") {
-          try {
-            const j = JSON.parse(raw);
-            return Array.isArray(j) ? j : [];
-          } catch {
-            return [];
-          }
-        }
-        return [];
-      };
-
-      return (assessments || []).map((a: Record<string, unknown>) => ({
-        ...a,
-        category: typeof a.category === "string" ? a.category : "",
-        duration: typeof a.duration === "string" ? a.duration : "15 min",
-        icon_name: typeof a.icon_name === "string" ? a.icon_name : "Target",
-        questions: (questions || [])
-          .filter((q: { assessment_id: string }) => q.assessment_id === a.id)
-          .map((q: { id: string; question_text: string; options: unknown; correct_index: number }) => ({
-            id: q.id,
-            text: q.question_text,
-            options: parseOptions(q.options),
-            correct: q.correct_index,
-          })),
-      }));
+  }): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
     }
-    return [];
+
+    let query = supabase.from("skills_assessments").select("*").order("created_at", { ascending: false });
+    if (filters?.courseId != null) {
+      query = query.eq("course_id", filters.courseId);
+    } else if (filters?.programId != null) {
+      query = query.eq("program_id", filters.programId);
+    } else if (filters?.globalOnly) {
+      query = query.is("course_id", null).is("program_id", null);
+    }
+    const { data: assessments, error: aErr } = await query;
+    if (aErr) {
+      console.error("Supabase getSkillsAssessments error:", aErr.message);
+      return { data: [], error: aErr.message, success: false };
+    }
+
+    const ids = (assessments || []).map((a) => a.id);
+    if (ids.length === 0) return { data: [], error: null, success: true };
+
+    const { data: questions, error: qErr } = await supabase
+      .from("skills_questions")
+      .select("*")
+      .in("assessment_id", ids);
+    if (qErr) {
+      console.error("Supabase getSkillsQuestions error:", qErr.message);
+      return { data: assessments || [], error: null, success: true };
+    }
+
+    const parseOptions = (raw: unknown): string[] => {
+      if (Array.isArray(raw)) return raw as string[];
+      if (typeof raw === "string") {
+        try {
+          const j = JSON.parse(raw);
+          return Array.isArray(j) ? j : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    };
+
+    const result = (assessments || []).map((a: Record<string, unknown>) => ({
+      ...a,
+      category: typeof a.category === "string" ? a.category : "",
+      duration: typeof a.duration === "string" ? a.duration : "15 min",
+      icon_name: typeof a.icon_name === "string" ? a.icon_name : "Target",
+      questions: (questions || [])
+        .filter((q: { assessment_id: string }) => q.assessment_id === a.id)
+        .map((q: { id: string; question_text: string; options: unknown; correct_index: number }) => ({
+          id: q.id,
+          text: q.question_text,
+          options: parseOptions(q.options),
+          correct: q.correct_index,
+        })),
+    }));
+
+    return { data: result, error: null, success: true };
   },
 
   createAssessment: async (payload: {
@@ -1225,17 +1523,19 @@ export const api = {
     course_id?: number | null;
     program_id?: number | null;
     questions: Array<{ text: string; options: string[]; correct_index: number }>;
-  }) => {
-    if (!USE_SUPABASE) return null;
+  }): Promise<ApiResponse<string | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
     const hasCourse = payload.course_id != null;
     const hasProgram = payload.program_id != null;
     if (hasCourse && hasProgram) {
       console.error("createAssessment: cannot set both course_id and program_id");
-      return null;
+      return { data: null, error: "cannot set both course_id and program_id", success: false };
     }
     if (!payload.questions?.length) {
       console.error("createAssessment: need at least one question");
-      return null;
+      return { data: null, error: "need at least one question", success: false };
     }
     const row = {
       title: payload.title.trim(),
@@ -1247,79 +1547,99 @@ export const api = {
       program_id: hasProgram ? payload.program_id! : null,
       total_questions: payload.questions.length,
     };
-    const { data: created, error: insErr } = await supabase
-      .from("skills_assessments")
-      .insert(row)
-      .select()
-      .single();
-    if (insErr || !created) {
-      console.error("Supabase createAssessment error:", insErr?.message);
-      return null;
+    try {
+      const { data: created, error: insErr } = await supabase
+        .from("skills_assessments")
+        .insert(row)
+        .select()
+        .single();
+      if (insErr || !created) {
+        console.error("Supabase createAssessment error:", insErr?.message);
+        return { data: null, error: insErr?.message || "Failed to create assessment", success: false };
+      }
+      const qRows = payload.questions.map((q) => ({
+        assessment_id: created.id,
+        question_text: q.text.trim(),
+        options: q.options.map((o) => String(o).trim()),
+        correct_index: Math.max(0, Math.min(q.options.length - 1, q.correct_index)),
+      }));
+      const { error: qErr } = await supabase.from("skills_questions").insert(qRows);
+      if (qErr) {
+        console.error("Supabase createAssessment questions error:", qErr.message);
+        await supabase.from("skills_assessments").delete().eq("id", created.id);
+        return { data: null, error: qErr.message, success: false };
+      }
+      return { data: created.id as string, error: null, success: true };
+    } catch (err: any) {
+      console.error("Supabase createAssessment error:", err?.message ?? err);
+      return { data: null, error: err?.message ?? err, success: false };
     }
-    const qRows = payload.questions.map((q) => ({
-      assessment_id: created.id,
-      question_text: q.text.trim(),
-      options: q.options.map((o) => String(o).trim()),
-      correct_index: Math.max(0, Math.min(q.options.length - 1, q.correct_index)),
-    }));
-    const { error: qErr } = await supabase.from("skills_questions").insert(qRows);
-    if (qErr) {
-      console.error("Supabase createAssessment questions error:", qErr.message);
-      await supabase.from("skills_assessments").delete().eq("id", created.id);
-      return null;
-    }
-    return created.id as string;
   },
 
-  deleteAssessment: async (assessmentId: string) => {
-    if (!USE_SUPABASE) return false;
+  deleteAssessment: async (assessmentId: string): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) {
+      return { data: false, error: null, success: true };
+    }
     const { error } = await supabase.from("skills_assessments").delete().eq("id", assessmentId);
     if (error) {
       console.error("Supabase deleteAssessment error:", error.message);
-      return false;
+      return { data: false, error: error.message, success: false };
     }
-    return true;
+    return { data: true, error: null, success: true };
   },
 
-  getUserSkillsResults: async (userId: string) => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase
-        .from("skills_results")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-      if (error) { console.error("Supabase getUserSkillsResults error:", error.message); return []; }
-      return data || [];
+  getUserSkillsResults: async (userId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
     }
-    return [];
+    const { data, error } = await supabase
+      .from("skills_results")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("Supabase getUserSkillsResults error:", error.message);
+      return { data: [], error: error.message, success: false };
+    }
+    return { data: data || [], error: null, success: true };
   },
 
-  saveSkillResult: async (userId: string, assessmentId: string, score: number, total: number, level: string) => {
-    if (USE_SUPABASE) {
+  saveSkillResult: async (userId: string, assessmentId: string, score: number, total: number, level: string): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    try {
       const { data, error } = await supabase
         .from("skills_results")
         .insert({ user_id: userId, assessment_id: assessmentId, score, total, level_name: level })
         .select().single();
-      if (error) { console.error("Supabase saveSkillResult error:", error.message); return null; }
-      return data;
+      if (error) {
+        console.error("Supabase saveSkillResult error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      return { data: data, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase saveSkillResult error:", error.message);
+      return { data: null, error: error.message, success: false };
     }
-    return null;
   },
 
   // -------------------------
   // MARKETING CAMPAIGNS
   // -------------------------
-  getCampaigns: async () => {
-    if (!USE_SUPABASE) return [];
+  getCampaigns: async (): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
     const { data, error } = await supabase
       .from("marketing_campaigns")
       .select("*")
       .order("created_at", { ascending: false });
     if (error) {
       console.error("Supabase getCampaigns error:", error.message);
-      return [];
+      return { data: [], error: error.message, success: false };
     }
-    return data ?? [];
+    return { data: data ?? [], error: null, success: true };
   },
 
   createCampaign: async (payload: {
@@ -1330,8 +1650,10 @@ export const api = {
     channel: "email" | "sms" | "both";
     scheduledAt?: string | null;
     body?: string;
-  }) => {
-    if (!USE_SUPABASE) return null;
+  }): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
     const { data, error } = await supabase
       .from("marketing_campaigns")
       .insert({
@@ -1348,25 +1670,27 @@ export const api = {
       .single();
     if (error) {
       console.error("Supabase createCampaign error:", error.message);
-      return null;
+      return { data: null, error: error.message, success: false };
     }
-    return data;
+    return { data: data, error: null, success: true };
   },
 
   // -------------------------
   // FORUMS
   // -------------------------
-  getForumThreads: async () => {
-    if (!USE_SUPABASE) return [];
+  getForumThreads: async (): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
     const { data, error } = await supabase
       .from("forum_threads")
       .select("*")
       .order("created_at", { ascending: false });
     if (error) {
       console.error("Supabase getForumThreads error:", error.message);
-      return [];
+      return { data: [], error: error.message, success: false };
     }
-    return data ?? [];
+    return { data: data ?? [], error: null, success: true };
   },
 
   createForumThread: async (payload: {
@@ -1375,8 +1699,10 @@ export const api = {
     body: string;
     category?: string;
     authorName: string;
-  }) => {
-    if (!USE_SUPABASE) return null;
+  }): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
     const { data, error } = await supabase
       .from("forum_threads")
       .insert({
@@ -1390,25 +1716,27 @@ export const api = {
       .single();
     if (error) {
       console.error("Supabase createForumThread error:", error.message);
-      return null;
+      return { data: null, error: error.message, success: false };
     }
-    return data;
+    return { data: data, error: null, success: true };
   },
 
   // -------------------------
   // EMAIL TEMPLATES
   // -------------------------
-  getEmailTemplates: async () => {
-    if (!USE_SUPABASE) return [];
+  getEmailTemplates: async (): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
     const { data, error } = await supabase
       .from("email_templates")
       .select("*")
       .order("updated_at", { ascending: false });
     if (error) {
       console.error("Supabase getEmailTemplates error:", error.message);
-      return [];
+      return { data: [], error: error.message, success: false };
     }
-    return data ?? [];
+    return { data: data ?? [], error: null, success: true };
   },
 
   createEmailTemplate: async (payload: {
@@ -1461,9 +1789,13 @@ export const api = {
   // -------------------------
   // SAVED REPORTS
   // -------------------------
-  getSavedReports: async (userId: string) => {
-    if (!USE_SUPABASE) return [];
-    if (!userId) return [];
+  getSavedReports: async (userId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
+    if (!userId) {
+      return { data: [], error: null, success: true };
+    }
     const { data, error } = await supabase
       .from("saved_reports")
       .select("*")
@@ -1471,48 +1803,38 @@ export const api = {
       .order("created_at", { ascending: false });
     if (error) {
       console.error("Supabase getSavedReports error:", error.message);
-      return [];
+      return { data: [], error: error.message, success: false };
     }
-    return data ?? [];
+    return { data: data ?? [], error: null, success: true };
   },
 
   upsertSavedReport: async (payload: {
     userId: string;
-    reportId?: string;
-    name: string;
-    metric: string;
-    dimension: string;
-    chartType: string;
-    dateRange: string;
-  }) => {
-    if (!USE_SUPABASE) return null;
-    const row: Record<string, unknown> = {
-      user_id: payload.userId,
-      name: payload.name,
-      metric: payload.metric,
-      dimension: payload.dimension,
-      chart_type: payload.chartType,
-      date_range: payload.dateRange,
-      updated_at: new Date().toISOString(),
-    };
-
-    // Only include `id` when editing an existing report.
-    if (payload.reportId) row.id = payload.reportId;
-
-    const query = payload.reportId
-      ? supabase.from("saved_reports").upsert(row, { onConflict: "id" }).select().single()
-      : supabase.from("saved_reports").insert(row).select().single();
-
-    const { data, error } = await query;
+    reportName: string;
+    reportData: unknown;
+  }): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    const { data, error } = await supabase
+      .from("saved_reports")
+      .upsert(
+        { user_id: payload.userId, name: payload.reportName, data: payload.reportData, updated_at: new Date().toISOString() },
+        { onConflict: "user_id,name" }
+      )
+      .select()
+      .single();
     if (error) {
       console.error("Supabase upsertSavedReport error:", error.message);
-      return null;
+      return { data: null, error: error.message, success: false };
     }
-    return data;
+    return { data: data, error: null, success: true };
   },
 
-  deleteSavedReport: async (reportId: string, userId: string) => {
-    if (!USE_SUPABASE) return false;
+  deleteSavedReport: async (reportId: string, userId: string): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) {
+      return { data: false, error: null, success: true };
+    }
     const { error } = await supabase
       .from("saved_reports")
       .delete()
@@ -1520,17 +1842,21 @@ export const api = {
       .eq("user_id", userId);
     if (error) {
       console.error("Supabase deleteSavedReport error:", error.message);
-      return false;
+      return { data: false, error: error.message, success: false };
     }
-    return true;
+    return { data: true, error: null, success: true };
   },
 
   // -------------------------
   // CAREER MILESTONES
   // -------------------------
-  getCareerMilestones: async (userId: string) => {
-    if (!USE_SUPABASE) return [];
-    if (!userId) return [];
+  getCareerMilestones: async (userId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
+    if (!userId) {
+      return { data: [], error: null, success: true };
+    }
     const { data, error } = await supabase
       .from("career_milestones")
       .select("*")
@@ -1538,9 +1864,9 @@ export const api = {
       .order("created_at", { ascending: true });
     if (error) {
       console.error("Supabase getCareerMilestones error:", error.message);
-      return [];
+      return { data: [], error: error.message, success: false };
     }
-    return data ?? [];
+    return { data: data ?? [], error: null, success: true };
   },
 
   addCareerMilestone: async (payload: {
@@ -1705,10 +2031,10 @@ export const api = {
     to: string;
     message: string;
     channel?: "sms" | "whatsapp";
-  }) => {
+  }): Promise<ApiResponse<any>> => {
     if (!USE_SUPABASE) {
       console.warn("Supabase not configured. Cannot send Twilio message.");
-      return null;
+      return { data: null, error: "Supabase not configured", success: false };
     }
 
     try {
@@ -1718,13 +2044,13 @@ export const api = {
 
       if (error) {
         console.error("Twilio Edge Function error:", error.message);
-        throw new Error(error.message || "Failed to send message");
+        return { data: null, error: error.message || "Failed to send message", success: false };
       }
 
-      return data;
+      return { data: data, error: null, success: true };
     } catch (err: any) {
       console.error("sendTwilioMessage error:", err?.message ?? err);
-      throw err;
+      return { data: null, error: err?.message ?? err, success: false };
     }
   },
 
