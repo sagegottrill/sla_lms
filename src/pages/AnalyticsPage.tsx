@@ -9,7 +9,14 @@ import {
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from "recharts";
 
-const CHART_COLORS = ["hsl(var(--primary))", "#0288d1", "#00897B", "#F4B400", "#E53935", "#7B1FA2"];
+const CHART_COLORS = [
+  "hsl(var(--primary))",
+  "hsl(188 100% 37%)",   // teal-blue
+  "hsl(168 55% 36%)",    // emerald
+  "hsl(45 90% 48%)",     // gold
+  "hsl(0 72% 51%)",      // red
+  "hsl(271 76% 40%)",    // purple
+];
 
 export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState("Last 12 months");
@@ -68,10 +75,10 @@ export default function AnalyticsPage() {
     const enrollments = allCourses.reduce((acc: number, c: any) => acc + (c.students || 0), 0);
     const completions = Math.round(enrollments * (stats?.completionRate || 0) / 100);
     return [
-      { stage: "Site Visitors", value: totalVisitors, fill: "#e3f2fd" },
-      { stage: "Registrations", value: registrations, fill: "#bbdefb" },
-      { stage: "Enrollments", value: enrollments, fill: "#64b5f6" },
-      { stage: "Completions", value: completions, fill: "hsl(var(--primary))" },
+      { stage: "Site Visitors",  value: totalVisitors,  fill: "hsl(var(--primary) / 0.1)" },
+      { stage: "Registrations",  value: registrations,  fill: "hsl(var(--primary) / 0.25)" },
+      { stage: "Enrollments",    value: enrollments,    fill: "hsl(var(--primary) / 0.55)" },
+      { stage: "Completions",    value: completions,    fill: "hsl(var(--primary))" },
     ];
   }, [allProfiles, allCourses, stats]);
 
@@ -189,7 +196,7 @@ export default function AnalyticsPage() {
                 <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
                 <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--border)", fontSize: 12 }} />
-                <Bar dataKey="value" fill="#00897B" radius={[0, 6, 6, 0]} />
+                <Bar dataKey="value" fill="hsl(168 55% 36%)" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}

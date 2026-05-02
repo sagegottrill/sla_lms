@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCampaigns, useCreateCampaignMutation } from "@/hooks/useQueries";
+import { api } from "@/services/api";
 
 export default function CampaignsPage() {
   const { appUser } = useAuth();
@@ -139,20 +140,53 @@ export default function CampaignsPage() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Campaign</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Channel</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Status</th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground tracking-widest uppercase">Sent</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Sent</th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground tracking-widest uppercase">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
                 {filtered.map((c: any) => (
-                  <tr key={c.id} className="hover:bg-muted/10 transition-colors">
+                  <tr key={c.id} className="hover:bg-muted/10 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="text-sm font-semibold text-foreground">{c.name ?? "Untitled"}</div>
                       {c.subject ? <div className="text-xs text-muted-foreground mt-1">{c.subject}</div> : null}
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground font-medium">{String(c.channel ?? "").toUpperCase()}</td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground font-medium">{c.status ?? "Draft"}</td>
-                    <td className="px-6 py-4 text-right text-sm text-muted-foreground font-medium">
-                      {c.sent_at || c.scheduled_at || "—"}
+                    <td className="px-6 py-4">
+                      <span className={`text-[11px] font-bold px-2 py-1 rounded-full ${
+                        c.status === "sent"      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400" :
+                        c.status === "scheduled" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400" :
+                        "bg-muted text-muted-foreground"
+                      }`}>
+                        {c.status ?? "Draft"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground font-medium">
+                      {c.sent_at ? new Date(c.sent_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) :
+                       c.scheduled_at ? `Scheduled ${new Date(c.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "—"}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {c.status !== "sent" && (c.channel === "email" || c.channel === "both") && (
+                        <button
+                          onClick={async () => {
+                            if (!appUser?.id) return;
+                            toast.info(`Sending "${c.name}" to all learners…`);
+                            const res = await api.sendEmail({
+                              to: [], // process-campaigns handles audience resolution
+                              subject: c.subject || c.name,
+                              html: c.body || `<p>${c.name}</p>`,
+                            });
+                            if ((res as any)?.success) {
+                              toast.success("Campaign queued for delivery via SendGrid.");
+                            } else {
+                              toast.error("Delivery failed — check SendGrid secrets.");
+                            }
+                          }}
+                          className="text-xs font-semibold text-primary hover:text-primary/80 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          Send now
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

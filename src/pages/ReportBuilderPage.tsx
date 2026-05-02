@@ -191,30 +191,30 @@ export default function ReportBuilderPage() {
     <ResponsiveContainer width="100%" height={280}>
       {type === "bar" ? (
         <BarChart data={data}>
-          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} />
-          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 12 }} />
-          <Bar dataKey="value" fill="#0C3B2E" radius={[6, 6, 0, 0]} />
+          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", fontSize: 12 }} />
+          <Bar dataKey="value" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
         </BarChart>
       ) : type === "line" ? (
         <LineChart data={data}>
-          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} />
-          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 12 }} />
-          <Line type="monotone" dataKey="value" stroke="#0C3B2E" strokeWidth={2} dot={{ fill: "#0C3B2E", r: 4 }} />
+          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", fontSize: 12 }} />
+          <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))", r: 4 }} />
         </LineChart>
       ) : (
         <AreaChart data={data}>
           <defs>
             <linearGradient id="rpGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#0C3B2E" stopOpacity={0.15} />
-              <stop offset="95%" stopColor="#0C3B2E" stopOpacity={0} />
+              <stop offset="5%"  stopColor="hsl(var(--primary))" stopOpacity={0.15} />
+              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#888" }} />
-          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 12 }} />
-          <Area type="monotone" dataKey="value" stroke="#0C3B2E" fill="url(#rpGrad)" strokeWidth={2} />
+          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", fontSize: 12 }} />
+          <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="url(#rpGrad)" strokeWidth={2} />
         </AreaChart>
       )}
     </ResponsiveContainer>

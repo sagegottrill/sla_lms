@@ -6,6 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/services/api";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 const typeColors: Record<string, string> = {
   education: "bg-accent text-accent-foreground",
@@ -20,6 +21,20 @@ export default function IncomeProgressionPage() {
   const [showAddMilestone, setShowAddMilestone] = useState(false);
   const [newMilestone, setNewMilestone] = useState({ date: "", title: "", type: "career" });
   const [milestoneList, setMilestoneList] = useState<Array<any>>([]);
+
+  // Fetch real certificate count
+  const { data: certsResult } = useQuery({
+    queryKey: ["certificates-count", appUser?.id ?? ""],
+    queryFn: () => api.getCertificates(appUser!.id),
+    enabled: !!appUser?.id,
+  });
+  const certCount = useMemo(() => {
+    const data = (certsResult as any)?.data ?? certsResult ?? [];
+    return Array.isArray(data) ? data.length : 0;
+  }, [certsResult]);
+
+  // Fetch real current role from profile
+  const currentRole = appUser?.headline ?? appUser?.careerGoal ?? "—";
 
   useEffect(() => {
     const load = async () => {
@@ -186,8 +201,8 @@ export default function IncomeProgressionPage() {
             {[
               { icon: DollarSign, label: "Current Income",  value: currentIncome > 0 ? `₦${currentIncome.toLocaleString()}` : '—',    sub: "per month",          color: "text-primary" },
               { icon: TrendingUp, label: "Income Growth",   value: growth > 0 ? `+${growth}%` : '—', sub: "since SLA enrollment",color: "text-emerald-600" },
-              { icon: Briefcase,  label: "Current Role",    value: "Pending", sub: "Awaiting Data",     color: "text-foreground" },
-              { icon: Award,      label: "Certificates",    value: "0",            sub: "completed",          color: "text-primary" },
+              { icon: Briefcase,  label: "Current Role",    value: currentRole,                        sub: "from your profile",     color: "text-foreground" },
+              { icon: Award,      label: "Certificates",    value: certCount,                          sub: "completed",             color: "text-primary" },
             ].map(({ icon: Icon, label, value, sub, color }) => (
               <div key={label} className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
@@ -312,7 +327,7 @@ export default function IncomeProgressionPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(204 12% 88%)" vertical={false} />
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₦${v/1000}k`} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={(v: number) => [`₦${v.toLocaleString()}`, "Avg. Monthly Income"]} cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }} />
+                  <Tooltip formatter={(v: number) => [`₦${v.toLocaleString()}`, "Avg. Monthly Income"]} cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: 8, border: '1px solid hsl(var(--border))' }} />
                   <Bar dataKey="avg" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>

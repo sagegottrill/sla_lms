@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Search, Star, Clock, Users, BookOpen, X, SlidersHorizontal,
   Database, Megaphone, Crown, TrendingUp, Code, Briefcase, Heart, Palette,
-  ArrowRight,
+  ArrowRight, Loader2,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/landing/Navbar";
@@ -11,6 +11,7 @@ import Footer from "@/components/landing/Footer";
 import { useCourses } from "@/hooks/useQueries";
 import { coursePathSegment } from "@/lib/publicRoutes";
 import { FilterChips } from "@/components/dashboard/FilterChips";
+import { api } from "@/services/api";
 
 const categoryData = [
   { name: "All", icon: BookOpen, count: 9 },
@@ -32,10 +33,25 @@ export default function CourseCatalogPage() {
   const [searchParams] = useSearchParams();
   const qFromUrl = searchParams.get("q") || "";
   const [search, setSearch] = useState(qFromUrl);
+  const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     setSearch(qFromUrl);
   }, [qFromUrl]);
+
+  // Debounced Supabase search — fires 350ms after user stops typing
+  useEffect(() => {
+    if (!search.trim()) { setSearchResults(null); return; }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      const res = await api.searchCourses(search.trim());
+      setSearchResults((res as any)?.data ?? []);
+      setSearching(false);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
   const [sort, setSort] = useState("Most Popular");
@@ -43,6 +59,9 @@ export default function CourseCatalogPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const { data: allCourses = [] } = useCourses({ publishedOnly: true });
+
+  // Use Supabase search results when a query is active, otherwise use full catalog
+  const baseList = searchResults !== null ? searchResults : allCourses;
 
   const categoryOptions = useMemo(
     () => categoryData.filter((c) => c.name !== "All").map((c) => ({ label: c.name, value: c.name })),
@@ -66,17 +85,14 @@ export default function CourseCatalogPage() {
     return false;
   };
 
-  const filtered = allCourses
-    .filter(c => {
-      const matchSearch =
-        (c.title ?? "").toLowerCase().includes(search.toLowerCase()) ||
-        (c.instructor ?? "").toLowerCase().includes(search.toLowerCase());
-      const matchCat = selectedCategories.length === 0 || selectedCategories.includes(c.category);
+  const filtered = baseList
+    .filter((c: any) => {
+      const matchCat   = selectedCategories.length === 0 || selectedCategories.includes(c.category);
       const matchLevel = selectedLevels.length === 0 || selectedLevels.includes(c.level);
       const matchPrice = selectedPrices.length === 0 || selectedPrices.some((r) => matchesPriceRange(c, r));
-      return matchSearch && matchCat && matchLevel && matchPrice;
+      return matchCat && matchLevel && matchPrice;
     })
-    .sort((a, b) => {
+    .sort((a: any, b: any) => {
       if (sort === "Highest Rated") return b.rating - a.rating;
       if (sort === "Price: Low to High") return a.price - b.price;
       if (sort === "Price: High to Low") return b.price - a.price;
@@ -158,8 +174,19 @@ export default function CourseCatalogPage() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search courses, instructors..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-muted/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-card transition-all"
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-muted/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-card transition-all"
               />
+              {searching && (
+                <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" />
+              )}
+              {search && !searching && (
+                <button
+                  onClick={() => { setSearch(""); setSearchResults(null); }}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>

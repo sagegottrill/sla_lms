@@ -207,7 +207,7 @@ export const useEnrollUserMutation = () => {
       if (context?.queryKey) {
         queryClient.setQueryData(context.queryKey, context.previousEnrollments);
       }
-      toast.error("We couldn't enroll that learner. Please try again."),
+      toast.error("We couldn't enroll that learner. Please try again.");
     },
     onSuccess: () => {
       toast.success("Enrollment updated");

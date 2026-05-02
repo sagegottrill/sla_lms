@@ -83,12 +83,30 @@ export default function CertificatesPage() {
   const { appUser } = useAuth();
   const [certificates, setCertificates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inProgressCount, setInProgressCount] = useState(0);
+  const [totalHours, setTotalHours] = useState(0);
 
   const load = useCallback(async () => {
     if (!appUser?.id) return;
     setLoading(true);
-    const data = await api.getCertificates(appUser.id);
-    setCertificates(data);
+    const [certsResult, enrollmentsResult] = await Promise.all([
+      api.getCertificates(appUser.id),
+      api.getUserEnrollments(appUser.id),
+    ]);
+    const certs = (certsResult as any)?.data ?? certsResult ?? [];
+    setCertificates(Array.isArray(certs) ? certs : []);
+
+    const enrollments = Array.isArray(enrollmentsResult) ? enrollmentsResult : [];
+    const inProgress = enrollments.filter((e: any) => {
+      const p = Number(e.progress ?? 0);
+      return p > 0 && p < 100;
+    }).length;
+    setInProgressCount(inProgress);
+    // Estimate hours: avg 20h per course × completion ratio
+    const hours = Math.round(
+      enrollments.reduce((acc: number, e: any) => acc + ((Number(e.progress ?? 0) / 100) * 20), 0)
+    );
+    setTotalHours(hours);
     setLoading(false);
   }, [appUser?.id]);
 
@@ -110,8 +128,8 @@ export default function CertificatesPage() {
       <div className="grid grid-cols-3 gap-6 mb-10">
         {[
           [loading ? "…" : certificates.length, "Earned"],
-          ["—", "In Progress"],
-          ["—", "Hours Learned"],
+          [loading ? "…" : inProgressCount,      "In Progress"],
+          [loading ? "…" : `${totalHours}h`,     "Hours Learned"],
         ].map(([val, label]) => (
           <div key={String(label)} className="bg-muted/20 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 flex flex-col items-center justify-center">
             <div className="font-display text-3xl font-bold text-foreground mb-1">{val}</div>

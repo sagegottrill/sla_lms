@@ -2,12 +2,15 @@
 import { Search, Download, Users, Bell, Trash2, Mail, MoreHorizontal, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FilterChips } from "@/components/dashboard/FilterChips";
+import { PageContainer, PageHeader } from "@/components/common/PageContainer";
+import { DESIGN_TOKENS } from "@/lib/design-tokens";
 
 import { toast } from "sonner";
 import { useProgramParticipants } from "@/hooks/useQueries";
 import { api } from "@/services/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/react-query";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -274,35 +277,31 @@ export default function ParticipantsPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
-      
-      {/* Header — Spacious and Clean */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-6 mb-8">
-        <div>
-          <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">Participants</h1>
-          <p className="text-muted-foreground text-sm">
-            {isLoading ? "Syncing participants…" : `Tracking ${participants.length} learners across active cohorts.`}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {selected.size > 0 && (
-            <Button
-              onClick={handleRemove}
-              disabled={removing}
-              variant="outline"
-              className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
-            >
-              <Trash2 className="w-3.5 h-3.5 mr-2" /> Remove selected ({selected.size})
+    <PageContainer>
+      <PageHeader
+        title="Participants"
+        subtitle={isLoading ? "Syncing participants…" : `Tracking ${participants.length} learners across active cohorts.`}
+        actions={
+          <>
+            {selected.size > 0 && (
+              <Button
+                onClick={handleRemove}
+                disabled={removing}
+                variant="outline"
+                className={cn(DESIGN_TOKENS.buttonDestructive, "disabled:opacity-50")}
+              >
+                <Trash2 className={cn(DESIGN_TOKENS.iconSmall, "mr-2")} /> Remove selected ({selected.size})
+              </Button>
+            )}
+            <Button onClick={exportRoster} variant="outline" className={DESIGN_TOKENS.buttonOutline}>
+              <Download className={cn(DESIGN_TOKENS.iconSmall, "mr-2")} /> Export Roster
             </Button>
-          )}
-          <Button onClick={exportRoster} variant="outline" className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted transition-colors">
-             <Download className="w-3.5 h-3.5 mr-2" /> Export Roster
-          </Button>
-          <Button onClick={messageCohort} className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0 transition-colors">
-            <Mail className="w-3.5 h-3.5 mr-2" /> Message Cohort
-          </Button>
-        </div>
-      </div>
+            <Button onClick={messageCohort} className={cn(DESIGN_TOKENS.buttonPrimary, "h-9 px-6 text-xs font-bold")}>
+              <Mail className={cn(DESIGN_TOKENS.iconSmall, "mr-2")} /> Message Cohort
+            </Button>
+          </>
+        }
+      />
 
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -316,45 +315,45 @@ export default function ParticipantsPage() {
         </div>
 
         <div className="relative w-full md:w-80 shrink-0">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+          <Search className={cn(DESIGN_TOKENS.iconButton, "absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60")} />
           <input 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
             placeholder="Search learner directory..."
-            className="w-full pl-10 pr-4 py-2 rounded-full ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 transition-shadow" 
+            className={cn(DESIGN_TOKENS.inputSearch, "pl-10")} 
           />
         </div>
       </div>
 
       {/* Roster / Table */}
-      <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden">
+      <div className={DESIGN_TOKENS.card}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[750px]">
-            <thead className="bg-muted/20 border-b border-border/40">
+            <thead className={DESIGN_TOKENS.tableHeaderRow}>
               <tr>
                 <th className="px-6 py-4 w-10">
                   <input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onChange={toggleAll} className="rounded border-border/50 text-primary focus:ring-primary/30" />
                 </th>
-                <th className="px-5 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Learner</th>
-                <th className="px-5 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Program</th>
-                <th className="px-5 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Progress</th>
-                <th className="px-5 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Last Active</th>
-                <th className="px-5 py-4 text-right text-xs font-semibold text-muted-foreground tracking-widest uppercase">Action</th>
+                <th className={DESIGN_TOKENS.tableHeader}>Learner</th>
+                <th className={DESIGN_TOKENS.tableHeader}>Program</th>
+                <th className={DESIGN_TOKENS.tableHeader}>Progress</th>
+                <th className={DESIGN_TOKENS.tableHeader}>Last Active</th>
+                <th className={cn(DESIGN_TOKENS.tableHeader, "text-right")}>Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
                   {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center bg-card/20 text-muted-foreground">
+                  <td colSpan={6} className={cn(DESIGN_TOKENS.tableCell, "py-20 text-center bg-card/20 text-muted-foreground")}>
                     Syncing participants…
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center bg-card/20">
-                    <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                  <td colSpan={6} className={cn(DESIGN_TOKENS.tableCell, "py-20 text-center bg-card/20")}>
+                    <Users className={cn(DESIGN_TOKENS.iconEmpty, "text-muted-foreground/30 mx-auto mb-3")} />
                     <p className="text-foreground font-medium mb-1">No participants found</p>
-                    <p className="text-sm text-muted-foreground">Adjust your filters or wait for enrollments to sync.</p>
+                    <p className={DESIGN_TOKENS.pageSubtitle}>Adjust your filters or wait for enrollments to sync.</p>
                   </td>
                 </tr>
                   ) : (
@@ -363,26 +362,26 @@ export default function ParticipantsPage() {
                   return (
                     <tr
                       key={p.id}
-                      className={`transition-colors group ${selected.has(p.id) ? "bg-primary/5" : "hover:bg-muted/10"}`}
+                      className={cn(DESIGN_TOKENS.tableRow, selected.has(p.id) && "bg-primary/5")}
                     >
-                    <td className="px-6 py-4">
+                    <td className={DESIGN_TOKENS.tableCell}>
                       <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} className="rounded border-border/50 text-primary focus:ring-primary/30" />
                     </td>
-                    <td className="px-5 py-4">
+                    <td className={DESIGN_TOKENS.tableCell}>
                       <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 rounded-full bg-muted/40 ring-1 ring-border/60 dark:bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
+                        <div className={cn(DESIGN_TOKENS.avatar, "w-8 h-8 text-xs")}>
                           {(p.name ?? p.email ?? "?").charAt(0)}
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{p.name ?? "—"}</p>
-                          <p className="text-xs text-muted-foreground">{p.email ?? "—"}</p>
+                          <p className={cn("text-sm font-semibold text-foreground group-hover:text-primary", DESIGN_TOKENS.transitionColors)}>{p.name ?? "—"}</p>
+                          <p className={cn(DESIGN_TOKENS.pageSubtitle, "text-xs")}>{p.email ?? "—"}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-xs font-semibold text-muted-foreground">
+                    <td className={cn(DESIGN_TOKENS.tableCell, "text-xs font-semibold text-muted-foreground")}>
                       {p.program ?? "—"}
                     </td>
-                    <td className="px-5 py-4">
+                    <td className={DESIGN_TOKENS.tableCell}>
                       <div className="flex items-center gap-3">
                         <div className="flex-1 max-w-[80px] h-1.5 bg-muted/60 rounded-full overflow-hidden">
                           <div
@@ -395,18 +394,18 @@ export default function ParticipantsPage() {
                         <span className="text-xs font-semibold text-muted-foreground w-8">{progressPct}%</span>
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-xs font-medium text-foreground/70">
+                    <td className={cn(DESIGN_TOKENS.tableCell, "text-xs font-medium text-foreground/70")}>
                       {p.lastActive ?? "—"}
                     </td>
-                    <td className="px-5 py-4 text-right">
+                    <td className={cn(DESIGN_TOKENS.tableCell, "text-right")}>
                       <DropdownMenu>
                          <DropdownMenuTrigger asChild>
                            <button
                              ref={triggerButtonRef}
-                             className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+                             className={DESIGN_TOKENS.dropdownTrigger}
                              aria-label={`Open actions for ${p.name}`}
                            >
-                             <MoreHorizontal className="w-4 h-4" />
+                             <MoreHorizontal className={DESIGN_TOKENS.iconButton} />
                            </button>
                          </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40 rounded-xl">
@@ -445,7 +444,7 @@ export default function ParticipantsPage() {
                             onClick={() => openSmsModal(p)}
                             className="cursor-pointer font-medium text-xs py-2"
                           >
-                            <MessageSquare className="w-3.5 h-3.5 mr-2" />
+                            <MessageSquare className={cn(DESIGN_TOKENS.iconSmall, "mr-2")} />
                             Send SMS / WhatsApp
                           </DropdownMenuItem>
                           <DropdownMenuItem
@@ -550,6 +549,6 @@ export default function ParticipantsPage() {
         </DialogContent>
       </Dialog>
 
-    </div>
+    </PageContainer>
   );
 }

@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { coursePathSegment, isCourseOrProgramRouteParam } from "@/lib/publicRoutes";
 import { api } from "@/services/api";
+import { supabase } from "@/lib/supabase";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +50,48 @@ export default function CourseDetailPage() {
   const [navDimmed, setNavDimmed] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [courseAssessments, setCourseAssessments] = useState<Array<{ id: string; title?: string }>>([]);
+  const [savingProgress, setSavingProgress] = useState(false);
+
+  // Load persisted lesson completion from enrollment's current_lesson field
+  useEffect(() => {
+    if (!enrolled || !course) return;
+    const enrollment = enrollments.find((e: any) => e.course_id === course.id);
+    if (!enrollment?.current_lesson) return;
+    try {
+      const saved: string[] = JSON.parse(enrollment.current_lesson);
+      if (Array.isArray(saved)) setCompletedLessons(new Set(saved));
+    } catch {
+      // current_lesson may be a plain string (legacy) — treat as single completed lesson
+      if (typeof enrollment.current_lesson === "string") {
+        setCompletedLessons(new Set([enrollment.current_lesson]));
+      }
+    }
+  }, [enrolled, enrollments, course]);
+
+  // Persist progress to Supabase whenever completedLessons changes
+  const persistProgress = async (nextCompleted: Set<string>) => {
+    if (!appUser?.id || !course?.id || !enrolled) return;
+    const total    = allLessons.length;
+    const done     = nextCompleted.size;
+    const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+    setSavingProgress(true);
+    try {
+      await supabase
+        .from("enrollments")
+        .update({
+          progress,
+          current_lesson: JSON.stringify(Array.from(nextCompleted)),
+          last_accessed:  new Date().toISOString(),
+          ...(progress >= 100 ? { status: "completed", completed_at: new Date().toISOString() } : {}),
+        })
+        .eq("user_id", appUser.id)
+        .eq("course_id", course.id);
+    } catch (err) {
+      console.error("Failed to persist lesson progress:", err);
+    } finally {
+      setSavingProgress(false);
+    }
+  };
 
   useEffect(() => {
     const cid = course?.id;
@@ -340,9 +383,9 @@ export default function CourseDetailPage() {
                                e.stopPropagation();
                                setCompletedLessons(prev => {
                                  const next = new Set(prev);
-                                // Toggle lesson completion state for this user session.
                                 if (next.has(lesson.title)) next.delete(lesson.title);
                                 else next.add(lesson.title);
+                                 void persistProgress(next);
                                  return next;
                                });
                              }}
@@ -422,9 +465,15 @@ export default function CourseDetailPage() {
                          <div className="pt-2 border-t border-border">
                            <p className="text-sm font-semibold text-foreground mb-2">Your Progress</p>
                            <div className="h-2 bg-muted rounded-full overflow-hidden w-full">
-                              <div className="h-full bg-primary rounded-full transition-all" style={{ width: "15%" }} />
+                              <div
+                                className="h-full bg-primary rounded-full transition-all"
+                                style={{ width: `${allLessons.length > 0 ? Math.round((completedLessons.size / allLessons.length) * 100) : 0}%` }}
+                              />
                            </div>
-                           <p className="text-xs text-muted-foreground mt-2 text-right">15% completed</p>
+                           <p className="text-xs text-muted-foreground mt-2 text-right flex items-center justify-end gap-1">
+                             {savingProgress && <Loader2 className="w-3 h-3 animate-spin" />}
+                             {allLessons.length > 0 ? Math.round((completedLessons.size / allLessons.length) * 100) : 0}% completed
+                           </p>
                          </div>
                      )}
                    </div>

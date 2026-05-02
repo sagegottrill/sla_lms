@@ -9,6 +9,9 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useProfiles, useUpdateProfileMutation, useDeleteProfileMutation, usePrograms } from "@/hooks/useQueries";
 import { FilterChips } from "@/components/dashboard/FilterChips";
+import { PageContainer, PageHeader } from "@/components/common/PageContainer";
+import { DESIGN_TOKENS, ROLE_COLORS } from "@/lib/design-tokens";
+import { cn } from "@/lib/utils";
 import { 
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, 
   DropdownMenuItem, DropdownMenuSeparator 
@@ -29,17 +32,6 @@ const ROLES: Role[] = ["student", "instructor", "program_manager", "admin"];
 /** Shown in User Management directory (learners belong under Participants). */
 const STAFF_ROLES: Role[] = ["instructor", "program_manager", "admin"];
 const INVITE_ROLES: Role[] = ["instructor", "program_manager", "admin"];
-
-// Minimalist understated colors for role badges
-const roleColors: Record<Role, string> = {
-  student:         "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  instructor:      "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  program_manager: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  admin:           "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
-};
-
-const inputCls = "w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground/60 transition-all";
-const labelCls = "block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2";
 
 export default function AdminUsersPage() {
   const { data: usersData, isLoading: loading, refetch } = useProfiles();
@@ -200,30 +192,26 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6">
-      
-      {/* Header — Spacious and Clean */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-6">
-        <div>
-          <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">User Management</h1>
-          <p className="text-muted-foreground text-sm">
-            {loading
-              ? "Syncing directory..."
-              : `${staffDirectory.length} staff (instructors, program managers, admins). Learners are listed under Participants.`}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={handleSync} disabled={syncing} className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
-            <RefreshCw className={`w-3.5 h-3.5 mr-2 ${loading || syncing ? 'animate-spin' : ''}`} /> {syncing ? "Syncing..." : "Sync"}
-          </Button>
-          <Button variant="outline" onClick={handleExport} className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
-            <Download className="w-3.5 h-3.5 mr-2" /> Export
-          </Button>
-          <Button onClick={() => setShowAddModal(true)} className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0">
-            Invite User
-          </Button>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="User Management"
+        subtitle={loading
+          ? "Syncing directory..."
+          : `${staffDirectory.length} staff (instructors, program managers, admins). Learners are listed under Participants.`}
+        actions={
+          <>
+            <Button variant="outline" onClick={handleSync} disabled={syncing} className={DESIGN_TOKENS.buttonOutline}>
+              <RefreshCw className={cn(DESIGN_TOKENS.iconSmall, "mr-2", (loading || syncing) && "animate-spin")} /> {syncing ? "Syncing..." : "Sync"}
+            </Button>
+            <Button variant="outline" onClick={handleExport} className={DESIGN_TOKENS.buttonOutline}>
+              <Download className={cn(DESIGN_TOKENS.iconSmall, "mr-2")} /> Export
+            </Button>
+            <Button onClick={() => setShowAddModal(true)} className={cn(DESIGN_TOKENS.buttonPrimary, "h-9 px-6 text-xs font-bold")}>
+              Invite User
+            </Button>
+          </>
+        }
+      />
 
       {/* Toolbar: Horizontal Pill Tabs & Search */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -240,12 +228,12 @@ export default function AdminUsersPage() {
 
         {/* Search */}
         <div className="relative w-full md:w-80 shrink-0">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+          <Search className={cn(DESIGN_TOKENS.iconButton, "absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60")} />
           <input 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
             placeholder="Search directory..."
-            className="w-full pl-10 pr-4 py-2 rounded-full ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 transition-shadow" 
+            className={cn(DESIGN_TOKENS.inputSearch, "pl-10")} 
           />
         </div>
       </div>
@@ -254,59 +242,59 @@ export default function AdminUsersPage() {
       <div>
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-            <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary/40" />
-            <p className="text-sm">Loading directory...</p>
+            <Loader2 className={cn(DESIGN_TOKENS.iconEmpty, "w-8 h-8 animate-spin mb-4 text-primary/40")} />
+            <p className={DESIGN_TOKENS.pageSubtitle}>Loading directory...</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-3xl bg-card/20">
+          <div className={cn(DESIGN_TOKENS.cardSubtle, "text-center py-20")}>
             <p className="text-foreground font-medium mb-1">No users found</p>
-            <p className="text-sm text-muted-foreground">Try adjusting your search or filters.</p>
+            <p className={DESIGN_TOKENS.pageSubtitle}>Try adjusting your search or filters.</p>
           </div>
         ) : (
-          <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden">
+          <div className={DESIGN_TOKENS.card}>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-muted/20 border-b border-border/40">
+                <thead className={DESIGN_TOKENS.tableHeaderRow}>
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Member</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Role Level</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Status</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Joined</th>
-                    <th className="px-6 py-6 text-right text-xs font-semibold text-muted-foreground tracking-widest uppercase"></th>
+                    <th className={DESIGN_TOKENS.tableHeader}>Member</th>
+                    <th className={DESIGN_TOKENS.tableHeader}>Role Level</th>
+                    <th className={DESIGN_TOKENS.tableHeader}>Status</th>
+                    <th className={DESIGN_TOKENS.tableHeader}>Joined</th>
+                    <th className={cn(DESIGN_TOKENS.tableHeader, "text-right")}></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
                   {filtered.map((u) => (
-                    <tr key={u.id} className="hover:bg-muted/10 transition-colors group">
-                      <td className="px-6 py-4">
+                    <tr key={u.id} className={DESIGN_TOKENS.tableRow}>
+                      <td className={DESIGN_TOKENS.tableCell}>
                         <div className="flex items-center gap-4">
-                          <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-600 dark:text-slate-300 shrink-0">
+                          <div className={DESIGN_TOKENS.avatar}>
                             {(u.name || u.email || "?").charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-foreground">{u.name || "—"}</p>
-                            <p className="text-xs text-muted-foreground">{u.email}</p>
+                            <p className={cn(DESIGN_TOKENS.pageSubtitle, "text-xs")}>{u.email}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-md capitalize ${roleColors[u.role]}`}>
+                      <td className={DESIGN_TOKENS.tableCell}>
+                        <span className={cn(DESIGN_TOKENS.badge, "capitalize", ROLE_COLORS[u.role])}>
                           {u.role.replace("_", " ")}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Active
+                      <td className={DESIGN_TOKENS.tableCell}>
+                         <div className={cn("flex items-center gap-1.5 text-xs", DESIGN_TOKENS.textMuted)}>
+                            <span className={cn(DESIGN_TOKENS.statusDot, "bg-emerald-500")} /> Active
                          </div>
                       </td>
-                      <td className="px-6 py-4 text-xs text-muted-foreground">
+                      <td className={cn(DESIGN_TOKENS.tableCell, "text-xs", DESIGN_TOKENS.textMuted)}>
                         {new Date(u.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className={cn(DESIGN_TOKENS.tableCell, "text-right")}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                              <MoreHorizontal className="w-4 h-4" />
+                            <button className={DESIGN_TOKENS.dropdownTrigger}>
+                              <MoreHorizontal className={DESIGN_TOKENS.iconButton} />
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40 rounded-xl">
@@ -345,25 +333,25 @@ export default function AdminUsersPage() {
               
               <div className="space-y-5 mb-8">
                 <div>
-                  <label className={labelCls}>Full Name</label>
-                  <input value={editUser.name} onChange={e => setEditUser({ ...editUser, name: e.target.value })} className={inputCls} />
+                  <label className={DESIGN_TOKENS.formLabel}>Full Name</label>
+                  <input value={editUser.name} onChange={e => setEditUser({ ...editUser, name: e.target.value })} className={DESIGN_TOKENS.inputForm} />
                 </div>
                 <div>
-                  <label className={labelCls}>Email Address</label>
-                  <input value={editUser.email} disabled className={inputCls + " opacity-50 cursor-not-allowed bg-muted/30"} />
-                  <p className="text-[10px] text-muted-foreground mt-1.5">Email is controlled by the identity provider.</p>
+                  <label className={DESIGN_TOKENS.formLabel}>Email Address</label>
+                  <input value={editUser.email} disabled className={cn(DESIGN_TOKENS.inputForm, DESIGN_TOKENS.inputDisabled)} />
+                  <p className={cn(DESIGN_TOKENS.pageSubtitle, "text-[10px] mt-1.5")}>Email is controlled by the identity provider.</p>
                 </div>
                 <div>
-                  <label className={labelCls}>System Role</label>
+                  <label className={DESIGN_TOKENS.formLabel}>System Role</label>
                   <div className="relative">
-                    <select value={editUser.role} onChange={e => setEditUser({ ...editUser, role: e.target.value as Role })} className={inputCls + " appearance-none cursor-pointer"}>
+                    <select value={editUser.role} onChange={e => setEditUser({ ...editUser, role: e.target.value as Role })} className={cn(DESIGN_TOKENS.inputForm, "appearance-none cursor-pointer")}>
                       {STAFF_ROLES.map((r) => (
                         <option key={r} value={r}>
                           {r.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                         </option>
                       ))}
                     </select>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
+                    <ChevronRight className={cn(DESIGN_TOKENS.iconButton, "text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none rotate-90")} />
                   </div>
                 </div>
               </div>
@@ -373,12 +361,12 @@ export default function AdminUsersPage() {
                   onClick={() => handleDeleteUser(editUser.id)}
                   className="text-xs font-semibold text-destructive hover:underline flex items-center gap-1.5"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Remove User
+                  <Trash2 className={DESIGN_TOKENS.iconSmall} /> Remove User
                 </button>
                 <div className="flex gap-3">
                   <Button variant="ghost" onClick={() => setEditUser(null)} className="rounded-full h-10 px-6 font-semibold">Cancel</Button>
                   <Button onClick={handleSaveEdit} disabled={savingEdit} className="bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 rounded-full h-10 px-8 font-semibold">
-                    {savingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                    {savingEdit ? <Loader2 className={cn(DESIGN_TOKENS.iconButton, "animate-spin")} /> : "Save"}
                   </Button>
                 </div>
               </div>
@@ -403,29 +391,29 @@ export default function AdminUsersPage() {
               
               <div className="space-y-5 mb-8">
                 <div>
-                  <label className={labelCls}>Full Name</label>
-                  <input value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} placeholder="Jane Doe" className={inputCls} />
+                  <label className={DESIGN_TOKENS.formLabel}>Full Name</label>
+                  <input value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} placeholder="Jane Doe" className={DESIGN_TOKENS.inputForm} />
                 </div>
                 <div>
-                  <label className={labelCls}>Email Address</label>
-                  <input value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="jane@example.com" className={inputCls} />
+                  <label className={DESIGN_TOKENS.formLabel}>Email Address</label>
+                  <input value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="jane@example.com" className={DESIGN_TOKENS.inputForm} />
                 </div>
                 <div>
-                  <label className={labelCls}>Temporary password</label>
+                  <label className={DESIGN_TOKENS.formLabel}>Temporary password</label>
                   <input
                     type="password"
                     value={newUser.password}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                     placeholder="Min. 8 characters — user can reset after first login"
                     autoComplete="new-password"
-                    className={inputCls}
+                    className={DESIGN_TOKENS.inputForm}
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                  <p className={cn(DESIGN_TOKENS.pageSubtitle, "text-[10px] mt-1.5")}>
                     Required by Supabase to create the account. They should change it after signing in.
                   </p>
                 </div>
                 <div>
-                  <label className={labelCls}>Assign Role</label>
+                  <label className={DESIGN_TOKENS.formLabel}>Assign Role</label>
                   <div className="relative">
                     <select
                       value={newUser.role}
@@ -436,7 +424,7 @@ export default function AdminUsersPage() {
                           managedProgramId: e.target.value === "program_manager" ? newUser.managedProgramId : "",
                         })
                       }
-                      className={inputCls + " appearance-none cursor-pointer"}
+                      className={cn(DESIGN_TOKENS.inputForm, "appearance-none cursor-pointer")}
                     >
                       {INVITE_ROLES.map((r) => (
                         <option key={r} value={r}>
@@ -444,12 +432,12 @@ export default function AdminUsersPage() {
                         </option>
                       ))}
                     </select>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
+                    <ChevronRight className={cn(DESIGN_TOKENS.iconButton, "text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none rotate-90")} />
                   </div>
                 </div>
                 {newUser.role === "program_manager" && (
                   <div>
-                    <label className={labelCls}>Cohort / program scope</label>
+                    <label className={DESIGN_TOKENS.formLabel}>Cohort / program scope</label>
                     <div className="relative">
                       <select
                         value={newUser.managedProgramId === "" ? "" : String(newUser.managedProgramId)}
@@ -459,7 +447,7 @@ export default function AdminUsersPage() {
                             managedProgramId: e.target.value ? Number(e.target.value) : "",
                           })
                         }
-                        className={inputCls + " appearance-none cursor-pointer"}
+                        className={cn(DESIGN_TOKENS.inputForm, "appearance-none cursor-pointer")}
                       >
                         <option value="">Select program…</option>
                         {programs.map((p: { id: number; title: string }) => (
@@ -468,9 +456,9 @@ export default function AdminUsersPage() {
                           </option>
                         ))}
                       </select>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
+                      <ChevronRight className={cn(DESIGN_TOKENS.iconButton, "text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none rotate-90")} />
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-1.5">
+                    <p className={cn(DESIGN_TOKENS.pageSubtitle, "text-[10px] mt-1.5")}>
                       Stored on the auth profile for reference; full scoped access rules can be extended in the database.
                     </p>
                   </div>
@@ -480,13 +468,13 @@ export default function AdminUsersPage() {
               <div className="flex gap-3 justify-end pt-6 border-t border-border/40">
                 <Button variant="ghost" onClick={() => setShowAddModal(false)} className="rounded-full h-10 px-6 font-semibold">Cancel</Button>
                 <Button onClick={handleAddUser} disabled={savingAdd} className="bg-primary hover:bg-primary/90 text-white rounded-full h-10 px-8 font-semibold">
-                  {savingAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Invite"}
+                  {savingAdd ? <Loader2 className={cn(DESIGN_TOKENS.iconButton, "animate-spin")} /> : "Send Invite"}
                 </Button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </PageContainer>
   );
 }

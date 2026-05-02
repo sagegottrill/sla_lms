@@ -103,6 +103,30 @@ export const api = {
     }
   },
 
+  // Full-text search across courses (title, subtitle, description, instructor)
+  searchCourses: async (query: string): Promise<ApiResponse<Course[]>> => {
+    if (!USE_SUPABASE || !query.trim()) return { data: [], error: null, success: true };
+    try {
+      const { data, error } = await supabase
+        .from("courses")
+        .select(COURSE_COLUMNS)
+        .eq("status", "published")
+        .or(
+          `title.ilike.%${query}%,subtitle.ilike.%${query}%,description.ilike.%${query}%,instructor.ilike.%${query}%,category.ilike.%${query}%`
+        )
+        .order("students", { ascending: false })
+        .limit(50);
+      if (error) {
+        console.error("Supabase searchCourses error:", error.message);
+        return { data: [], error: error.message, success: false };
+      }
+      return { data: (data ?? []) as Course[], error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase searchCourses error:", error.message);
+      return { data: [], error: error.message, success: false };
+    }
+  },
+
   createCourse: async (courseData: Partial<Course> & Record<string, unknown>): Promise<ApiResponse<Course | null>> => {
     if (!USE_SUPABASE) {
       return { data: null, error: null, success: true };
@@ -1311,6 +1335,37 @@ export const api = {
     return { data: data ?? [], error: null, success: true };
   },
 
+  // Instructor-scoped payments — only courses owned by this instructor
+  getInstructorPayments: async (instructorId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE || !instructorId) return { data: [], error: null, success: true };
+
+    // First get course IDs owned by this instructor
+    const { data: courses, error: coursesErr } = await supabase
+      .from("courses")
+      .select("id, title")
+      .eq("instructor_id", instructorId);
+
+    if (coursesErr) {
+      console.error("Supabase getInstructorPayments courses error:", coursesErr.message);
+      return { data: [], error: coursesErr.message, success: false };
+    }
+
+    const courseIds = (courses ?? []).map((c: any) => c.id);
+    if (courseIds.length === 0) return { data: [], error: null, success: true };
+
+    const { data, error } = await supabase
+      .from("payments")
+      .select("id, created_at, amount, currency, status, reference, method, course_id, profiles(name, email), courses(title)")
+      .in("course_id", courseIds)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Supabase getInstructorPayments error:", error.message);
+      return { data: [], error: error.message, success: false };
+    }
+    return { data: data ?? [], error: null, success: true };
+  },
+
   // -------------------------
   // SYSTEM SETTINGS (Admin)
   // -------------------------
@@ -1622,6 +1677,21 @@ export const api = {
       console.error("Supabase saveSkillResult error:", error.message);
       return { data: null, error: error.message, success: false };
     }
+  },
+
+  // Get all results for a specific assessment (instructor/admin view)
+  getAssessmentResults: async (assessmentId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) return { data: [], error: null, success: true };
+    const { data, error } = await supabase
+      .from("skills_results")
+      .select("*, profiles(name, email)")
+      .eq("assessment_id", assessmentId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("Supabase getAssessmentResults error:", error.message);
+      return { data: [], error: error.message, success: false };
+    }
+    return { data: data ?? [], error: null, success: true };
   },
 
   // -------------------------
@@ -2050,6 +2120,32 @@ export const api = {
       return { data: data, error: null, success: true };
     } catch (err: any) {
       console.error("sendTwilioMessage error:", err?.message ?? err);
+      return { data: null, error: err?.message ?? err, success: false };
+    }
+  },
+
+  // -------------------------
+  // SENDGRID EMAIL
+  // -------------------------
+  sendEmail: async (payload: {
+    to: string | string[];
+    subject: string;
+    html: string;
+    text?: string;
+    templateId?: string;
+    templateData?: Record<string, unknown>;
+    replyTo?: string;
+  }): Promise<ApiResponse<{ recipients: number }>> => {
+    if (!USE_SUPABASE) return { data: { recipients: 0 }, error: null, success: true };
+    try {
+      const { data, error } = await supabase.functions.invoke("send-email", { body: payload });
+      if (error) {
+        console.error("send-email Edge Function error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      return { data, error: null, success: true };
+    } catch (err: any) {
+      console.error("sendEmail error:", err?.message ?? err);
       return { data: null, error: err?.message ?? err, success: false };
     }
   },

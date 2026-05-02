@@ -278,7 +278,7 @@ export default function DashboardSidebar() {
       )}
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 scrollbar-hide">
+      <nav className="flex-1 overflow-y-auto py-3 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/20">
         {groups.map((group) => {
           const isGroupCollapsed = collapsedGroups[group.group];
 

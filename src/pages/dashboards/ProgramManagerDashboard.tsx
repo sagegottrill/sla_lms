@@ -12,6 +12,7 @@ import { useProgramParticipants, useSystemStats } from "@/hooks/useQueries";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { api } from "@/services/api";
 import UserProfileSlideout, { SlideoutUser } from "../../components/dashboard/UserProfileSlideout";
 import BulkActionBar from "../../components/dashboard/BulkActionBar";
 import TranscriptSlip from "../../components/dashboard/TranscriptSlip";
@@ -105,7 +106,37 @@ export default function ProgramManagerDashboard() {
           toast.info("Select participants first.");
           return;
         }
-        toast.info("Bulk certificate issue queued. Final certificate pipeline integration pending.");
+
+        const eligible = participants.filter(
+          (p: any) => selectedParticipantIds.has(p.id) && Number(p.progress ?? 0) >= 100
+        );
+
+        if (eligible.length === 0) {
+          toast.info("No selected participants have 100% completion. Certificates require full course completion.");
+          return;
+        }
+
+        toast.info(`Issuing ${eligible.length} certificate${eligible.length > 1 ? "s" : ""}…`);
+
+        const results = await Promise.allSettled(
+          eligible.map((p: any) =>
+            api.issueCertificate(
+              String(p.user_id ?? p.id),
+              0,
+              p.program ?? "Program Completion",
+              "She Leads Africa",
+              "Program"
+            )
+          )
+        );
+
+        const succeeded = results.filter(r => r.status === "fulfilled" && r.value).length;
+        const failed    = results.length - succeeded;
+
+        if (succeeded > 0) toast.success(`${succeeded} certificate${succeeded > 1 ? "s" : ""} issued!`);
+        if (failed > 0)    toast.error(`${failed} failed — check Supabase/RLS.`);
+
+        setSelectedParticipantIds(new Set());
       },
     },
   ];

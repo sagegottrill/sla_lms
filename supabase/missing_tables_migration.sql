@@ -168,6 +168,7 @@ alter table public.lead_captures enable row level security;
 drop policy if exists "Leads readable by admin"              on public.lead_captures;
 drop policy if exists "Leads insertable by anyone (public form)" on public.lead_captures;
 drop policy if exists "Leads updatable by admin"             on public.lead_captures;
+drop policy if exists "Leads deletable by admin"           on public.lead_captures;
 
 create policy "Leads readable by admin"
   on public.lead_captures for select

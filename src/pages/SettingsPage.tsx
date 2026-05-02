@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { api } from "@/services/api";
 import { supabase } from "@/lib/supabase";
+import { useQuery } from "@tanstack/react-query";
 
 const tabs = ["Profile", "Account", "Notifications", "Privacy", "Appearance"];
 
@@ -45,31 +46,31 @@ export default function SettingsPage() {
     jobMatching: false,
   });
 
-  useEffect(() => {
-    const load = async () => {
-      if (!appUser?.id) return;
-      const row = await api.getNotificationPreferences(appUser.id);
+  // React Query — replaces useEffect anti-pattern for notification prefs
+  useQuery({
+    queryKey: ["notification-prefs-settings", appUser?.id ?? ""],
+    queryFn: () => api.getNotificationPreferences(appUser!.id),
+    enabled: !!appUser?.id,
+    onSuccess: (row: any) => {
+      if (!row) return;
       setNotificationPrefsRow(row);
-
       const p = (row?.prefs ?? {}) as Record<string, any>;
-      setNotifications((prev) => ({
+      setNotifications(prev => ({
         ...prev,
-        courseUpdates: Boolean(p.course_updates?.email ?? prev.courseUpdates),
-        deadlineReminders: Boolean(p.deadlines?.email ?? prev.deadlineReminders),
+        courseUpdates:        Boolean(p.course_updates?.email  ?? prev.courseUpdates),
+        deadlineReminders:    Boolean(p.deadlines?.email       ?? prev.deadlineReminders),
         programAnnouncements: Boolean(p.program_updates?.email ?? prev.programAnnouncements),
-        jobAlerts: Boolean(p.job_matches?.email ?? prev.jobAlerts),
-        marketingEmails: Boolean(p.promotions?.email ?? prev.marketingEmails),
+        jobAlerts:            Boolean(p.job_matches?.email     ?? prev.jobAlerts),
+        marketingEmails:      Boolean(p.promotions?.email      ?? prev.marketingEmails),
       }));
-
       const privacyRow = (p.privacy ?? {}) as Record<string, any>;
-      setPrivacy((prev) => ({
+      setPrivacy(prev => ({
         publicProfile: Boolean(privacyRow.publicProfile ?? prev.publicProfile),
-        showProgress: Boolean(privacyRow.showProgress ?? prev.showProgress),
-        jobMatching: Boolean(privacyRow.jobMatching ?? prev.jobMatching),
+        showProgress:  Boolean(privacyRow.showProgress  ?? prev.showProgress),
+        jobMatching:   Boolean(privacyRow.jobMatching   ?? prev.jobMatching),
       }));
-    };
-    load();
-  }, [appUser?.id]);
+    },
+  });
 
   const [passwords, setPasswords] = useState({ current: "", newPass: "", confirm: "" });
 

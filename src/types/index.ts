@@ -50,3 +50,71 @@ export interface Program {
   level?: string;
   tag?: string;
 }
+
+// ============================================================================
+// API Response Types
+// ============================================================================
+export interface ApiResponse<T> {
+  data: T;
+  error: string | null;
+  success: boolean;
+}
+
+// ============================================================================
+// Dashboard & Reports Types
+// ============================================================================
+export interface ProgramRow {
+  id: number;
+  name: string;
+  total: number;
+  finished: number;
+  atRisk: number;
+  notStarted: number;
+  avgProgress: number;
+}
+
+export interface Participant {
+  id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  program: string;
+  program_id: number | null;
+  progress: number;
+  status: string;
+  lastActive: string;
+}
+
+export interface SystemStats {
+  totalUsers: number;
+  totalCertificates: number;
+  completionRate: number;
+  totalHours: number;
+}
+
+// ============================================================================
+// Notification Preferences Types
+// ============================================================================
+export interface NotificationChannelPrefs {
+  email: boolean;
+  sms: boolean;
+  push: boolean;
+}
+
+export interface NotificationPreferences {
+  user_id: string;
+  frequency: "instant" | "hourly" | "daily";
+  quiet_start: string;
+  quiet_end: string;
+  prefs: Record<string, NotificationChannelPrefs>;
+  updated_at?: string;
+}
+
+export interface NotifPref {
+  key: string;
+  label: string;
+  description: string;
+  email: boolean;
+  sms: boolean;
+  push: boolean;
+}

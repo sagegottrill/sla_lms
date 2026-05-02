@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Loader2, Plus, Trash2, ClipboardList } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Trash2, ClipboardList, BarChart3, Users, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/services/api";
@@ -50,6 +50,9 @@ export default function AssessmentsSetupPage() {
   const [saving, setSaving] = useState(false);
   const [existing, setExisting] = useState<Array<Record<string, unknown>>>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [viewingResults, setViewingResults] = useState<string | null>(null);
+  const [results, setResults] = useState<any[]>([]);
+  const [loadingResults, setLoadingResults] = useState(false);
 
   useEffect(() => {
     const p = searchParams.get("programId");
@@ -165,6 +168,14 @@ export default function AssessmentsSetupPage() {
     }
     toast.success("Assessment removed.");
     void loadExisting();
+  };
+
+  const handleViewResults = async (assessmentId: string) => {
+    setViewingResults(assessmentId);
+    setLoadingResults(true);
+    const res = await api.getAssessmentResults(assessmentId);
+    setResults((res as any)?.data ?? []);
+    setLoadingResults(false);
   };
 
   const coursesLoading = role === "instructor" ? loadingMyCourses : loadingAllCourses;
@@ -395,22 +406,87 @@ export default function AssessmentsSetupPage() {
         ) : (
           <ul className="space-y-2">
             {existing.map((row) => (
-              <li
-                key={String(row.id)}
-                className="flex items-center justify-between gap-3 py-2 border-b border-border/40 last:border-0"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{String(row.title ?? "")}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {Number(row.total_questions ?? 0)} questions ·{" "}
-                    <Link to="/dashboard/skills" className="text-primary hover:underline">
-                      preview in Skills
-                    </Link>
-                  </p>
+              <li key={String(row.id)}>
+                <div className="flex items-center justify-between gap-3 py-2 border-b border-border/40 last:border-0">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{String(row.title ?? "")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {Number(row.total_questions ?? 0)} questions ·{" "}
+                      <Link to="/dashboard/skills" className="text-primary hover:underline">
+                        preview in Skills
+                      </Link>
+                    </p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-lg gap-1 text-xs"
+                      onClick={() => viewingResults === String(row.id) ? setViewingResults(null) : void handleViewResults(String(row.id))}
+                    >
+                      <BarChart3 className="w-3.5 h-3.5" />
+                      {viewingResults === String(row.id) ? "Hide" : "Results"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 rounded-lg text-destructive border-destructive/30"
+                      onClick={() => void handleDelete(String(row.id))}
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 </div>
-                <Button type="button" variant="outline" size="sm" className="shrink-0 rounded-lg text-destructive border-destructive/30" onClick={() => void handleDelete(String(row.id))}>
-                  Delete
-                </Button>
+
+                {/* Results panel */}
+                {viewingResults === String(row.id) && (
+                  <div className="mt-2 mb-4 bg-muted/20 rounded-xl p-4">
+                    {loadingResults ? (
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Loading results…
+                      </div>
+                    ) : results.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No students have taken this assessment yet.</p>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-4 mb-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{results.length} submissions</span>
+                          <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5" />
+                            Avg: {Math.round(results.reduce((a, r) => a + (r.score / r.total) * 100, 0) / results.length)}%
+                          </span>
+                        </div>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                          {results.map((r: any) => {
+                            const pct = Math.round((r.score / r.total) * 100);
+                            return (
+                              <div key={r.id} className="flex items-center gap-3 text-xs">
+                                <div className="w-28 truncate text-foreground font-medium">
+                                  {r.profiles?.name ?? r.profiles?.email ?? "Student"}
+                                </div>
+                                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${pct >= 80 ? "bg-emerald-500" : pct >= 60 ? "bg-primary" : "bg-amber-500"}`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                                <span className="w-10 text-right font-semibold text-foreground">{pct}%</span>
+                                <span className={`w-20 text-right text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                  r.level_name === "Advanced"     ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400" :
+                                  r.level_name === "Intermediate" ? "bg-primary/10 text-primary" :
+                                  "bg-muted text-muted-foreground"
+                                }`}>
+                                  {r.level_name ?? "—"}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
