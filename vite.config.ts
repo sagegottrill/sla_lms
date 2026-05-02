@@ -23,6 +23,7 @@ export default defineConfig(() => ({
   },
   build: {
     chunkSizeWarningLimit: 600,
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: (id) => {
@@ -31,7 +32,7 @@ export default defineConfig(() => ({
             return "vendor-react";
           }
           // ── Vendor: Routing ─────────────────────────────────────────────
-          if (id.includes("node_modules/react-router-dom/") || id.includes("node_modules/react-router/")) {
+          if (id.includes("node_modules/react-router-dom/") || id.includes("node_modules/react-router/") || id.includes("node_modules/@remix-run/")) {
             return "vendor-router";
           }
           // ── Vendor: Supabase ────────────────────────────────────────────
@@ -46,8 +47,12 @@ export default defineConfig(() => ({
           if (id.includes("node_modules/framer-motion/") || id.includes("node_modules/motion-dom/") || id.includes("node_modules/motion-utils/")) {
             return "vendor-motion";
           }
-          // ── Vendor: Recharts + D3 ───────────────────────────────────────
-          if (id.includes("node_modules/recharts/") || id.includes("node_modules/d3-") || id.includes("node_modules/react-smooth/")) {
+          // ── Vendor: D3 utilities (must come before recharts) ────────────
+          if (id.includes("node_modules/d3-") || id.includes("node_modules/recharts-scale/") || id.includes("node_modules/react-smooth/")) {
+            return "vendor-d3";
+          }
+          // ── Vendor: Recharts ────────────────────────────────────────────
+          if (id.includes("node_modules/recharts/")) {
             return "vendor-charts";
           }
           // ── Vendor: Radix UI ────────────────────────────────────────────
@@ -70,6 +75,10 @@ export default defineConfig(() => ({
           // ── Vendor: Form / validation ───────────────────────────────────
           if (id.includes("node_modules/react-hook-form/") || id.includes("node_modules/zod/") || id.includes("node_modules/@hookform/")) {
             return "vendor-forms";
+          }
+          // ── Vendor: Lodash ──────────────────────────────────────────────
+          if (id.includes("node_modules/lodash/")) {
+            return "vendor-lodash";
           }
           // ── Vendor: Misc utilities ──────────────────────────────────────
           if (id.includes("node_modules/")) {
