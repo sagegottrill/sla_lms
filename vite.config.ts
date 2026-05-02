@@ -26,64 +26,51 @@ export default defineConfig(() => ({
     sourcemap: false,
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // ── Vendor: React core ──────────────────────────────────────────
-          if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) {
-            return "vendor-react";
-          }
-          // ── Vendor: Routing ─────────────────────────────────────────────
-          if (id.includes("node_modules/react-router-dom/") || id.includes("node_modules/react-router/") || id.includes("node_modules/@remix-run/")) {
-            return "vendor-router";
-          }
-          // ── Vendor: Supabase ────────────────────────────────────────────
-          if (id.includes("node_modules/@supabase/")) {
-            return "vendor-supabase";
-          }
-          // ── Vendor: TanStack Query ──────────────────────────────────────
-          if (id.includes("node_modules/@tanstack/")) {
-            return "vendor-query";
-          }
-          // ── Vendor: Framer Motion ───────────────────────────────────────
-          if (id.includes("node_modules/framer-motion/") || id.includes("node_modules/motion-dom/") || id.includes("node_modules/motion-utils/")) {
-            return "vendor-motion";
-          }
-          // ── Vendor: D3 utilities (pure d3, no React dependencies) ───────
-          if (id.includes("node_modules/d3-") || id.includes("node_modules/recharts-scale/")) {
-            return "vendor-d3";
-          }
-          // ── Vendor: Recharts (includes react-smooth) ────────────────────
-          if (id.includes("node_modules/recharts/") || id.includes("node_modules/react-smooth/")) {
-            return "vendor-charts";
-          }
-          // ── Vendor: Radix UI ────────────────────────────────────────────
-          if (id.includes("node_modules/@radix-ui/")) {
-            return "vendor-radix";
-          }
-          // ── Vendor: Lucide icons ────────────────────────────────────────
-          if (id.includes("node_modules/lucide-react/")) {
-            return "vendor-icons";
-          }
-          // ── Vendor: PDF / canvas heavy libs ────────────────────────────
-          if (
-            id.includes("node_modules/html2canvas/") ||
-            id.includes("node_modules/jspdf/") ||
-            id.includes("node_modules/fast-png/") ||
-            id.includes("node_modules/stackblur-canvas/")
-          ) {
-            return "vendor-pdf";
-          }
-          // ── Vendor: Form / validation ───────────────────────────────────
-          if (id.includes("node_modules/react-hook-form/") || id.includes("node_modules/zod/") || id.includes("node_modules/@hookform/")) {
-            return "vendor-forms";
-          }
-          // ── Vendor: Lodash ──────────────────────────────────────────────
-          if (id.includes("node_modules/lodash/")) {
-            return "vendor-lodash";
-          }
-          // ── Vendor: Misc utilities ──────────────────────────────────────
-          if (id.includes("node_modules/")) {
-            return "vendor-misc";
-          }
+        manualChunks: {
+          // Core React - must load first
+          "vendor-react": ["react", "react-dom", "react/jsx-runtime"],
+          
+          // Routing - depends on React
+          "vendor-router": ["react-router-dom"],
+          
+          // State management & data fetching
+          "vendor-query": ["@tanstack/react-query", "@tanstack/react-query-devtools"],
+          
+          // Supabase
+          "vendor-supabase": ["@supabase/supabase-js"],
+          
+          // UI libraries
+          "vendor-radix": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-select",
+            "@radix-ui/react-tabs",
+            "@radix-ui/react-tooltip",
+            "@radix-ui/react-popover",
+            "@radix-ui/react-label",
+            "@radix-ui/react-checkbox",
+            "@radix-ui/react-radio-group",
+            "@radix-ui/react-switch",
+            "@radix-ui/react-slider",
+            "@radix-ui/react-separator",
+            "@radix-ui/react-avatar",
+            "@radix-ui/react-progress",
+          ],
+          
+          // Icons
+          "vendor-icons": ["lucide-react"],
+          
+          // Animation
+          "vendor-motion": ["framer-motion"],
+          
+          // Forms
+          "vendor-forms": ["react-hook-form", "zod"],
+          
+          // Charts - keep together to avoid circular deps
+          "vendor-charts": ["recharts"],
+          
+          // PDF generation - keep together
+          "vendor-pdf": ["jspdf", "html2canvas"],
         },
       },
     },
