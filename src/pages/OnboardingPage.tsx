@@ -162,6 +162,12 @@ export default function OnboardingPage() {
   const avatarError = avatarForm.formState.errors.avatarUrl?.message;
 
   if (!user) return <Navigate to="/" replace />;
+  
+  // CRITICAL: Staff roles (admin, instructor, program_manager) should NEVER see onboarding
+  if (appUser && isStaffRole(normalizeUserRole(appUser.role))) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
   // Onboarding is only for self-serve learners (students).
   if (appUser && !isOnboardingRole(appUser.role)) return <Navigate to="/dashboard" replace />;
   if (!needsOnboarding) return <Navigate to="/dashboard" replace />;

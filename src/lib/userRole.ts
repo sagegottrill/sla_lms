@@ -66,10 +66,19 @@ export function forceAdminRoleByEmail(email: string | null | undefined): UserRol
 
 type OnboardingSlice = { role: UserRole; onboarding?: { completed?: boolean } };
 
-/** Onboarding applies only to `student` until they complete it; staff never need the learner wizard. */
+/** 
+ * Onboarding applies only to `student` until they complete it; staff never need the learner wizard.
+ * CRITICAL: Staff roles (admin, instructor, program_manager) ALWAYS return false - they never need onboarding.
+ */
 export function learnerNeedsOnboarding(appUser: OnboardingSlice | null | undefined): boolean {
   if (!appUser) return false;
   const role = normalizeUserRole(appUser.role);
+  
+  // CRITICAL: Staff never need onboarding, regardless of database flags
+  if (isStaffRole(role)) return false;
+  
+  // Only students can need onboarding
   if (role !== "student") return false;
+  
   return !appUser.onboarding?.completed;
 }

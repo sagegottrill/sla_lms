@@ -8,6 +8,7 @@ import { useUIStore } from "@/store/useUIStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getProfileLinksForRole } from "@/constants/profileMenu";
+import { isStaffRole } from "@/lib/userRole";
 
 export default function DashboardLayout() {
   const { isAuthenticated, appUser, logout, loading, needsOnboarding } = useAuth();
@@ -39,7 +40,8 @@ export default function DashboardLayout() {
       !loading &&
       isAuthenticated &&
       appUser &&
-      appUser.role === "student" &&
+      appUser.role === "student" &&  // ONLY students
+      !isStaffRole(appUser.role) &&  // Double-check: NEVER staff
       needsOnboarding
     ) {
       console.trace("ONBOARDING REDIRECT TRACE", {
