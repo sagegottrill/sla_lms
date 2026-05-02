@@ -44,8 +44,13 @@ function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
   const interests = parseJsonStringArray(data.interests);
   const forcedRole = forceAdminRoleByEmail(typeof data.email === "string" ? data.email : null);
   const role = forcedRole ?? resolveEffectiveRole(data);
+  
   // Staff never use the learner onboarding flow; treat as completed even if the row flag is stale.
-  const onboardingCompleted = isStaffRole(role) ? true : Boolean(data.onboarding_completed);
+  // Also treat NULL as true for existing users (backward compatibility)
+  const onboardingCompleted = isStaffRole(role) 
+    ? true 
+    : (data.onboarding_completed === null ? true : Boolean(data.onboarding_completed));
+  
   return {
     id: String(data.id),
     name: (typeof data.name === "string" && data.name) || "User",
