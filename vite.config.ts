@@ -47,12 +47,12 @@ export default defineConfig(() => ({
           if (id.includes("node_modules/framer-motion/") || id.includes("node_modules/motion-dom/") || id.includes("node_modules/motion-utils/")) {
             return "vendor-motion";
           }
-          // ── Vendor: D3 utilities (must come before recharts) ────────────
-          if (id.includes("node_modules/d3-") || id.includes("node_modules/recharts-scale/") || id.includes("node_modules/react-smooth/")) {
+          // ── Vendor: D3 utilities (pure d3, no React dependencies) ───────
+          if (id.includes("node_modules/d3-") || id.includes("node_modules/recharts-scale/")) {
             return "vendor-d3";
           }
-          // ── Vendor: Recharts ────────────────────────────────────────────
-          if (id.includes("node_modules/recharts/")) {
+          // ── Vendor: Recharts (includes react-smooth) ────────────────────
+          if (id.includes("node_modules/recharts/") || id.includes("node_modules/react-smooth/")) {
             return "vendor-charts";
           }
           // ── Vendor: Radix UI ────────────────────────────────────────────
