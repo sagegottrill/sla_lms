@@ -10,11 +10,26 @@ import ToDoListWidget from "@/components/dashboard/ToDoListWidget";
 import RecentFeedbackWidget from "@/components/dashboard/RecentFeedbackWidget";
 import GlobalAnnouncement from "@/components/dashboard/GlobalAnnouncement";
 import CalendarWidget from "@/components/dashboard/CalendarWidget";
+import DashboardViewSwitcher from "@/components/dashboard/DashboardViewSwitcher";
+import ListViewDashboard from "@/components/dashboard/ListViewDashboard";
+import ActivityViewDashboard from "@/components/dashboard/ActivityViewDashboard";
+import { useDashboardPreferences } from "@/hooks/useDashboardPreferences";
 
 export default function StudentDashboard() {
   const { appUser } = useAuth();
   const [activeTab, setActiveTab] = useState<"in_progress" | "completed">("in_progress");
   const navigate = useNavigate();
+  
+  // Get user's dashboard preferences
+  const { data: preferences } = useDashboardPreferences(appUser?.id);
+  const [dashboardView, setDashboardView] = useState<'card' | 'list' | 'activity'>('card');
+  
+  // Update local state when preferences load
+  useState(() => {
+    if (preferences?.dashboard_view) {
+      setDashboardView(preferences.dashboard_view);
+    }
+  });
 
   const { data: enrollmentsRaw = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
   const { data: allCourses = [], isLoading: loadingCourses } = useCourses({ publishedOnly: true });
@@ -145,20 +160,31 @@ export default function StudentDashboard() {
             </div>
           )}
 
-          {/* Pill Tabs */}
-          <div className="flex items-center gap-2 mb-6">
-            <button 
-              onClick={() => setActiveTab("in_progress")}
-              className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${activeTab === "in_progress" ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "text-foreground bg-transparent hover:bg-muted border border-transparent hover:border-border"}`}
-            >
-              In Progress
-            </button>
-            <button 
-              onClick={() => setActiveTab("completed")}
-              className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${activeTab === "completed" ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "text-foreground bg-transparent hover:bg-muted border border-transparent hover:border-border"}`}
-            >
-              Completed
-            </button>
+          {/* Pill Tabs + View Switcher */}
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setActiveTab("in_progress")}
+                className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${activeTab === "in_progress" ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "text-foreground bg-transparent hover:bg-muted border border-transparent hover:border-border"}`}
+              >
+                In Progress
+              </button>
+              <button 
+                onClick={() => setActiveTab("completed")}
+                className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${activeTab === "completed" ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "text-foreground bg-transparent hover:bg-muted border border-transparent hover:border-border"}`}
+              >
+                Completed
+              </button>
+            </div>
+            
+            {/* View Switcher */}
+            {appUser?.id && (
+              <DashboardViewSwitcher 
+                userId={appUser.id} 
+                currentView={dashboardView}
+                onViewChange={setDashboardView}
+              />
+            )}
           </div>
 
           {/* Loading State */}
@@ -180,72 +206,84 @@ export default function StudentDashboard() {
             </div>
           )}
 
-          {/* Courses List */}
+          {/* Courses List - Different Views */}
           {!loadingEnrollments && !loadingCourses && (
-            <div className="space-y-4">
-              {currentCourses.length === 0 ? (
-                <div className="text-center p-12 bg-card ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl">
-                  <p className="text-foreground font-semibold mb-2">No courses {activeTab === "completed" ? "completed" : "in progress"}</p>
-                  <p className="text-sm text-muted-foreground mb-6">Explore the catalog to find your next learning journey.</p>
-                  <Link to="/courses">
-                    <Button className="font-bold px-8" size="lg">Browse Catalog</Button>
-                  </Link>
-                </div>
-              ) : (
-                currentCourses.map((c: any, index: number) => (
-                  <div key={c.id} className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 sm:p-6 flex flex-col md:flex-row gap-6 sm:gap-8 group hover:border-border transition-colors">
-                    
-                    {/* Left: Course Metas */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        {/* Instructor / Org name strictly mimicking the tiny Coursera label */}
-                        <div className="bg-muted px-2 py-0.5 rounded text-[10px] font-bold text-muted-foreground tracking-wider uppercase">SLA</div>
-                        <span className="text-xs font-semibold text-muted-foreground">{c.instructor || "CONNECT HER"}</span>
-                      </div>
-                      
-                      <Link to={`/courses/${coursePathSegment(c)}`} className="block">
-                        <h3 className="text-lg sm:text-xl font-bold font-display text-foreground group-hover:text-primary transition-colors mb-2">
-                          {c.title}
-                        </h3>
+            <>
+              {dashboardView === 'card' && (
+                <div className="space-y-4">
+                  {currentCourses.length === 0 ? (
+                    <div className="text-center p-12 bg-card ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl">
+                      <p className="text-foreground font-semibold mb-2">No courses {activeTab === "completed" ? "completed" : "in progress"}</p>
+                      <p className="text-sm text-muted-foreground mb-6">Explore the catalog to find your next learning journey.</p>
+                      <Link to="/courses">
+                        <Button className="font-bold px-8" size="lg">Browse Catalog</Button>
                       </Link>
-
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3 flex-wrap">
-                        <span>Course</span>
-                        <span>·</span>
-                        <span>{c.progress}% complete</span>
-                        <span>·</span>
-                        <span className="truncate">Estimated completion: {getEstimatedCompletionDate(c.progress)}</span>
-                      </div>
-
-                      <div className="h-2 w-full bg-muted/60 rounded-full overflow-hidden">
-                        <div className="h-full bg-brand-blue-700 rounded-full" style={{ width: `${c.progress}%` }} />
-                      </div>
                     </div>
+                  ) : (
+                    currentCourses.map((c: any, index: number) => (
+                      <div key={c.id} className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 sm:p-6 flex flex-col md:flex-row gap-6 sm:gap-8 group hover:border-border transition-colors">
+                        
+                        {/* Left: Course Metas */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            {/* Instructor / Org name strictly mimicking the tiny Coursera label */}
+                            <div className="bg-muted px-2 py-0.5 rounded text-[10px] font-bold text-muted-foreground tracking-wider uppercase">SLA</div>
+                            <span className="text-xs font-semibold text-muted-foreground">{c.instructor || "CONNECT HER"}</span>
+                          </div>
+                          
+                          <Link to={`/courses/${coursePathSegment(c)}`} className="block">
+                            <h3 className="text-lg sm:text-xl font-bold font-display text-foreground group-hover:text-primary transition-colors mb-2">
+                              {c.title}
+                            </h3>
+                          </Link>
 
-                    {/* Right: Next Action Context */}
-                    <div className="rt-col md:w-64 lg:w-72 shrink-0 flex flex-col justify-center sm:border-l sm:border-border sm:pl-8">
-                      <div className="mb-3">
-                        <h4 className="text-sm font-semibold text-foreground mb-1">
-                          {c.progress === 0 ? "Start learning" : `${c.progress}% complete — keep going`}
-                        </h4>
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>{c.duration || "Self-paced"}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3 flex-wrap">
+                            <span>Course</span>
+                            <span>·</span>
+                            <span>{c.progress}% complete</span>
+                            <span>·</span>
+                            <span className="truncate">Estimated completion: {getEstimatedCompletionDate(c.progress)}</span>
+                          </div>
+
+                          <div className="h-2 w-full bg-muted/60 rounded-full overflow-hidden">
+                            <div className="h-full bg-brand-blue-700 rounded-full" style={{ width: `${c.progress}%` }} />
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Link to={`/courses/${coursePathSegment(c)}`}>
-                          <Button className="bg-primary hover:bg-primary/90 text-white font-bold px-6 h-9 transition-colors">
-                            {c.progress === 0 ? "Start" : "Resume"}
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
 
-                  </div>
-                ))
+                        {/* Right: Next Action Context */}
+                        <div className="rt-col md:w-64 lg:w-72 shrink-0 flex flex-col justify-center sm:border-l sm:border-border sm:pl-8">
+                          <div className="mb-3">
+                            <h4 className="text-sm font-semibold text-foreground mb-1">
+                              {c.progress === 0 ? "Start learning" : `${c.progress}% complete — keep going`}
+                            </h4>
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <Clock className="w-3.5 h-3.5" />
+                              <span>{c.duration || "Self-paced"}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Link to={`/courses/${coursePathSegment(c)}`}>
+                              <Button className="bg-primary hover:bg-primary/90 text-white font-bold px-6 h-9 transition-colors">
+                                {c.progress === 0 ? "Start" : "Resume"}
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+
+                      </div>
+                    ))
+                  )}
+                </div>
               )}
-            </div>
+
+              {dashboardView === 'list' && (
+                <ListViewDashboard courses={currentCourses} activeTab={activeTab} />
+              )}
+
+              {dashboardView === 'activity' && (
+                <ActivityViewDashboard courses={currentCourses} activeTab={activeTab} />
+              )}
+            </>
           )}
           
         </div>
