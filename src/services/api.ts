@@ -426,12 +426,12 @@ export const api = {
       if (/^\d+$/.test(t)) {
         const n = Number(t);
         if (!Number.isFinite(n) || n < 1) return { data: undefined, error: null, success: true };
-        const result = await this.getProgramById(n);
+        const result = await api.getProgramById(n);
         return result;
       }
       if (UUID_ROUTE.test(t)) {
-        const result = await this.getProgramByPublicId(t);
-        return result;
+        const program = await fetchProgramRowByPublicId(t);
+        return { data: program, error: null, success: true };
       }
       return { data: undefined, error: null, success: true };
     } catch (error: any) {
