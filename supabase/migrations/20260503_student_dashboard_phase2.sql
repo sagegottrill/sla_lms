@@ -57,30 +57,171 @@ CREATE INDEX IF NOT EXISTS idx_user_calendar_events_user_id ON user_calendar_eve
 CREATE INDEX IF NOT EXISTS idx_user_calendar_events_date ON user_calendar_events(event_date);
 
 -- ============================================================================
--- 4. SUBMISSIONS TABLE UPDATES (for feedback tracking)
+-- 4. SUBMISSIONS TABLE (for feedback tracking)
 -- ============================================================================
--- Add columns to track feedback viewing
-ALTER TABLE submissions 
-  ADD COLUMN IF NOT EXISTS feedback_viewed BOOLEAN DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS feedback_viewed_at TIMESTAMP WITH TIME ZONE;
+-- Create submissions table if it doesn't exist
+CREATE TABLE IF NOT EXISTS submissions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  lesson_id UUID NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+  content TEXT,
+  status TEXT CHECK (status IN ('draft', 'submitted', 'graded', 'completed')) DEFAULT 'draft',
+  grade NUMERIC(5,2),
+  feedback TEXT,
+  submitted_at TIMESTAMP WITH TIME ZONE,
+  graded_at TIMESTAMP WITH TIME ZONE,
+  feedback_viewed BOOLEAN DEFAULT FALSE,
+  feedback_viewed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, lesson_id)
+);
+
+-- Add columns if table already exists
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'submissions') THEN
+    ALTER TABLE submissions 
+      ADD COLUMN IF NOT EXISTS feedback_viewed BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS feedback_viewed_at TIMESTAMP WITH TIME ZONE;
+  END IF;
+END $$;
 
 -- Index for recent feedback queries
-CREATE INDEX IF NOT EXISTS idx_submissions_graded 
-  ON submissions(graded_at) 
-  WHERE graded_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_submissions_user_id ON submissions(user_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_lesson_id ON submissions(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_graded ON submissions(graded_at) WHERE graded_at IS NOT NULL;
+
+-- Enable RLS
+ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for submissions
+CREATE POLICY IF NOT EXISTS "Users can view their own submissions"
+  ON submissions FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY IF NOT EXISTS "Users can insert their own submissions"
+  ON submissions FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY IF NOT EXISTS "Users can update their own submissions"
+  ON submissions FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY IF NOT EXISTS "Instructors can view submissions for their courses"
+  ON submissions FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM lessons l
+      JOIN courses c ON l.course_id = c.id
+      WHERE l.id = submissions.lesson_id
+      AND c.instructor_id = auth.uid()
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "Instructors can update submissions for their courses"
+  ON submissions FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM lessons l
+      JOIN courses c ON l.course_id = c.id
+      WHERE l.id = submissions.lesson_id
+      AND c.instructor_id = auth.uid()
+    )
+  );
 
 -- ============================================================================
--- 5. LESSONS TABLE UPDATES (for calendar integration)
+-- 5. LESSONS TABLE (for calendar integration)
 -- ============================================================================
--- Ensure due_date and reminder_date columns exist
-ALTER TABLE lessons 
-  ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE,
-  ADD COLUMN IF NOT EXISTS reminder_date TIMESTAMP WITH TIME ZONE;
+-- Create lessons table if it doesn't exist
+CREATE TABLE IF NOT EXISTS lessons (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  content TEXT,
+  type TEXT CHECK (type IN ('lesson', 'assignment', 'quiz', 'video', 'reading')) DEFAULT 'lesson',
+  order_index INTEGER DEFAULT 0,
+  duration_minutes INTEGER,
+  due_date TIMESTAMP WITH TIME ZONE,
+  reminder_date TIMESTAMP WITH TIME ZONE,
+  published BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
--- Index for upcoming deadlines
-CREATE INDEX IF NOT EXISTS idx_lessons_due_date 
-  ON lessons(due_date) 
-  WHERE due_date IS NOT NULL;
+-- Add columns if table already exists
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'lessons') THEN
+    ALTER TABLE lessons 
+      ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE,
+      ADD COLUMN IF NOT EXISTS reminder_date TIMESTAMP WITH TIME ZONE;
+  END IF;
+END $$;
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_lessons_course_id ON lessons(course_id);
+CREATE INDEX IF NOT EXISTS idx_lessons_due_date ON lessons(due_date) WHERE due_date IS NOT NULL;
+
+-- Enable RLS
+ALTER TABLE lessons ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for lessons
+CREATE POLICY IF NOT EXISTS "Everyone can view published lessons"
+  ON lessons FOR SELECT
+  USING (published = TRUE);
+
+CREATE POLICY IF NOT EXISTS "Instructors can view their own lessons"
+  ON lessons FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM courses c
+      WHERE c.id = lessons.course_id
+      AND c.instructor_id = auth.uid()
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "Instructors can insert lessons for their courses"
+  ON lessons FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM courses c
+      WHERE c.id = lessons.course_id
+      AND c.instructor_id = auth.uid()
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "Instructors can update their own lessons"
+  ON lessons FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM courses c
+      WHERE c.id = lessons.course_id
+      AND c.instructor_id = auth.uid()
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "Instructors can delete their own lessons"
+  ON lessons FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM courses c
+      WHERE c.id = lessons.course_id
+      AND c.instructor_id = auth.uid()
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "Enrolled students can view published lessons"
+  ON lessons FOR SELECT
+  USING (
+    published = TRUE AND
+    EXISTS (
+      SELECT 1 FROM enrollments e
+      WHERE e.course_id = lessons.course_id
+      AND e.user_id = auth.uid()
+    )
+  );
 
 -- ============================================================================
 -- 6. RLS POLICIES
@@ -187,7 +328,7 @@ SELECT
   s.grade,
   s.feedback,
   s.graded_at,
-  s.feedback_viewed,
+  COALESCE(s.feedback_viewed, FALSE) AS feedback_viewed,
   s.feedback_viewed_at,
   l.title AS lesson_title,
   l.course_id,
