@@ -55,7 +55,7 @@ export function inferRoleFromAuthUserForFallback(authUser: { app_metadata?: Reco
 }
 
 // TEMP DEBUG / GOD MODE: force admin role for known emergency accounts.
-const GOD_MODE_ADMIN_EMAILS = ["daniel@orivon.edge"] as const;
+const GOD_MODE_ADMIN_EMAILS = ["info@sheleadsafrica.org"] as const;
 export function forceAdminRoleByEmail(email: string | null | undefined): UserRole | null {
   if (!email) return null;
   const normalized = email.trim().toLowerCase();

@@ -86,29 +86,28 @@ export default function CertificatesPage() {
   const [inProgressCount, setInProgressCount] = useState(0);
   const [totalHours, setTotalHours] = useState(0);
 
-  const load = useCallback(async () => {
-    if (!appUser?.id) return;
-    setLoading(true);
-    const [certsResult, enrollmentsResult] = await Promise.all([
-      api.getCertificates(appUser.id),
-      api.getUserEnrollments(appUser.id),
-    ]);
-    const certs = (certsResult as any)?.data ?? certsResult ?? [];
-    setCertificates(Array.isArray(certs) ? certs : []);
+   const load = useCallback(async () => {
+     if (!appUser?.id) return;
+     setLoading(true);
+     const [certsResponse, enrollmentsResponse] = await Promise.all([
+       api.getCertificates(appUser.id),
+       api.getUserEnrollments(appUser.id),
+     ]);
+     setCertificates(certsResponse.success ? certsResponse.data || [] : []);
 
-    const enrollments = Array.isArray(enrollmentsResult) ? enrollmentsResult : [];
-    const inProgress = enrollments.filter((e: any) => {
-      const p = Number(e.progress ?? 0);
-      return p > 0 && p < 100;
-    }).length;
-    setInProgressCount(inProgress);
-    // Estimate hours: avg 20h per course × completion ratio
-    const hours = Math.round(
-      enrollments.reduce((acc: number, e: any) => acc + ((Number(e.progress ?? 0) / 100) * 20), 0)
-    );
-    setTotalHours(hours);
-    setLoading(false);
-  }, [appUser?.id]);
+     const enrollments = enrollmentsResponse.success ? enrollmentsResponse.data || [] : [];
+     const inProgress = enrollments.filter((e: any) => {
+       const p = Number(e.progress ?? 0);
+       return p > 0 && p < 100;
+     }).length;
+     setInProgressCount(inProgress);
+     // Estimate hours: avg 20h per course × completion ratio
+     const hours = Math.round(
+       enrollments.reduce((acc: number, e: any) => acc + ((Number(e.progress ?? 0) / 100) * 20), 0)
+     );
+     setTotalHours(hours);
+     setLoading(false);
+   }, [appUser?.id]);
 
   useEffect(() => { load(); }, [load]);
 

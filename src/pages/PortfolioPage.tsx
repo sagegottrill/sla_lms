@@ -31,13 +31,13 @@ export default function PortfolioPage() {
     window.open(normalized, "_blank", "noopener,noreferrer");
   };
 
-  const load = useCallback(async () => {
-    if (!appUser?.id) return;
-    setLoading(true);
-    const data = await api.getPortfolioItems(appUser.id);
-    setItems(data);
-    setLoading(false);
-  }, [appUser?.id]);
+   const load = useCallback(async () => {
+     if (!appUser?.id) return;
+     setLoading(true);
+     const response = await api.getPortfolioItems(appUser.id);
+     setItems(response.success ? response.data || [] : []);
+     setLoading(false);
+   }, [appUser?.id]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -68,34 +68,34 @@ export default function PortfolioPage() {
       }
     }
     setFormError("");
-    setAdding(true);
-    const result = await api.addPortfolioItem(appUser.id, {
-      title,
-      type: newItem.type,
-      description,
-      link_url: linkValue || undefined,
-      tags: newItem.tags.split(",").map(t => t.trim()).filter(Boolean),
-    });
-    setAdding(false);
-    if (result) {
-      toast.success("Portfolio item added!");
-      setItems(prev => [result, ...prev]);
-      setNewItem({ title: "", type: "document", description: "", link_url: "", tags: "" });
-      setShowAdd(false);
-    } else {
-      toast.error("Failed to add item — check Supabase connection.");
-    }
+     setAdding(true);
+     const response = await api.addPortfolioItem(appUser.id, {
+       title,
+       type: newItem.type,
+       description,
+       link_url: linkValue || undefined,
+       tags: newItem.tags.split(",").map(t => t.trim()).filter(Boolean),
+     });
+     setAdding(false);
+     if (response.success && response.data) {
+       toast.success("Portfolio item added!");
+       setItems(prev => [response.data, ...prev]);
+       setNewItem({ title: "", type: "document", description: "", link_url: "", tags: "" });
+       setShowAdd(false);
+     } else {
+       toast.error("Failed to add item — check Supabase connection.");
+     }
   };
 
-  const deleteItem = async (id: string) => {
-    const ok = await api.deletePortfolioItem(id);
-    if (!ok) {
-      toast.error("Failed to remove item. Check permissions and try again.");
-      return;
-    }
-    setItems(prev => prev.filter(i => i.id !== id));
-    toast.success("Item removed.");
-  };
+   const deleteItem = async (id: string) => {
+     const response = await api.deletePortfolioItem(id);
+     if (!response.success || !response.data) {
+       toast.error("Failed to remove item. Check permissions and try again.");
+       return;
+     }
+     setItems(prev => prev.filter(i => i.id !== id));
+     toast.success("Item removed.");
+   };
 
   const filtered = filter === "All" ? items : items.filter(i => i.type === filter);
 

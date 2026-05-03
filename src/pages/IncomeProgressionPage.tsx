@@ -28,66 +28,67 @@ export default function IncomeProgressionPage() {
     queryFn: () => api.getCertificates(appUser!.id),
     enabled: !!appUser?.id,
   });
-  const certCount = useMemo(() => {
-    const data = (certsResult as any)?.data ?? certsResult ?? [];
-    return Array.isArray(data) ? data.length : 0;
-  }, [certsResult]);
+   const certCount = useMemo(() => {
+     if (!certsResult?.success) return 0;
+     return Array.isArray(certsResult.data) ? certsResult.data.length : 0;
+   }, [certsResult]);
 
   // Fetch real current role from profile
   const currentRole = appUser?.headline ?? appUser?.careerGoal ?? "—";
 
-  useEffect(() => {
-    const load = async () => {
-      if (!appUser?.id) return;
-      const rows = await api.getCareerMilestones(appUser.id);
-      setMilestoneList(
-        (rows as any[]).map((r) => ({
-          id: String(r.id),
-          date: r.milestone_date ?? "",
-          title: r.title ?? "",
-          type: r.type ?? "career",
-          achieved: Boolean(r.achieved),
-        }))
-      );
-    };
-    load();
-  }, [appUser?.id]);
+   useEffect(() => {
+     const load = async () => {
+       if (!appUser?.id) return;
+       const response = await api.getCareerMilestones(appUser.id);
+       if (response.success && response.data) {
+         setMilestoneList(
+           response.data.map((r) => ({
+             id: String(r.id),
+             date: r.milestone_date ?? "",
+             title: r.title ?? "",
+             type: r.type ?? "career",
+             achieved: Boolean(r.achieved),
+           }))
+         );
+       }
+     };
+     load();
+   }, [appUser?.id]);
 
-  const addMilestone = async () => {
-    if (!appUser?.id) {
-      toast.error("Please log in to add milestones.");
-      return;
-    }
-    if (!newMilestone.title.trim()) return;
+   const addMilestone = async () => {
+     if (!appUser?.id) {
+       toast.error("Please log in to add milestones.");
+       return;
+     }
+     if (!newMilestone.title.trim()) return;
 
-    const created = await api.addCareerMilestone({
-      userId: appUser.id,
-      milestoneDate: newMilestone.date,
-      title: newMilestone.title.trim(),
-      type: newMilestone.type as any,
-      achieved: true,
-    });
+     const response = await api.addCareerMilestone({
+       userId: appUser.id,
+       milestoneDate: newMilestone.date,
+       title: newMilestone.title.trim(),
+       type: newMilestone.type as any,
+       achieved: true,
+     });
 
-    if (!created) {
-      toast.error("Failed to add milestone. Check Supabase connection/RLS.");
-      return;
-    }
+     if (!response.success || !response.data) {
+       toast.error("Failed to add milestone. Check Supabase connection/RLS.");
+       return;
+     }
 
-    setMilestoneList((prev) => [
-      ...prev,
-      {
-        id: String(created.id),
-        date: created.milestone_date ?? "",
-        title: created.title ?? newMilestone.title.trim(),
-        type: created.type ?? newMilestone.type,
-        achieved: Boolean(created.achieved),
-      },
-    ]);
-
-    setNewMilestone({ date: "", title: "", type: "career" });
-    setShowAddMilestone(false);
-    toast.success("Milestone added.");
-  };
+     const created = response.data;
+     setMilestoneList((prev) => [
+       ...prev,
+       {
+         id: String(created.id),
+         date: created.milestone_date ?? "",
+         title: created.title ?? newMilestone.title.trim(),
+         type: created.type ?? newMilestone.type,
+         achieved: Boolean(created.achieved),
+       },
+     ]);
+     setNewMilestone({ date: "", title: "", type: "career" });
+     toast.success("Milestone added!");
+   };
 
   const { incomeHistory, cohortData, placements, currentIncome, growth } = useMemo(() => {
     const weightByType: Record<string, number> = {

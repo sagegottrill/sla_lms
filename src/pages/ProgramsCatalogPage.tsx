@@ -155,25 +155,36 @@ export default function ProgramsCatalogPage() {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchPrograms = async () => {
-      setLoading(true);
-      const data = await api.getPrograms({ activeCatalog: true });
-      setPrograms(data as Program[]);
-      setLoading(false);
-    };
-    void fetchPrograms();
-  }, []);
+   useEffect(() => {
+     const fetchPrograms = async () => {
+       setLoading(true);
+       try {
+         const response = await api.getPrograms({ activeCatalog: true });
+         // Ensure we always have an array
+         const programsData = Array.isArray(response.data) ? response.data : [];
+         setPrograms(programsData);
+       } catch (error) {
+         console.error("Failed to fetch programs:", error);
+         setPrograms([]);
+       } finally {
+         setLoading(false);
+       }
+     };
+     void fetchPrograms();
+   }, []);
 
-  const filtered = programs.filter(p => {
+  // Ensure programs is always an array before filtering
+  const safePrograms = Array.isArray(programs) ? programs : [];
+  
+  const filtered = safePrograms.filter(p => {
     const matchSearch = (p.title ?? "").toLowerCase().includes(search.toLowerCase());
     const matchCat = category === "All" || p.category === category;
     return matchSearch && matchCat;
   });
 
-  const activeCount = programs.filter(p => p.status === "active").length;
-  const totalParticipants = programs.reduce((sum, p) => sum + (p.enrolled || 0), 0);
-  const upcomingCount = programs.filter(p => p.status === "upcoming").length;
+  const activeCount = safePrograms.filter(p => p.status === "active").length;
+  const totalParticipants = safePrograms.reduce((sum, p) => sum + (p.enrolled || 0), 0);
+  const upcomingCount = safePrograms.filter(p => p.status === "upcoming").length;
 
   return (
     <div className="min-h-screen bg-background">

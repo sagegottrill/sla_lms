@@ -93,17 +93,17 @@ export default function CourseDetailPage() {
     }
   };
 
-  useEffect(() => {
-    const cid = course?.id;
-    if (cid == null || !Number.isFinite(Number(cid))) return;
-    let cancelled = false;
-    void api.getSkillsAssessments({ courseId: cid }).then((rows) => {
-      if (!cancelled) setCourseAssessments(rows as Array<{ id: string; title?: string }>);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [course?.id]);
+   useEffect(() => {
+     const cid = course?.id;
+     if (cid == null || !Number.isFinite(Number(cid))) return;
+     let cancelled = false;
+     void api.getSkillsAssessments({ courseId: cid }).then((response) => {
+       if (!cancelled) setCourseAssessments(response.success ? (response.data || []) : []);
+     });
+     return () => {
+       cancelled = true;
+     };
+   }, [course?.id]);
 
   // Lights-Out mode: dim navbar when video is active
   useEffect(() => {
@@ -252,27 +252,27 @@ export default function CourseDetailPage() {
       toast.error("Please enter a valid email address.");
       return;
     }
-    setEnrollSubmitting(true);
-    try {
-      const result = await api.createCourseApplication({
-        user_id: appUser.id,
-        course_id: course.id,
-        full_name: enrollForm.fullName.trim(),
-        email: enrollForm.email.trim(),
-        phone: enrollForm.phone.trim(),
-        goal: enrollForm.goal.trim(),
-        status: "pending",
-      });
-      if (!result) {
-        toast.error("Could not save your details. Please try again.");
-        return;
-      }
-      toast.success("Details saved. Continue to payment.");
-      setEnrollModalOpen(false);
-      navigate(`/courses/${coursePathSegment(course)}/checkout`);
-    } finally {
-      setEnrollSubmitting(false);
-    }
+     setEnrollSubmitting(true);
+     try {
+       const response = await api.createCourseApplication({
+         user_id: appUser.id,
+         course_id: course.id,
+         full_name: enrollForm.fullName.trim(),
+         email: enrollForm.email.trim(),
+         phone: enrollForm.phone.trim(),
+         goal: enrollForm.goal.trim(),
+         status: "pending",
+       });
+       if (!response.success || !response.data) {
+         toast.error("Could not save your details. Please try again.");
+         return;
+       }
+       toast.success("Details saved. Continue to payment.");
+       setEnrollModalOpen(false);
+       navigate(`/courses/${coursePathSegment(course)}/checkout`);
+     } finally {
+       setEnrollSubmitting(false);
+     }
   };
 
   return (

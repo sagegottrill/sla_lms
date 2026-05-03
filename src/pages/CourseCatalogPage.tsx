@@ -40,17 +40,17 @@ export default function CourseCatalogPage() {
     setSearch(qFromUrl);
   }, [qFromUrl]);
 
-  // Debounced Supabase search — fires 350ms after user stops typing
-  useEffect(() => {
-    if (!search.trim()) { setSearchResults(null); return; }
-    const timer = setTimeout(async () => {
-      setSearching(true);
-      const res = await api.searchCourses(search.trim());
-      setSearchResults((res as any)?.data ?? []);
-      setSearching(false);
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [search]);
+   // Debounced Supabase search — fires 350ms after user stops typing
+   useEffect(() => {
+     if (!search.trim()) { setSearchResults(null); return; }
+     const timer = setTimeout(async () => {
+       setSearching(true);
+       const response = await api.searchCourses(search.trim());
+       setSearchResults(response.success ? response.data || [] : []);
+       setSearching(false);
+     }, 350);
+     return () => clearTimeout(timer);
+   }, [search]);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
@@ -61,7 +61,12 @@ export default function CourseCatalogPage() {
   const { data: allCourses = [] } = useCourses({ publishedOnly: true });
 
   // Use Supabase search results when a query is active, otherwise use full catalog
-  const baseList = searchResults !== null ? searchResults : allCourses;
+  // Ensure we always have an array
+  const baseList = Array.isArray(searchResults) 
+    ? searchResults 
+    : Array.isArray(allCourses) 
+    ? allCourses 
+    : [];
 
   const categoryOptions = useMemo(
     () => categoryData.filter((c) => c.name !== "All").map((c) => ({ label: c.name, value: c.name })),

@@ -72,29 +72,29 @@ export default function AssessmentsSetupPage() {
     }
   }, [searchParams, canProgramOrGeneral]);
 
-  const loadExisting = useCallback(async () => {
-    setLoadingList(true);
-    try {
-      if (scope === "general" && canProgramOrGeneral) {
-        const rows = await api.getSkillsAssessments({ globalOnly: true });
-        setExisting(rows as Record<string, unknown>[]);
-        return;
-      }
-      if (scope === "course" && courseId !== "") {
-        const rows = await api.getSkillsAssessments({ courseId: Number(courseId) });
-        setExisting(rows as Record<string, unknown>[]);
-        return;
-      }
-      if (scope === "program" && programId !== "") {
-        const rows = await api.getSkillsAssessments({ programId: Number(programId) });
-        setExisting(rows as Record<string, unknown>[]);
-        return;
-      }
-      setExisting([]);
-    } finally {
-      setLoadingList(false);
-    }
-  }, [scope, courseId, programId, canProgramOrGeneral]);
+   const loadExisting = useCallback(async () => {
+     setLoadingList(true);
+     try {
+       if (scope === "general" && canProgramOrGeneral) {
+         const response = await api.getSkillsAssessments({ globalOnly: true });
+         setExisting(response.success ? response.data || [] : []);
+         return;
+       }
+       if (scope === "course" && courseId !== "") {
+         const response = await api.getSkillsAssessments({ courseId: Number(courseId) });
+         setExisting(response.success ? response.data || [] : []);
+         return;
+       }
+       if (scope === "program" && programId !== "") {
+         const response = await api.getSkillsAssessments({ programId: Number(programId) });
+         setExisting(response.success ? response.data || [] : []);
+         return;
+       }
+       setExisting([]);
+     } finally {
+       setLoadingList(false);
+     }
+   }, [scope, courseId, programId, canProgramOrGeneral]);
 
   useEffect(() => {
     void loadExisting();
@@ -132,51 +132,51 @@ export default function AssessmentsSetupPage() {
       return;
     }
 
-    setSaving(true);
-    const id = await api.createAssessment({
-      title: title.trim(),
-      description: description.trim(),
-      category: category.trim(),
-      duration: duration.trim(),
-      icon_name: iconName,
-      course_id: scope === "course" ? Number(courseId) : null,
-      program_id: scope === "program" ? Number(programId) : null,
-      questions: built.map((q) => ({
-        text: q.text,
-        options: q.options,
-        correct_index: Math.min(q.correct_index, q.options.length - 1),
-      })),
-    });
-    setSaving(false);
-    if (!id) {
-      toast.error("Could not save assessment. Check permissions and run the latest Supabase SQL migration if needed.");
-      return;
-    }
-    toast.success("Assessment published.");
-    setTitle("");
-    setDescription("");
-    setQuestions([emptyQuestion(), emptyQuestion()]);
-    void loadExisting();
+     setSaving(true);
+     const response = await api.createAssessment({
+       title: title.trim(),
+       description: description.trim(),
+       category: category.trim(),
+       duration: duration.trim(),
+       icon_name: iconName,
+       course_id: scope === "course" ? Number(courseId) : null,
+       program_id: scope === "program" ? Number(programId) : null,
+       questions: built.map((q) => ({
+         text: q.text,
+         options: q.options,
+         correct_index: Math.min(q.correct_index, q.options.length - 1),
+       })),
+     });
+     setSaving(false);
+     if (!response.success || !response.data) {
+       toast.error("Could not save assessment. Check permissions and run the latest Supabase SQL migration if needed.");
+       return;
+     }
+     toast.success("Assessment published.");
+     setTitle("");
+     setDescription("");
+     setQuestions([emptyQuestion(), emptyQuestion()]);
+     void loadExisting();
   };
 
-  const handleDelete = async (assessmentId: string) => {
-    if (!confirm("Delete this assessment and all its questions?")) return;
-    const ok = await api.deleteAssessment(assessmentId);
-    if (!ok) {
-      toast.error("Could not delete. You may not have permission.");
-      return;
-    }
-    toast.success("Assessment removed.");
-    void loadExisting();
-  };
+   const handleDelete = async (assessmentId: string) => {
+     if (!confirm("Delete this assessment and all its questions?")) return;
+     const response = await api.deleteAssessment(assessmentId);
+     if (!response.success || !response.data) {
+       toast.error("Could not delete. You may not have permission.");
+       return;
+     }
+     toast.success("Assessment removed.");
+     void loadExisting();
+   };
 
-  const handleViewResults = async (assessmentId: string) => {
-    setViewingResults(assessmentId);
-    setLoadingResults(true);
-    const res = await api.getAssessmentResults(assessmentId);
-    setResults((res as any)?.data ?? []);
-    setLoadingResults(false);
-  };
+   const handleViewResults = async (assessmentId: string) => {
+     setViewingResults(assessmentId);
+     setLoadingResults(true);
+     const response = await api.getAssessmentResults(assessmentId);
+     setResults(response.success ? response.data || [] : []);
+     setLoadingResults(false);
+   };
 
   const coursesLoading = role === "instructor" ? loadingMyCourses : loadingAllCourses;
 

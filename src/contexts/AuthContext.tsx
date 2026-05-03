@@ -42,7 +42,10 @@ export interface AppUser {
 
 function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
   const interests = parseJsonStringArray(data.interests);
-  const forcedRole = forceAdminRoleByEmail(typeof data.email === "string" ? data.email : null);
+  const email = typeof data.email === "string" ? data.email : "";
+  
+  // CRITICAL: Force admin role for GOD_MODE emails FIRST, before any other logic
+  const forcedRole = forceAdminRoleByEmail(email);
   const role = forcedRole ?? resolveEffectiveRole(data);
   
   // Staff never use the learner onboarding flow; treat as completed even if the row flag is stale.
@@ -51,10 +54,21 @@ function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
     ? true 
     : (data.onboarding_completed === null ? true : Boolean(data.onboarding_completed));
   
+  // Debug log for admin users
+  if (forcedRole === "admin") {
+    console.log("🔐 GOD_MODE ADMIN DETECTED:", { 
+      email, 
+      dbRole: data.role, 
+      forcedRole, 
+      finalRole: role,
+      onboardingCompleted 
+    });
+  }
+  
   return {
     id: String(data.id),
     name: (typeof data.name === "string" && data.name) || "User",
-    email: typeof data.email === "string" ? data.email : "",
+    email,
     role,
     avatar: typeof data.avatar_url === "string" ? data.avatar_url : undefined,
     careerGoal: typeof data.career_goal === "string" ? data.career_goal : undefined,
@@ -187,36 +201,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  // Load user profile from Supabase profiles table
-  const loadUserProfile = async (userId: string, authUser?: User | null) => {
-    try {
-      const data = await api.getProfile(userId);
-      if (data) {
-        const mapped = mapProfileRowToAppUser(data as Record<string, unknown>);
-        console.log("DEBUG AUTH:", { phase: "profile-load-primary", profile: data, user: authUser, appUser: mapped });
-        setAppUser(mapped);
-        return true;
-      }
-      if (authUser) {
-        await ensureProfileFromAuthUser(authUser);
-        const retry = await api.getProfile(userId);
-        if (retry) {
-          const mapped = mapProfileRowToAppUser(retry as Record<string, unknown>);
-          console.log("DEBUG AUTH:", { phase: "profile-load-retry", profile: retry, user: authUser, appUser: mapped });
-          setAppUser(mapped);
-          return true;
-        }
-      }
-      console.error("Could not load profile for user:", userId);
-    } catch (err) {
-      console.error("Error loading profile:", err);
-    }
-    if (authUser) {
-      // Do not block a valid session on profile RLS / missing row issues.
-      const fallback = mapAuthUserToFallbackAppUser(authUser);
-      console.log("DEBUG AUTH:", { phase: "profile-load-fallback", profile: null, user: authUser, appUser: fallback });
-      setAppUser(fallback);
-    }
+   // Load user profile from Supabase profiles table
+   const loadUserProfile = async (userId: string, authUser?: User | null) => {
+     try {
+       const response = await api.getProfile(userId);
+       if (response?.success && response.data) {
+         const mapped = mapProfileRowToAppUser(response.data);
+         console.log("DEBUG AUTH:", { phase: "profile-load-primary", profile: response.data, user: authUser, appUser: mapped });
+         setAppUser(mapped);
+         return true;
+       }
+       if (authUser) {
+         await ensureProfileFromAuthUser(authUser);
+         const retryResponse = await api.getProfile(userId);
+         if (retryResponse?.success && retryResponse.data) {
+           const mapped = mapProfileRowToAppUser(retryResponse.data);
+           console.log("DEBUG AUTH:", { phase: "profile-load-retry", profile: retryResponse.data, user: authUser, appUser: mapped });
+           setAppUser(mapped);
+           return true;
+         }
+       }
+       console.error("Could not load profile for user:", userId);
+     } catch (err) {
+       console.error("Error loading profile:", err);
+     }
+     if (authUser) {
+       // Do not block a valid session on profile RLS / missing row issues.
+       const fallback = mapAuthUserToFallbackAppUser(authUser);
+       console.log("DEBUG AUTH:", { phase: "profile-load-fallback", profile: null, user: authUser, appUser: fallback });
+       setAppUser(fallback);
+     }
     return false;
   };
 

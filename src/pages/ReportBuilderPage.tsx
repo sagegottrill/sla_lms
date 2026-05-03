@@ -66,59 +66,61 @@ export default function ReportBuilderPage() {
       dateRange: form.dateRange,
     };
 
-    api.upsertSavedReport(payload).then((saved) => {
-      if (!saved) {
-        toast.error("Failed to save report. Check Supabase connection/RLS.");
-        return;
-      }
+     api.upsertSavedReport(payload).then((response) => {
+       if (!response.success || !response.data) {
+         toast.error("Failed to save report. Check Supabase connection/RLS.");
+         return;
+       }
 
-      const normalized: ReportConfig = {
-        id: String(saved.id),
-        name: saved.name,
-        metric: saved.metric,
-        dimension: saved.dimension,
-        chartType: saved.chart_type,
-        dateRange: saved.date_range,
-      };
+       const saved = response.data;
+       const normalized: ReportConfig = {
+         id: String(saved.id),
+         name: saved.name,
+         metric: saved.metric,
+         dimension: saved.dimension,
+         chartType: saved.chart_type,
+         dateRange: saved.date_range,
+       };
 
-      setReports((prev) => {
-        const exists = prev.some((r) => r.id === normalized.id);
-        return exists ? prev.map((r) => (r.id === normalized.id ? normalized : r)) : [normalized, ...prev];
-      });
-      toast.success("Report saved!");
-      setEditing(null);
-      setPreview(true);
-    });
+       setReports((prev) => {
+         const exists = prev.some((r) => r.id === normalized.id);
+         return exists ? prev.map((r) => (r.id === normalized.id ? normalized : r)) : [normalized, ...prev];
+       });
+       toast.success("Report saved!");
+       setEditing(null);
+       setPreview(true);
+     });
   };
 
-  const deleteReport = (id: string) => {
-    if (!appUser?.id) return;
-    api.deleteSavedReport(id, appUser.id).then((ok) => {
-      if (!ok) {
-        toast.error("Failed to delete report.");
-        return;
-      }
-      setReports((prev) => prev.filter((r) => r.id !== id));
-      toast.success("Report deleted");
-    });
-  };
+   const deleteReport = (id: string) => {
+     if (!appUser?.id) return;
+     api.deleteSavedReport(id, appUser.id).then((response) => {
+       if (!response.success || !response.data) {
+         toast.error("Failed to delete report.");
+         return;
+       }
+       setReports((prev) => prev.filter((r) => r.id !== id));
+       toast.success("Report deleted");
+     });
+   };
 
-  useEffect(() => {
-    const load = async () => {
-      if (!appUser?.id) return;
-      const rows = await api.getSavedReports(appUser.id);
-      const mapped = (rows as any[]).map((r) => ({
-        id: String(r.id),
-        name: r.name ?? "",
-        metric: r.metric ?? metricOptions[0],
-        dimension: r.dimension ?? dimensionOptions[0],
-        chartType: r.chart_type as "bar" | "line" | "area",
-        dateRange: r.date_range ?? "All time",
-      }));
-      setReports(mapped);
-    };
-    load();
-  }, [appUser?.id]);
+   useEffect(() => {
+     const load = async () => {
+       if (!appUser?.id) return;
+       const response = await api.getSavedReports(appUser.id);
+       const rows = response.success ? response.data || [] : [];
+       const mapped = rows.map((r: any) => ({
+         id: String(r.id),
+         name: r.name ?? "",
+         metric: r.metric ?? metricOptions[0],
+         dimension: r.dimension ?? dimensionOptions[0],
+         chartType: r.chart_type as "bar" | "line" | "area",
+         dateRange: r.date_range ?? "All time",
+       }));
+       setReports(mapped);
+     };
+     load();
+   }, [appUser?.id]);
 
   const previewData = useMemo(() => {
     const totalRevenue = systemStats?.totalRevenue ?? 0;

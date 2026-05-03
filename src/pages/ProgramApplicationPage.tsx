@@ -72,28 +72,28 @@ export default function ProgramApplicationPage() {
 
   const handleSubmit = async () => {
     if (!validateStep() || !program) return;
-    setSubmitting(true);
-    try {
-      const programId = (program as { id: number }).id;
-      const payload = {
-        user_id: user?.id ?? null,
-        program_id: programId,
-        full_name: form.fullName.trim(),
-        phone: form.phone.trim(),
-        email: form.email.trim(),
-        status: "pending" as const,
-      };
-      const result = await api.createProgramApplication(payload);
-      if (!result) {
-        toast.error("Could not submit your application. Please try again.");
-        return;
-      }
-      void queryClient.invalidateQueries({ queryKey: ["program_applications", "pending"] });
-      toast.success("Application submitted for review.");
-    } finally {
-      setSubmitting(false);
-    }
-    setSubmitted(true);
+     setSubmitting(true);
+     try {
+       const programId = (program as { id: number }).id;
+       const payload = {
+         user_id: user?.id ?? null,
+         program_id: programId,
+         full_name: form.fullName.trim(),
+         phone: form.phone.trim(),
+         email: form.email.trim(),
+         status: "pending" as const,
+       };
+       const response = await api.createProgramApplication(payload);
+       if (!response.success || !response.data) {
+         toast.error("Could not submit your application. Please try again.");
+         return;
+       }
+       void queryClient.invalidateQueries({ queryKey: ["program_applications", "pending"] });
+       toast.success("Application submitted for review.");
+     } finally {
+       setSubmitting(false);
+     }
+     setSubmitted(true);
   };
 
   const startRaw = program

@@ -47,34 +47,34 @@ export default function ResumeBuilderPage() {
     }
     let cancelled = false;
     setResumeLoaded(false);
-    (async () => {
-      const raw = await api.getResumeDraft(appUser.id);
-      if (cancelled) return;
-      if (raw && typeof raw === "object") {
-        const d = raw as Record<string, unknown>;
-        const p = d.personal as Record<string, string> | undefined;
-        if (p && typeof p === "object") {
-          setPersonal({
-            fullName: typeof p.fullName === "string" ? p.fullName : appUser.name ?? "",
-            headline: typeof p.headline === "string" ? p.headline : "",
-            email: typeof p.email === "string" ? p.email : appUser.email ?? "",
-            phone: typeof p.phone === "string" ? p.phone : "",
-            location: typeof p.location === "string" ? p.location : "",
-            linkedin: typeof p.linkedin === "string" ? p.linkedin : "",
-            website: typeof p.website === "string" ? p.website : "",
-            summary: typeof p.summary === "string" ? p.summary : "",
-          });
-        }
-        if (Array.isArray(d.skills)) setSkills(d.skills as string[]);
-        if (Array.isArray(d.experience)) setExperience(d.experience as Experience[]);
-        if (Array.isArray(d.education)) setEducation(d.education as Education[]);
-        if (Array.isArray(d.certifications)) setCertifications(d.certifications as string[]);
-        if (d.template === "modern" || d.template === "classic" || d.template === "minimal") {
-          setTemplate(d.template);
-        }
-      }
-      setResumeLoaded(true);
-    })();
+     (async () => {
+       const response = await api.getResumeDraft(appUser.id);
+       if (cancelled) return;
+       if (response.success && response.data && typeof response.data === "object") {
+         const d = response.data as Record<string, unknown>;
+         const p = d.personal as Record<string, string> | undefined;
+         if (p && typeof p === "object") {
+           setPersonal({
+             fullName: typeof p.fullName === "string" ? p.fullName : appUser.name ?? "",
+             headline: typeof p.headline === "string" ? p.headline : "",
+             email: typeof p.email === "string" ? p.email : appUser.email ?? "",
+             phone: typeof p.phone === "string" ? p.phone : "",
+             location: typeof p.location === "string" ? p.location : "",
+             linkedin: typeof p.linkedin === "string" ? p.linkedin : "",
+             website: typeof p.website === "string" ? p.website : "",
+             summary: typeof p.summary === "string" ? p.summary : "",
+           });
+         }
+         if (Array.isArray(d.skills)) setSkills(d.skills as string[]);
+         if (Array.isArray(d.experience)) setExperience(d.experience as Experience[]);
+         if (Array.isArray(d.education)) setEducation(d.education as Education[]);
+         if (Array.isArray(d.certifications)) setCertifications(d.certifications as string[]);
+         if (d.template === "modern" || d.template === "classic" || d.template === "minimal") {
+           setTemplate(d.template);
+         }
+       }
+       setResumeLoaded(true);
+     })();
     return () => {
       cancelled = true;
     };
@@ -86,24 +86,24 @@ export default function ResumeBuilderPage() {
     saveRunRef.current += 1;
     const runId = saveRunRef.current;
     setSaveStatus("saving");
-    const t = setTimeout(async () => {
-      const ok = await api.upsertResumeDraft(appUser.id, {
-        personal,
-        skills,
-        experience,
-        education,
-        certifications,
-        template,
-      });
-      if (runId !== saveRunRef.current) return;
-      if (ok) {
-        setSaveStatus("saved");
-        setTimeout(() => setSaveStatus((s) => (s === "saved" ? "idle" : s)), 2000);
-      } else {
-        setSaveStatus("error");
-        toast.error("Could not save resume draft. Check your connection and try again.");
-      }
-    }, 1400);
+     const t = setTimeout(async () => {
+       const response = await api.upsertResumeDraft(appUser.id, {
+         personal,
+         skills,
+         experience,
+         education,
+         certifications,
+         template,
+       });
+       if (runId !== saveRunRef.current) return;
+       if (response.success) {
+         setSaveStatus("saved");
+         setTimeout(() => setSaveStatus((s) => (s === "saved" ? "idle" : s)), 2000);
+       } else {
+         setSaveStatus("error");
+         toast.error("Could not save resume draft. Check your connection and try again.");
+       }
+     }, 1400);
     return () => clearTimeout(t);
   }, [personal, skills, experience, education, certifications, template, resumeLoaded, appUser?.id]);
 
