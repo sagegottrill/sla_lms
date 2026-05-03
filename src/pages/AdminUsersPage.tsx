@@ -22,6 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { BulkUserImport } from "@/components/admin/BulkUserImport";
 
 type Role = "student" | "instructor" | "program_manager" | "admin";
 
@@ -234,6 +235,9 @@ export default function AdminUsersPage() {
           </>
         }
       />
+
+      {/* Bulk User Import */}
+      <BulkUserImport onComplete={() => refetch()} />
 
       {/* Toolbar: Horizontal Pill Tabs & Search */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">

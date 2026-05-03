@@ -300,3 +300,47 @@ create index if not exists idx_audit_logs_target_id   on public.audit_logs(targe
 create index if not exists idx_payments_user_id    on public.payments(user_id);
 create index if not exists idx_payments_created_at on public.payments(created_at desc);
 create index if not exists idx_payments_status     on public.payments(status);
+
+-- ============================================================
+-- NOTIFICATION PREFERENCES (if not in schema.sql)
+-- ============================================================
+create table if not exists public.notification_preferences (
+  user_id uuid primary key references public.profiles on delete cascade,
+  frequency text not null default 'instant',
+  quiet_start text not null default '22:00',
+  quiet_end text not null default '07:00',
+  prefs jsonb not null default '{}'::jsonb,
+  updated_at timestamptz default now()
+);
+alter table public.notification_preferences enable row level security;
+drop policy if exists "Preferences visible to owner" on public.notification_preferences;
+drop policy if exists "Preferences upsertable by owner" on public.notification_preferences;
+drop policy if exists "Preferences updatable by owner" on public.notification_preferences;
+create policy "Preferences visible to owner" on public.notification_preferences
+  for select using (auth.uid() = user_id);
+create policy "Preferences upsertable by owner" on public.notification_preferences
+  for insert with check (auth.uid() = user_id);
+create policy "Preferences updatable by owner" on public.notification_preferences
+  for update using (auth.uid() = user_id);
+
+-- ============================================================
+-- USER NOTIFICATION STATE (if not in schema.sql)
+-- ============================================================
+create table if not exists public.user_notification_state (
+  user_id uuid references public.profiles on delete cascade not null,
+  notification_key text not null,
+  read boolean not null default false,
+  dismissed boolean not null default false,
+  updated_at timestamptz default now(),
+  primary key (user_id, notification_key)
+);
+alter table public.user_notification_state enable row level security;
+drop policy if exists "Notification state visible to owner" on public.user_notification_state;
+drop policy if exists "Notification state insertable by owner" on public.user_notification_state;
+drop policy if exists "Notification state updatable by owner" on public.user_notification_state;
+create policy "Notification state visible to owner" on public.user_notification_state
+  for select using (auth.uid() = user_id);
+create policy "Notification state insertable by owner" on public.user_notification_state
+  for insert with check (auth.uid() = user_id);
+create policy "Notification state updatable by owner" on public.user_notification_state
+  for update using (auth.uid() = user_id);

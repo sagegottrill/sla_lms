@@ -443,42 +443,42 @@ export const api = {
   // -------------------------
   // ENROLLMENTS
   // -------------------------
-  enrollUser: async (userId: string, courseId: number) => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase
-        .from("enrollments")
-        .insert({ user_id: userId, course_id: courseId, enrolled_at: new Date().toISOString() })
-        .select().single();
-      if (error) { console.error("Supabase enrollUser error:", error.message); return null; }
-      return data;
+  enrollUser: async (userId: string, courseId: number): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
     }
-    return null;
+    const { data, error } = await supabase
+      .from("enrollments")
+      .insert({ user_id: userId, course_id: courseId, enrolled_at: new Date().toISOString() })
+      .select().single();
+    if (error) { console.error("Supabase enrollUser error:", error.message); return { data: null, error: error.message, success: false }; }
+    return { data, error: null, success: true };
   },
 
   /** Program-level cohort membership (no course row; `program_id` set, `course_id` null). */
-  enrollUserInProgram: async (userId: string, programId: number) => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase
-        .from("enrollments")
-        .insert({
-          user_id: userId,
-          program_id: programId,
-          status: "active",
-          progress: 0,
-          enrolled_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-      if (error) {
-        if ((error as { code?: string }).code === "23505") {
-          return { ok: true as const, duplicate: true };
-        }
-        console.error("Supabase enrollUserInProgram error:", error.message);
-        return null;
-      }
-      return data;
+  enrollUserInProgram: async (userId: string, programId: number): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
     }
-    return null;
+    const { data, error } = await supabase
+      .from("enrollments")
+      .insert({
+        user_id: userId,
+        program_id: programId,
+        status: "active",
+        progress: 0,
+        enrolled_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+    if (error) {
+      if ((error as { code?: string }).code === "23505") {
+        return { data: null, error: null, success: true };
+      }
+      console.error("Supabase enrollUserInProgram error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+    return { data, error: null, success: true };
   },
 
   getUserEnrollments: async (userId: string): Promise<ApiResponse<any[]>> => {
@@ -2007,19 +2007,19 @@ export const api = {
   // -------------------------
   // NOTIFICATIONS (Prefs + Read/Dismiss)
   // -------------------------
-  getNotificationPreferences: async (userId: string) => {
-    if (!USE_SUPABASE) return null;
-    if (!userId) return null;
+  getNotificationPreferences: async (userId: string): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    if (!userId) return { data: null, error: null, success: true };
     const { data, error } = await supabase
       .from("notification_preferences")
       .select("*")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
     if (error) {
-      // If no row exists, treat as null (new user)
-      return null;
+      console.error("Supabase getNotificationPreferences error:", error.message);
+      return { data: null, error: error.message, success: false };
     }
-    return data;
+    return { data: data ?? null, error: null, success: true };
   },
 
   upsertNotificationPreferences: async (payload: {
@@ -2028,42 +2028,46 @@ export const api = {
     quietStart?: string;
     quietEnd?: string;
     prefs?: Record<string, any>;
-  }) => {
-    if (!USE_SUPABASE) return null;
-    const { data, error } = await supabase
-      .from("notification_preferences")
-      .upsert(
-        {
-          user_id: payload.userId,
-          frequency: payload.frequency ?? "instant",
-          quiet_start: payload.quietStart ?? "22:00",
-          quiet_end: payload.quietEnd ?? "07:00",
-          prefs: payload.prefs ?? {},
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" }
-      )
-      .select()
-      .single();
-    if (error) {
-      console.error("Supabase upsertNotificationPreferences error:", error.message);
-      return null;
+  }): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    try {
+      const { data, error } = await supabase
+        .from("notification_preferences")
+        .upsert(
+          {
+            user_id: payload.userId,
+            frequency: payload.frequency ?? "instant",
+            quiet_start: payload.quietStart ?? "22:00",
+            quiet_end: payload.quietEnd ?? "07:00",
+            prefs: payload.prefs ?? {},
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        )
+        .select()
+        .single();
+      if (error) {
+        console.error("Supabase upsertNotificationPreferences error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      return { data: data, error: null, success: true };
+    } catch (err: any) {
+      return { data: null, error: err?.message ?? String(err), success: false };
     }
-    return data;
   },
 
-  getUserNotificationState: async (userId: string) => {
-    if (!USE_SUPABASE) return [];
-    if (!userId) return [];
+  getUserNotificationState: async (userId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) return { data: [], error: null, success: true };
+    if (!userId) return { data: [], error: null, success: true };
     const { data, error } = await supabase
       .from("user_notification_state")
       .select("*")
       .eq("user_id", userId);
     if (error) {
       console.error("Supabase getUserNotificationState error:", error.message);
-      return [];
+      return { data: [], error: error.message, success: false };
     }
-    return data ?? [];
+    return { data: data ?? [], error: null, success: true };
   },
 
   upsertUserNotificationState: async (payload: {
@@ -2071,27 +2075,31 @@ export const api = {
     notificationKey: string;
     read?: boolean;
     dismissed?: boolean;
-  }) => {
-    if (!USE_SUPABASE) return null;
-    const { data, error } = await supabase
-      .from("user_notification_state")
-      .upsert(
-        {
-          user_id: payload.userId,
-          notification_key: payload.notificationKey,
-          read: payload.read ?? false,
-          dismissed: payload.dismissed ?? false,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,notification_key" }
-      )
-      .select()
-      .single();
-    if (error) {
-      console.error("Supabase upsertUserNotificationState error:", error.message);
-      return null;
+  }): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    try {
+      const { data, error } = await supabase
+        .from("user_notification_state")
+        .upsert(
+          {
+            user_id: payload.userId,
+            notification_key: payload.notificationKey,
+            read: payload.read ?? false,
+            dismissed: payload.dismissed ?? false,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,notification_key" }
+        )
+        .select()
+        .single();
+      if (error) {
+        console.error("Supabase upsertUserNotificationState error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      return { data: data, error: null, success: true };
+    } catch (err: any) {
+      return { data: null, error: err?.message ?? String(err), success: false };
     }
-    return data;
   },
 
   // -------------------------
@@ -2376,5 +2384,320 @@ export const api = {
       return false;
     }
     return true;
+  },
+
+  // -------------------------
+  // MASQUERADE (Act As User)
+  // -------------------------
+  startMasquerade: async (adminUserId: string, targetUserId: string, reason?: string): Promise<ApiResponse<any>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: "Supabase not configured", success: false };
+    }
+
+    try {
+      // Create masquerade session record
+      const { data: sessionData, error: sessionError } = await supabase
+        .from("masquerade_sessions")
+        .insert({
+          admin_user_id: adminUserId,
+          target_user_id: targetUserId,
+          reason: reason || "Admin debugging",
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (sessionError) {
+        console.error("Supabase startMasquerade error:", sessionError.message);
+        return { data: null, error: sessionError.message, success: false };
+      }
+
+      // Get target user profile
+      const { data: targetProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, name, email, role")
+        .eq("id", targetUserId)
+        .single();
+
+      if (profileError) {
+        console.error("Supabase startMasquerade profile error:", profileError.message);
+        return { data: null, error: profileError.message, success: false };
+      }
+
+      return {
+        data: {
+          session: sessionData,
+          targetUser: targetProfile,
+        },
+        error: null,
+        success: true,
+      };
+    } catch (error: any) {
+      console.error("Supabase startMasquerade error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+  },
+
+  endMasquerade: async (sessionId: string): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) {
+      return { data: false, error: "Supabase not configured", success: false };
+    }
+
+    try {
+      const { error } = await supabase
+        .from("masquerade_sessions")
+        .update({
+          ended_at: new Date().toISOString(),
+          is_active: false,
+        })
+        .eq("id", sessionId);
+
+      if (error) {
+        console.error("Supabase endMasquerade error:", error.message);
+        return { data: false, error: error.message, success: false };
+      }
+
+      return { data: true, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase endMasquerade error:", error.message);
+      return { data: false, error: error.message, success: false };
+    }
+  },
+
+  // -------------------------
+  // SYSTEM HEALTH MONITORING
+  // -------------------------
+  getSystemHealth: async (): Promise<ApiResponse<any>> => {
+    if (!USE_SUPABASE) {
+      return {
+        data: {
+          database: "unknown",
+          storage: "unknown",
+          email: "unknown",
+        },
+        error: null,
+        success: true,
+      };
+    }
+
+    try {
+      const health: any = {
+        database: "healthy",
+        storage: "healthy",
+        email: "healthy",
+        timestamp: new Date().toISOString(),
+      };
+
+      // Test database connection
+      const dbStart = Date.now();
+      const { error: dbError } = await supabase.from("profiles").select("id").limit(1);
+      const dbTime = Date.now() - dbStart;
+
+      if (dbError) {
+        health.database = "down";
+        health.databaseError = dbError.message;
+      } else if (dbTime > 1000) {
+        health.database = "degraded";
+      }
+      health.databaseResponseTime = dbTime;
+
+      // Test storage (check if bucket exists)
+      const storageStart = Date.now();
+      const { error: storageError } = await supabase.storage.from("avatars").list("", { limit: 1 });
+      const storageTime = Date.now() - storageStart;
+
+      if (storageError) {
+        health.storage = "degraded";
+        health.storageError = storageError.message;
+      } else if (storageTime > 2000) {
+        health.storage = "degraded";
+      }
+      health.storageResponseTime = storageTime;
+
+      // Log health check
+      await supabase.from("system_health_logs").insert([
+        {
+          service: "database",
+          status: health.database,
+          response_time_ms: dbTime,
+          error_message: health.databaseError || null,
+        },
+        {
+          service: "storage",
+          status: health.storage,
+          response_time_ms: storageTime,
+          error_message: health.storageError || null,
+        },
+      ]);
+
+      return { data: health, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getSystemHealth error:", error.message);
+      return {
+        data: {
+          database: "down",
+          storage: "down",
+          email: "unknown",
+          error: error.message,
+        },
+        error: error.message,
+        success: false,
+      };
+    }
+  },
+
+  getSystemHealthHistory: async (hours: number = 24): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
+
+    try {
+      const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+      const { data, error } = await supabase
+        .from("system_health_logs")
+        .select("*")
+        .gte("checked_at", since)
+        .order("checked_at", { ascending: false })
+        .limit(1000);
+
+      if (error) {
+        console.error("Supabase getSystemHealthHistory error:", error.message);
+        return { data: [], error: error.message, success: false };
+      }
+
+      return { data: data || [], error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getSystemHealthHistory error:", error.message);
+      return { data: [], error: error.message, success: false };
+    }
+  },
+
+  // -------------------------
+  // USER GROUPS / COHORTS
+  // -------------------------
+  getUserGroups: async (): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: [], success: true };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("user_groups")
+        .select("*, user_group_members(count)")
+        .order("name", { ascending: true });
+
+      if (error) {
+        console.error("Supabase getUserGroups error:", error.message);
+        return { data: [], error: error.message, success: false };
+      }
+
+      return { data: data || [], error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getUserGroups error:", error.message);
+      return { data: [], error: error.message, success: false };
+    }
+  },
+
+  createUserGroup: async (groupData: {
+    name: string;
+    description?: string;
+    group_type?: string;
+  }): Promise<ApiResponse<any>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("user_groups")
+        .insert(groupData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase createUserGroup error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+
+      return { data, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase createUserGroup error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+  },
+
+  addUserToGroup: async (groupId: string, userId: string): Promise<ApiResponse<any>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("user_group_members")
+        .insert({
+          group_id: groupId,
+          user_id: userId,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase addUserToGroup error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+
+      return { data, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase addUserToGroup error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+  },
+
+  removeUserFromGroup: async (groupId: string, userId: string): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) {
+      return { data: false, error: null, success: true };
+    }
+
+    try {
+      const { error } = await supabase
+        .from("user_group_members")
+        .delete()
+        .eq("group_id", groupId)
+        .eq("user_id", userId);
+
+      if (error) {
+        console.error("Supabase removeUserFromGroup error:", error.message);
+        return { data: false, error: error.message, success: false };
+      }
+
+      return { data: true, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase removeUserFromGroup error:", error.message);
+      return { data: false, error: error.message, success: false };
+    }
+  },
+
+  getGroupMembers: async (groupId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("user_group_members")
+        .select("*, profiles(id, name, email, role, avatar_url)")
+        .eq("group_id", groupId);
+
+      if (error) {
+        console.error("Supabase getGroupMembers error:", error.message);
+        return { data: [], error: error.message, success: false };
+      }
+
+      return { data: data || [], error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getGroupMembers error:", error.message);
+      return { data: [], error: error.message, success: false };
+    }
   },
 };

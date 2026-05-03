@@ -12,6 +12,7 @@ import ErrorBoundary from "./components/common/ErrorBoundary";
 import { useAuth } from "./contexts/AuthContext";
 import AuthModal from "./components/AuthModal";
 import { RoleGuard } from "./components/auth/RoleGuard";
+import { MasqueradeBar } from "@/components/admin/MasqueradeBar";
 
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from "@/lib/react-query";
@@ -107,6 +108,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <MasqueradeBar />
           <SmoothScroll>
             <Suspense fallback={<RouteLoadingFallback />}>
               <Routes>

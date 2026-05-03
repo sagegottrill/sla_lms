@@ -13,6 +13,7 @@ import {
   Loader2
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { SystemHealthWidget } from "@/components/admin/SystemHealthWidget";
 
 export default function AdminDashboard() {
   const { data: systemStats, isLoading: loadingStats, refetch } = useSystemStats();
@@ -158,6 +159,9 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
+
+          {/* System Health */}
+          <SystemHealthWidget />
 
           {/* Quick Actions */}
           <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
