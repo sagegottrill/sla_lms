@@ -62,7 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_user_calendar_events_date ON user_calendar_events
 -- Create lessons table if it doesn't exist
 CREATE TABLE IF NOT EXISTS lessons (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   description TEXT,
   content TEXT,
