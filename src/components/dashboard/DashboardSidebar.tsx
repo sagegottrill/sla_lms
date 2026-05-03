@@ -136,23 +136,27 @@ const navByRole: Record<UserRole, NavGroup[]> = {
     {
       group: "Overview",
       items: [
-        { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
+        { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
         { label: "Notifications", icon: Bell, href: "/dashboard/notifications" },
       ],
     },
     {
-      group: "Users & Content",
+      group: "People",
       items: [
-        { label: "Users", icon: Users, href: "/dashboard/users" },
-        { label: "Courses", icon: BookOpen, href: "/dashboard/courses" },
-        { label: "Programs", icon: FolderOpen, href: "/dashboard/programs" },
+        { label: "Users & Roles", icon: Users, href: "/dashboard/users" },
         { label: "Participants", icon: UserCheck, href: "/dashboard/participants" },
-        { label: "User Roles", icon: UserCheck, href: "/dashboard/roles" },
         { label: "Assessments", icon: ListChecks, href: "/dashboard/assessments/setup" },
       ],
     },
     {
-      group: "Engage",
+      group: "Content",
+      items: [
+        { label: "Courses", icon: BookOpen, href: "/dashboard/courses" },
+        { label: "Programs", icon: FolderOpen, href: "/dashboard/programs" },
+      ],
+    },
+    {
+      group: "Engagement",
       items: [
         { label: "Forums", icon: MessageSquare, href: "/dashboard/forums" },
         { label: "Placements", icon: Target, href: "/dashboard/placements" },
@@ -160,22 +164,18 @@ const navByRole: Record<UserRole, NavGroup[]> = {
       ],
     },
     {
-      group: "Revenue & Growth",
+      group: "Business",
       items: [
-        { label: "Analytics", icon: BarChart3, href: "/dashboard/analytics" },
-        { label: "Lead Dashboard", icon: UserCheck, href: "/dashboard/leads" },
-        { label: "Payments", icon: DollarSign, href: "/dashboard/payments" },
-        { label: "Income Tracking", icon: TrendingUp, href: "/dashboard/income" },
-        { label: "Campaigns", icon: Megaphone, href: "/dashboard/campaigns" },
-        { label: "Email Templates", icon: FileText, href: "/dashboard/email-templates" },
-        { label: "Report Builder", icon: ClipboardList, href: "/dashboard/report-builder" },
-        { label: "Issued certificates", icon: Award, href: "/dashboard/certificates" },
+        { label: "Analytics & Reports", icon: BarChart3, href: "/dashboard/analytics" },
+        { label: "Leads & Campaigns", icon: Megaphone, href: "/dashboard/leads" },
+        { label: "Payments & Revenue", icon: DollarSign, href: "/dashboard/payments" },
+        { label: "Certificates", icon: Award, href: "/dashboard/certificates" },
       ],
     },
     {
-      group: "Account",
+      group: "Settings",
       items: [
-        { label: "Settings", icon: Settings, href: "/dashboard/settings" },
+        { label: "Platform Settings", icon: Settings, href: "/dashboard/settings" },
       ],
     },
   ],

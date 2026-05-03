@@ -2,7 +2,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Download, UserPlus, Trash2,
-  Shield, Loader2, X, Check, RefreshCw, ChevronRight, MoreHorizontal
+  Shield, Loader2, X, Check, RefreshCw, ChevronRight, MoreHorizontal, HelpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
@@ -12,10 +12,16 @@ import { FilterChips } from "@/components/dashboard/FilterChips";
 import { PageContainer, PageHeader } from "@/components/common/PageContainer";
 import { DESIGN_TOKENS, ROLE_COLORS } from "@/lib/design-tokens";
 import { cn } from "@/lib/utils";
-import { 
+import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, 
   DropdownMenuItem, DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type Role = "student" | "instructor" | "program_manager" | "admin";
 
@@ -194,10 +200,26 @@ export default function AdminUsersPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="User Management"
+        title={
+          <div className="flex items-center gap-2">
+            Users & Roles
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="text-muted-foreground hover:text-foreground transition-colors">
+                    <HelpCircle className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-xs">Manage staff accounts and permissions. Students are managed under <strong>Participants</strong>.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        }
         subtitle={loading
           ? "Syncing directory..."
-          : `${staffDirectory.length} staff (instructors, program managers, admins). Learners are listed under Participants.`}
+          : `${staffDirectory.length} staff members with role-based access. Learners are managed under Participants.`}
         actions={
           <>
             <Button variant="outline" onClick={handleSync} disabled={syncing} className={DESIGN_TOKENS.buttonOutline}>
@@ -342,7 +364,21 @@ export default function AdminUsersPage() {
                   <p className={cn(DESIGN_TOKENS.pageSubtitle, "text-[10px] mt-1.5")}>Email is controlled by the identity provider.</p>
                 </div>
                 <div>
-                  <label className={DESIGN_TOKENS.formLabel}>System Role</label>
+                  <label className={cn(DESIGN_TOKENS.formLabel, "flex items-center gap-2")}>
+                    System Role
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                            <HelpCircle className="w-3.5 h-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="text-xs"><strong>Instructor:</strong> Create courses, grade students<br/><strong>Program Manager:</strong> Manage cohorts & programs<br/><strong>Admin:</strong> Full platform access</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </label>
                   <div className="relative">
                     <select value={editUser.role} onChange={e => setEditUser({ ...editUser, role: e.target.value as Role })} className={cn(DESIGN_TOKENS.inputForm, "appearance-none cursor-pointer")}>
                       {STAFF_ROLES.map((r) => (
@@ -413,7 +449,21 @@ export default function AdminUsersPage() {
                   </p>
                 </div>
                 <div>
-                  <label className={DESIGN_TOKENS.formLabel}>Assign Role</label>
+                  <label className={cn(DESIGN_TOKENS.formLabel, "flex items-center gap-2")}>
+                    Assign Role
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                            <HelpCircle className="w-3.5 h-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="text-xs">Choose the appropriate role based on responsibilities. Roles can be changed later.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </label>
                   <div className="relative">
                     <select
                       value={newUser.role}
@@ -475,6 +525,59 @@ export default function AdminUsersPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Role Permissions Reference */}
+      <div className={cn(DESIGN_TOKENS.card, "mt-8")}>
+        <div className="p-6 border-b border-border/40">
+          <h2 className="font-display font-semibold text-lg text-foreground">Role Permissions Reference</h2>
+          <p className={cn(DESIGN_TOKENS.pageSubtitle, "mt-1")}>
+            Understanding access levels for each system role
+          </p>
+        </div>
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            {
+              role: "instructor",
+              label: "Instructor",
+              description: "Create and manage course content",
+              permissions: ["Create & publish courses", "View enrolled students", "Grade submissions", "Access earnings dashboard"],
+              color: "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300"
+            },
+            {
+              role: "program_manager",
+              label: "Program Manager",
+              description: "Manage cohort-based programs",
+              permissions: ["Create & manage programs", "Enroll participants", "Track progress & reports", "Send bulk notifications"],
+              color: "bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300"
+            },
+            {
+              role: "admin",
+              label: "Administrator",
+              description: "Full platform access",
+              permissions: ["All platform access", "User management & roles", "Course & program approval", "Payment dashboard", "System configuration"],
+              color: "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300"
+            },
+          ].map((roleInfo) => (
+            <div key={roleInfo.role} className="bg-muted/20 rounded-xl p-4 ring-1 ring-black/5 dark:ring-white/10 border-0">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="w-4 h-4 text-muted-foreground" />
+                <span className={cn(DESIGN_TOKENS.badge, "capitalize", roleInfo.color)}>
+                  {roleInfo.label}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">{roleInfo.description}</p>
+              <div className="space-y-1.5">
+                {roleInfo.permissions.map((perm) => (
+                  <div key={perm} className="flex items-start gap-2 text-xs">
+                    <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
+                    <span className="text-foreground/80">{perm}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </PageContainer>
   );
 }

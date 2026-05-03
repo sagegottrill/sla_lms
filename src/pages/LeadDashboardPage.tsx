@@ -1,10 +1,16 @@
 ﻿import { useState } from "react";
-import { Users, Target, Mail, TrendingUp, Plus, Trash2, Loader2, CheckCircle2, Clock, XCircle, ArrowUpRight } from "lucide-react";
+import { Users, Target, Mail, TrendingUp, Plus, Trash2, Loader2, CheckCircle2, Clock, XCircle, ArrowUpRight, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLeadCaptures, useUpdateLeadMutation, useDeleteLeadMutation } from "@/hooks/useQueries";
 import { api } from "@/services/api";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const statusConfig: Record<string, { label: string; bg: string; icon: React.ElementType }> = {
   new:       { label: "New",       bg: "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400",       icon: Mail },
@@ -96,7 +102,21 @@ export default function LeadDashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-6 mb-8">
         <div>
-          <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">Lead Conversion</h1>
+          <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2 flex items-center gap-2">
+            Leads & Campaigns
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="text-muted-foreground hover:text-foreground transition-colors">
+                    <HelpCircle className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-xs">Track lead acquisition, conversion funnel, and campaign performance. Manage leads through their journey from capture to enrollment.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </h1>
           <p className="text-muted-foreground text-sm">
             {isLoading ? "Syncing leads…" : `Tracking ${allLeads.length} total leads across all sources.`}
           </p>

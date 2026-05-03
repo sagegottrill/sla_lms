@@ -1,9 +1,15 @@
 ﻿import { useMemo, useState } from "react";
-import { Download, CreditCard, Filter, ArrowUpRight, CheckCircle2 } from "lucide-react";
+import { Download, CreditCard, Filter, ArrowUpRight, CheckCircle2, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSystemStats } from "@/hooks/useQueries";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function PaymentsPage() {
   const [filter, setFilter] = useState("All");
@@ -54,7 +60,21 @@ export default function PaymentsPage() {
       {/* Header — Spacious and Clean */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-6 mb-8">
         <div>
-          <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">Revenue & Transactions</h1>
+          <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2 flex items-center gap-2">
+            Payments & Revenue
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="text-muted-foreground hover:text-foreground transition-colors">
+                    <HelpCircle className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-xs">Monitor all platform transactions, revenue trends, and payment status. Export financial data for accounting and reporting.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </h1>
           <p className="text-muted-foreground text-sm">
             {isLoading ? "Syncing revenue…" : "Revenue overview from your Supabase payments data."}
           </p>

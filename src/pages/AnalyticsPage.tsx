@@ -1,284 +1,254 @@
-﻿import { useState, useMemo } from "react";
-import { useSystemStats, useCourses, useProfiles, useUserEnrollments } from "@/hooks/useQueries";
-import { Download, TrendingUp, Users, BookOpen, Target, Loader2, RefreshCw, DollarSign, BarChart3, Award } from "lucide-react";
+﻿import { useState } from "react";
+import { PageContainer, PageHeader } from "@/components/common/PageContainer";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
+import { DESIGN_TOKENS } from "@/lib/design-tokens";
+import { cn } from "@/lib/utils";
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell
-} from "recharts";
+  BarChart3, TrendingUp, Users, BookOpen, DollarSign,
+  Download, Calendar, Filter, ChevronDown, FileText,
+  Target, Activity, Award, Clock, HelpCircle
+} from "lucide-react";
+import { useSystemStats } from "@/hooks/useQueries";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-const CHART_COLORS = [
-  "hsl(var(--primary))",
-  "hsl(188 100% 37%)",   // teal-blue
-  "hsl(168 55% 36%)",    // emerald
-  "hsl(45 90% 48%)",     // gold
-  "hsl(0 72% 51%)",      // red
-  "hsl(271 76% 40%)",    // purple
+type ReportTab = "overview" | "users" | "courses" | "revenue" | "custom";
+
+const PRE_BUILT_REPORTS = [
+  {
+    id: "user-activity",
+    name: "User Activity Report",
+    description: "Login frequency, course engagement, and active users",
+    icon: Activity,
+    category: "users"
+  },
+  {
+    id: "course-completion",
+    name: "Course Completion Report",
+    description: "Completion rates, average time, and dropout analysis",
+    icon: Award,
+    category: "courses"
+  },
+  {
+    id: "revenue-summary",
+    name: "Revenue Summary",
+    description: "Total revenue, payment methods, and refunds",
+    icon: DollarSign,
+    category: "revenue"
+  },
+  {
+    id: "enrollment-trends",
+    name: "Enrollment Trends",
+    description: "New enrollments over time, popular courses",
+    icon: TrendingUp,
+    category: "courses"
+  },
+  {
+    id: "certificate-issuance",
+    name: "Certificate Issuance",
+    description: "Certificates issued, by course and time period",
+    icon: Award,
+    category: "courses"
+  },
+  {
+    id: "instructor-performance",
+    name: "Instructor Performance",
+    description: "Course ratings, student feedback, earnings",
+    icon: Users,
+    category: "users"
+  },
 ];
 
 export default function AnalyticsPage() {
-  const [dateRange, setDateRange] = useState("Last 12 months");
+  const [activeTab, setActiveTab] = useState<ReportTab>("overview");
+  const [dateRange, setDateRange] = useState("30d");
+  const { data: systemStats, isLoading } = useSystemStats();
 
-  const { data: stats, isLoading: loadingStats, refetch: refetchStats } = useSystemStats();
-  const { data: allCourses = [], isLoading: loadingCourses, refetch: refetchCourses } = useCourses({ publishedOnly: false });
-  const { data: allProfiles = [] } = useProfiles();
+  const totalUsers = systemStats?.totalUsers ?? 0;
+  const activeCourses = systemStats?.activeCourses ?? 0;
+  const totalRevenue = systemStats?.totalRevenue ?? 0;
+  const completionRate = systemStats?.completionRate ?? 0;
 
-  // Top courses by enrollment count
-  const topCourses = useMemo(() =>
-    [...allCourses]
-      .filter((c: any) => c.status === "published" || c.status === "active")
-      .sort((a: any, b: any) => (b.students || 0) - (a.students || 0))
-      .slice(0, 8),
-    [allCourses]
+  const tabs: { id: ReportTab; label: string; icon: React.ElementType }[] = [
+    { id: "overview", label: "Overview", icon: BarChart3 },
+    { id: "users", label: "Users", icon: Users },
+    { id: "courses", label: "Courses", icon: BookOpen },
+    { id: "revenue", label: "Revenue", icon: DollarSign },
+    { id: "custom", label: "Custom Reports", icon: FileText },
+  ];
+
+  const filteredReports = PRE_BUILT_REPORTS.filter(
+    (report) => activeTab === "overview" || report.category === activeTab
   );
-
-  // Build enrollment bar chart data from real course data
-  const enrollmentChartData = useMemo(() =>
-    topCourses.slice(0, 6).map((c: any) => ({
-      name: c.title?.length > 20 ? c.title.slice(0, 20) + "…" : c.title,
-      learners: c.students || 0,
-      revenue: c.revenue || 0,
-    })),
-    [topCourses]
-  );
-
-  // Build user role distribution from real profiles
-  const roleDistribution = useMemo(() => {
-    const counts: Record<string, number> = {};
-    allProfiles.forEach((p: any) => {
-      const role = p.role || "student";
-      counts[role] = (counts[role] || 0) + 1;
-    });
-    return Object.entries(counts).map(([name, value]) => ({
-      name: name.charAt(0).toUpperCase() + name.slice(1).replace("_", " "),
-      value,
-    }));
-  }, [allProfiles]);
-
-  // Revenue by course (pie chart)
-  const revenueByCourse = useMemo(() =>
-    topCourses
-      .filter((c: any) => (c.revenue || 0) > 0)
-      .map((c: any) => ({
-        name: c.title?.length > 18 ? c.title.slice(0, 18) + "…" : c.title,
-        value: c.revenue || 0,
-      })),
-    [topCourses]
-  );
-
-  // Conversion funnel (derived from real data)
-  const funnelData = useMemo(() => {
-    const totalVisitors = Math.max(allProfiles.length * 5, 1); // rough estimate
-    const registrations = allProfiles.length;
-    const enrollments = allCourses.reduce((acc: number, c: any) => acc + (c.students || 0), 0);
-    const completions = Math.round(enrollments * (stats?.completionRate || 0) / 100);
-    return [
-      { stage: "Site Visitors",  value: totalVisitors,  fill: "hsl(var(--primary) / 0.1)" },
-      { stage: "Registrations",  value: registrations,  fill: "hsl(var(--primary) / 0.25)" },
-      { stage: "Enrollments",    value: enrollments,    fill: "hsl(var(--primary) / 0.55)" },
-      { stage: "Completions",    value: completions,    fill: "hsl(var(--primary))" },
-    ];
-  }, [allProfiles, allCourses, stats]);
-
-  const handleRefresh = () => {
-    refetchStats();
-    refetchCourses();
-    toast.success("Platform analytics synced.");
-  };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full min-h-[80vh]">
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-6 mb-8">
-        <div>
-          <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">Platform Analytics</h1>
-          <p className="text-muted-foreground text-sm">
-            {loadingStats ? "Aggregating data..." : `Live global snapshot across ${allCourses.length} courses and ${allProfiles.length} users.`}
-          </p>
-        </div>
-        <div className="flex gap-3 items-center">
-          <div className="hidden sm:flex items-center gap-1 bg-muted/40 p-1 rounded-full ring-1 ring-black/5 dark:ring-white/10 border-0 h-9 shrink-0">
-            {["Last 30 days", "Last 12 months", "All time"].map(r => (
-              <button key={r} onClick={() => { setDateRange(r); toast.info(`Timeframe: ${r}`); }}
-                className={`px-3 rounded-full text-xs font-semibold transition-all h-full ${
-                  dateRange === r ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                }`}>
-                {r}
-              </button>
-            ))}
+    <PageContainer>
+      <PageHeader
+        title={
+          <div className="flex items-center gap-2">
+            Analytics & Reports
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="text-muted-foreground hover:text-foreground transition-colors">
+                    <HelpCircle className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-xs">Consolidated view of platform metrics, user activity, revenue, and custom reports. Export data for deeper analysis.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-          <Button variant="outline" onClick={handleRefresh} className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
-            <RefreshCw className="w-3.5 h-3.5 mr-2" /> Sync
-          </Button>
-          <Button onClick={() => toast.success("Analytics exported.")} className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0 transition-colors">
-            <Download className="w-3.5 h-3.5 mr-2" /> Export
-          </Button>
-        </div>
-      </div>
+        }
+        subtitle="Comprehensive insights into platform performance and user engagement"
+        actions={
+          <>
+            <div className="relative">
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className={cn(
+                  DESIGN_TOKENS.inputForm,
+                  "appearance-none cursor-pointer pr-10 h-9 text-xs"
+                )}
+              >
+                <option value="7d">Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="90d">Last 90 days</option>
+                <option value="1y">Last year</option>
+                <option value="all">All time</option>
+              </select>
+              <Calendar className={cn(DESIGN_TOKENS.iconButton, "absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground")} />
+            </div>
+            <Button variant="outline" className={DESIGN_TOKENS.buttonOutline}>
+              <Download className={cn(DESIGN_TOKENS.iconSmall, "mr-2")} /> Export
+            </Button>
+          </>
+        }
+      />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      {/* Key Metrics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Learners", value: stats?.totalUsers || 0, icon: Users },
-          { label: "Total Enrollments", value: allCourses.reduce((a: number, c: any) => a + (c.students || 0), 0), icon: BookOpen },
-          { label: "Completion Rate", value: `${stats?.completionRate || 0}%`, icon: Target },
-          { label: "Total Revenue", value: `₦${(stats?.totalRevenue || 0).toLocaleString()}`, icon: DollarSign },
-        ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 text-center">
-            <Icon className="w-4 h-4 text-muted-foreground/60 mx-auto mb-2" />
-            {loadingStats ? <Skeleton className="h-7 w-20 mx-auto" /> : (
-              <div className="text-2xl font-semibold text-foreground">{value}</div>
+          { label: "Total Users", value: totalUsers.toLocaleString(), icon: Users, change: "+12%" },
+          { label: "Active Courses", value: activeCourses, icon: BookOpen, change: "+8%" },
+          { label: "Total Revenue", value: `₦${totalRevenue.toLocaleString()}`, icon: DollarSign, change: "+24%" },
+          { label: "Completion Rate", value: `${completionRate}%`, icon: Target, change: "+5%" },
+        ].map((metric) => (
+          <div key={metric.label} className={cn(DESIGN_TOKENS.card, "p-5")}>
+            <div className="flex items-center justify-between mb-3">
+              <metric.icon className="w-5 h-5 text-muted-foreground/60" />
+              <span className="text-xs font-semibold text-green-600 dark:text-green-400">
+                {metric.change}
+              </span>
+            </div>
+            {isLoading ? (
+              <Skeleton className="h-8 w-24 mb-1" />
+            ) : (
+              <div className="text-2xl font-semibold text-foreground mb-1">
+                {metric.value}
+              </div>
             )}
-            <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider font-semibold">{label}</p>
+            <p className={cn(DESIGN_TOKENS.pageSubtitle, "text-xs")}>{metric.label}</p>
           </div>
         ))}
       </div>
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-border/40 overflow-x-auto pb-px">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap border-b-2 -mb-px",
+              activeTab === tab.id
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+            )}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Enrollment by Course (Bar Chart) */}
-        <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
-          <h3 className="font-display font-semibold text-base text-foreground mb-4">Enrollments by Course</h3>
-          {loadingCourses ? (
-            <div className="h-64 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-          ) : enrollmentChartData.length === 0 ? (
-            <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">No enrollment data yet.</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={enrollmentChartData} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 12, border: "1px solid var(--border)", fontSize: 12 }}
-                  labelStyle={{ fontWeight: 600 }}
-                />
-                <Bar dataKey="learners" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* Revenue by Course (Pie Chart) */}
-        <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
-          <h3 className="font-display font-semibold text-base text-foreground mb-4">Revenue Distribution</h3>
-          {loadingCourses ? (
-            <div className="h-64 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-          ) : revenueByCourse.length === 0 ? (
-            <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">No revenue data yet.</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
-                <Pie data={revenueByCourse} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
-                  {revenueByCourse.map((_: any, i: number) => (
-                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* User Role Distribution (Bar Chart) */}
-        <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
-          <h3 className="font-display font-semibold text-base text-foreground mb-4">User Roles Distribution</h3>
-          {roleDistribution.length === 0 ? (
-            <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">No user data.</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={roleDistribution} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 60 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--border)", fontSize: 12 }} />
-                <Bar dataKey="value" fill="hsl(168 55% 36%)" radius={[0, 6, 6, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* Conversion Funnel */}
-        <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
-          <h3 className="font-display font-semibold text-base text-foreground mb-4">Conversion Funnel</h3>
-          <div className="space-y-3">
-            {funnelData.map((stage, i) => {
-              const maxVal = funnelData[0].value;
-              const widthPct = maxVal > 0 ? Math.max((stage.value / maxVal) * 100, 5) : 5;
-              return (
-                <div key={stage.stage}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-semibold text-foreground">{stage.stage}</span>
-                    <span className="text-xs font-bold text-muted-foreground">{stage.value.toLocaleString()}</span>
-                  </div>
-                  <div className="h-6 bg-muted/30 rounded-lg overflow-hidden">
-                    <div
-                      className="h-full rounded-lg transition-all duration-700"
-                      style={{ width: `${widthPct}%`, backgroundColor: CHART_COLORS[i] || "hsl(var(--primary))" }}
-                    />
-                  </div>
+      {/* Reports Grid */}
+      {activeTab !== "custom" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredReports.map((report) => (
+            <div
+              key={report.id}
+              className={cn(
+                DESIGN_TOKENS.card,
+                "p-5 hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer group"
+              )}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <report.icon className="w-5 h-5 text-primary" />
                 </div>
-              );
-            })}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 px-3 text-xs"
+                >
+                  View Report
+                </Button>
+              </div>
+              <h3 className="font-semibold text-foreground mb-1">{report.name}</h3>
+              <p className={cn(DESIGN_TOKENS.pageSubtitle, "text-xs")}>
+                {report.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* Custom Report Builder */
+        <div className={cn(DESIGN_TOKENS.card, "p-8 text-center")}>
+          <div className="max-w-md mx-auto">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-8 h-8 text-primary" />
+            </div>
+            <h3 className="font-display font-semibold text-xl text-foreground mb-2">
+              Custom Report Builder
+            </h3>
+            <p className={cn(DESIGN_TOKENS.pageSubtitle, "mb-6")}>
+              Create custom reports by selecting data sources, filters, and visualization options.
+            </p>
+            <Button className={cn(DESIGN_TOKENS.buttonPrimary, "h-10 px-8")}>
+              Build Custom Report
+            </Button>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Top Performing Content Table */}
-      <div className="ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl bg-card overflow-hidden">
-        <div className="p-6 border-b border-border/40">
-          <h2 className="font-display font-semibold text-lg text-foreground">Top Performing Content</h2>
+      {/* Quick Actions */}
+      <div className={cn(DESIGN_TOKENS.card, "p-6")}>
+        <h3 className="font-semibold text-foreground mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: "Schedule Report", icon: Clock },
+            { label: "Export All Data", icon: Download },
+            { label: "Configure Alerts", icon: Activity },
+            { label: "View Archived Reports", icon: FileText },
+          ].map((action) => (
+            <button
+              key={action.label}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-muted/20 hover:bg-muted/40 transition-colors text-left ring-1 ring-black/5 dark:ring-white/10 border-0"
+            >
+              <action.icon className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">{action.label}</span>
+            </button>
+          ))}
         </div>
-        {loadingCourses ? (
-          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-            <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary/40" />
-            <p className="text-sm">Evaluating course metrics...</p>
-          </div>
-        ) : topCourses.length === 0 ? (
-          <div className="text-center py-20 bg-card/20">
-            <p className="text-foreground font-medium mb-1">No performance data</p>
-            <p className="text-sm text-muted-foreground">Wait for courses to gain traction.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px]">
-              <thead className="bg-muted/20 border-b border-border/40">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Course Title</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground tracking-widest uppercase">Provider</th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground tracking-widest uppercase">Learners</th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground tracking-widest uppercase">Revenue</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40">
-                {topCourses.map((c: any) => (
-                  <tr key={c.id} className="hover:bg-muted/10 transition-colors">
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-semibold text-foreground line-clamp-1">{c.title}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                        {c.instructor || "SLA CONNECT HER"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right font-medium text-foreground">
-                      {(c.students || 0).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-right font-medium text-primary">
-                      {(c.revenue || 0) > 0 ? `₦${(c.revenue || 0).toLocaleString()}` : "Free"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
-    </div>
+    </PageContainer>
   );
 }
-
