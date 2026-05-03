@@ -153,6 +153,13 @@ CREATE POLICY "Custom roles manageable by admins"
       WHERE profiles.id = auth.uid()
       AND profiles.role = 'admin'
     )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
   );
 
 -- User Custom Roles: Users can view their own, admins can manage all
@@ -166,6 +173,13 @@ CREATE POLICY "Admins can manage all custom role assignments"
   ON user_custom_roles FOR ALL
   TO authenticated
   USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  )
+  WITH CHECK (
     EXISTS (
       SELECT 1 FROM profiles
       WHERE profiles.id = auth.uid()
@@ -195,6 +209,13 @@ CREATE POLICY "User groups manageable by admins and program managers"
       WHERE profiles.id = auth.uid()
       AND profiles.role IN ('admin', 'program_manager')
     )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role IN ('admin', 'program_manager')
+    )
   );
 
 -- User Group Members: Same as user groups
@@ -219,6 +240,13 @@ CREATE POLICY "User group members manageable by admins and program managers"
       WHERE profiles.id = auth.uid()
       AND profiles.role IN ('admin', 'program_manager')
     )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role IN ('admin', 'program_manager')
+    )
   );
 
 -- System Health Logs: Admins only
@@ -237,7 +265,7 @@ CREATE POLICY "System health logs readable by admins"
 CREATE POLICY "System health logs insertable by service role"
   ON system_health_logs FOR INSERT
   TO authenticated
-  USING (true);
+  WITH CHECK (true);
 
 -- Masquerade Sessions: Admins only
 ALTER TABLE masquerade_sessions ENABLE ROW LEVEL SECURITY;
@@ -245,6 +273,13 @@ CREATE POLICY "Masquerade sessions manageable by admins"
   ON masquerade_sessions FOR ALL
   TO authenticated
   USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  )
+  WITH CHECK (
     EXISTS (
       SELECT 1 FROM profiles
       WHERE profiles.id = auth.uid()
