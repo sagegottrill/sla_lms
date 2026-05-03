@@ -322,6 +322,15 @@ CREATE POLICY "Instructors can update submissions for their courses"
 -- 7. HELPER FUNCTIONS & TRIGGERS
 -- ============================================================================
 
+-- Create update_updated_at_column function if it doesn't exist
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Trigger for global_announcements updated_at
 DROP TRIGGER IF EXISTS update_global_announcements_updated_at ON global_announcements;
 CREATE TRIGGER update_global_announcements_updated_at
