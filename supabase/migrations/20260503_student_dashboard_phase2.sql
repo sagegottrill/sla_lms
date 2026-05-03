@@ -57,7 +57,41 @@ CREATE INDEX IF NOT EXISTS idx_user_calendar_events_user_id ON user_calendar_eve
 CREATE INDEX IF NOT EXISTS idx_user_calendar_events_date ON user_calendar_events(event_date);
 
 -- ============================================================================
--- 4. SUBMISSIONS TABLE (for feedback tracking)
+-- 4. LESSONS TABLE (MUST BE BEFORE SUBMISSIONS)
+-- ============================================================================
+-- Create lessons table if it doesn't exist
+CREATE TABLE IF NOT EXISTS lessons (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  content TEXT,
+  type TEXT CHECK (type IN ('lesson', 'assignment', 'quiz', 'video', 'reading')) DEFAULT 'lesson',
+  order_index INTEGER DEFAULT 0,
+  duration_minutes INTEGER,
+  due_date TIMESTAMP WITH TIME ZONE,
+  reminder_date TIMESTAMP WITH TIME ZONE,
+  published BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Add columns if table already exists
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'lessons') THEN
+    ALTER TABLE lessons 
+      ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE,
+      ADD COLUMN IF NOT EXISTS reminder_date TIMESTAMP WITH TIME ZONE;
+  END IF;
+END $$;
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_lessons_course_id ON lessons(course_id);
+CREATE INDEX IF NOT EXISTS idx_lessons_due_date ON lessons(due_date) WHERE due_date IS NOT NULL;
+
+-- ============================================================================
+-- 5. SUBMISSIONS TABLE (AFTER LESSONS)
 -- ============================================================================
 -- Create submissions table if it doesn't exist
 CREATE TABLE IF NOT EXISTS submissions (
@@ -92,87 +126,97 @@ CREATE INDEX IF NOT EXISTS idx_submissions_user_id ON submissions(user_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_lesson_id ON submissions(lesson_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_graded ON submissions(graded_at) WHERE graded_at IS NOT NULL;
 
--- Enable RLS
+-- ============================================================================
+-- 6. RLS POLICIES
+-- ============================================================================
+
+-- Enable RLS on all tables
+ALTER TABLE global_announcements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dismissed_announcements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_calendar_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lessons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for submissions (drop first to avoid conflicts)
-DROP POLICY IF EXISTS "Users can view their own submissions" ON submissions;
-CREATE POLICY "Users can view their own submissions"
-  ON submissions FOR SELECT
+-- Global Announcements Policies
+DROP POLICY IF EXISTS "Everyone can view active global announcements" ON global_announcements;
+CREATE POLICY "Everyone can view active global announcements"
+  ON global_announcements FOR SELECT
+  USING (
+    start_date <= NOW() AND 
+    (end_date IS NULL OR end_date > NOW())
+  );
+
+DROP POLICY IF EXISTS "Admins can insert global announcements" ON global_announcements;
+CREATE POLICY "Admins can insert global announcements"
+  ON global_announcements FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.role = 'admin'
+    )
+  );
+
+DROP POLICY IF EXISTS "Admins can update global announcements" ON global_announcements;
+CREATE POLICY "Admins can update global announcements"
+  ON global_announcements FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.role = 'admin'
+    )
+  );
+
+DROP POLICY IF EXISTS "Admins can delete global announcements" ON global_announcements;
+CREATE POLICY "Admins can delete global announcements"
+  ON global_announcements FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.role = 'admin'
+    )
+  );
+
+-- Dismissed Announcements Policies
+DROP POLICY IF EXISTS "Users can view their own dismissed announcements" ON dismissed_announcements;
+CREATE POLICY "Users can view their own dismissed announcements"
+  ON dismissed_announcements FOR SELECT
   USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Users can insert their own submissions" ON submissions;
-CREATE POLICY "Users can insert their own submissions"
-  ON submissions FOR INSERT
+DROP POLICY IF EXISTS "Users can insert their own dismissed announcements" ON dismissed_announcements;
+CREATE POLICY "Users can insert their own dismissed announcements"
+  ON dismissed_announcements FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Users can update their own submissions" ON submissions;
-CREATE POLICY "Users can update their own submissions"
-  ON submissions FOR UPDATE
+DROP POLICY IF EXISTS "Users can delete their own dismissed announcements" ON dismissed_announcements;
+CREATE POLICY "Users can delete their own dismissed announcements"
+  ON dismissed_announcements FOR DELETE
   USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Instructors can view submissions for their courses" ON submissions;
-CREATE POLICY "Instructors can view submissions for their courses"
-  ON submissions FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM lessons l
-      JOIN courses c ON l.course_id = c.id
-      WHERE l.id = submissions.lesson_id
-      AND c.instructor_id = auth.uid()
-    )
-  );
+-- User Calendar Events Policies
+DROP POLICY IF EXISTS "Users can view their own calendar events" ON user_calendar_events;
+CREATE POLICY "Users can view their own calendar events"
+  ON user_calendar_events FOR SELECT
+  USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Instructors can update submissions for their courses" ON submissions;
-CREATE POLICY "Instructors can update submissions for their courses"
-  ON submissions FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM lessons l
-      JOIN courses c ON l.course_id = c.id
-      WHERE l.id = submissions.lesson_id
-      AND c.instructor_id = auth.uid()
-    )
-  );
+DROP POLICY IF EXISTS "Users can insert their own calendar events" ON user_calendar_events;
+CREATE POLICY "Users can insert their own calendar events"
+  ON user_calendar_events FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
 
--- ============================================================================
--- 5. LESSONS TABLE (for calendar integration)
--- ============================================================================
--- Create lessons table if it doesn't exist
-CREATE TABLE IF NOT EXISTS lessons (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  description TEXT,
-  content TEXT,
-  type TEXT CHECK (type IN ('lesson', 'assignment', 'quiz', 'video', 'reading')) DEFAULT 'lesson',
-  order_index INTEGER DEFAULT 0,
-  duration_minutes INTEGER,
-  due_date TIMESTAMP WITH TIME ZONE,
-  reminder_date TIMESTAMP WITH TIME ZONE,
-  published BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+DROP POLICY IF EXISTS "Users can update their own calendar events" ON user_calendar_events;
+CREATE POLICY "Users can update their own calendar events"
+  ON user_calendar_events FOR UPDATE
+  USING (auth.uid() = user_id);
 
--- Add columns if table already exists
-DO $$ 
-BEGIN
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'lessons') THEN
-    ALTER TABLE lessons 
-      ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE,
-      ADD COLUMN IF NOT EXISTS reminder_date TIMESTAMP WITH TIME ZONE;
-  END IF;
-END $$;
+DROP POLICY IF EXISTS "Users can delete their own calendar events" ON user_calendar_events;
+CREATE POLICY "Users can delete their own calendar events"
+  ON user_calendar_events FOR DELETE
+  USING (auth.uid() = user_id);
 
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_lessons_course_id ON lessons(course_id);
-CREATE INDEX IF NOT EXISTS idx_lessons_due_date ON lessons(due_date) WHERE due_date IS NOT NULL;
-
--- Enable RLS
-ALTER TABLE lessons ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies for lessons (drop first to avoid conflicts)
+-- Lessons Policies
 DROP POLICY IF EXISTS "Everyone can view published lessons" ON lessons;
 CREATE POLICY "Everyone can view published lessons"
   ON lessons FOR SELECT
@@ -234,94 +278,59 @@ CREATE POLICY "Enrolled students can view published lessons"
     )
   );
 
--- ============================================================================
--- 6. RLS POLICIES
--- ============================================================================
-
--- Enable RLS
-ALTER TABLE global_announcements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE dismissed_announcements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_calendar_events ENABLE ROW LEVEL SECURITY;
-
--- Global Announcements Policies (everyone can read active announcements)
-CREATE POLICY "Everyone can view active global announcements"
-  ON global_announcements FOR SELECT
-  USING (
-    start_date <= NOW() AND 
-    (end_date IS NULL OR end_date > NOW())
-  );
-
-CREATE POLICY "Admins can insert global announcements"
-  ON global_announcements FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'admin'
-    )
-  );
-
-CREATE POLICY "Admins can update global announcements"
-  ON global_announcements FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'admin'
-    )
-  );
-
-CREATE POLICY "Admins can delete global announcements"
-  ON global_announcements FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'admin'
-    )
-  );
-
--- Dismissed Announcements Policies
-CREATE POLICY "Users can view their own dismissed announcements"
-  ON dismissed_announcements FOR SELECT
+-- Submissions Policies
+DROP POLICY IF EXISTS "Users can view their own submissions" ON submissions;
+CREATE POLICY "Users can view their own submissions"
+  ON submissions FOR SELECT
   USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert their own dismissed announcements"
-  ON dismissed_announcements FOR INSERT
+DROP POLICY IF EXISTS "Users can insert their own submissions" ON submissions;
+CREATE POLICY "Users can insert their own submissions"
+  ON submissions FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can delete their own dismissed announcements"
-  ON dismissed_announcements FOR DELETE
+DROP POLICY IF EXISTS "Users can update their own submissions" ON submissions;
+CREATE POLICY "Users can update their own submissions"
+  ON submissions FOR UPDATE
   USING (auth.uid() = user_id);
 
--- User Calendar Events Policies
-CREATE POLICY "Users can view their own calendar events"
-  ON user_calendar_events FOR SELECT
-  USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Instructors can view submissions for their courses" ON submissions;
+CREATE POLICY "Instructors can view submissions for their courses"
+  ON submissions FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM lessons l
+      JOIN courses c ON l.course_id = c.id
+      WHERE l.id = submissions.lesson_id
+      AND c.instructor_id = auth.uid()
+    )
+  );
 
-CREATE POLICY "Users can insert their own calendar events"
-  ON user_calendar_events FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own calendar events"
-  ON user_calendar_events FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own calendar events"
-  ON user_calendar_events FOR DELETE
-  USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Instructors can update submissions for their courses" ON submissions;
+CREATE POLICY "Instructors can update submissions for their courses"
+  ON submissions FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM lessons l
+      JOIN courses c ON l.course_id = c.id
+      WHERE l.id = submissions.lesson_id
+      AND c.instructor_id = auth.uid()
+    )
+  );
 
 -- ============================================================================
--- 7. HELPER FUNCTIONS
+-- 7. HELPER FUNCTIONS & TRIGGERS
 -- ============================================================================
 
 -- Trigger for global_announcements updated_at
+DROP TRIGGER IF EXISTS update_global_announcements_updated_at ON global_announcements;
 CREATE TRIGGER update_global_announcements_updated_at
   BEFORE UPDATE ON global_announcements
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Trigger for user_calendar_events updated_at
+DROP TRIGGER IF EXISTS update_user_calendar_events_updated_at ON user_calendar_events;
 CREATE TRIGGER update_user_calendar_events_updated_at
   BEFORE UPDATE ON user_calendar_events
   FOR EACH ROW
@@ -362,6 +371,8 @@ GRANT SELECT ON student_recent_feedback TO authenticated;
 COMMENT ON TABLE global_announcements IS 'Institution-wide announcements visible to all users';
 COMMENT ON TABLE dismissed_announcements IS 'Tracks which users have dismissed which announcements';
 COMMENT ON TABLE user_calendar_events IS 'Personal calendar events created by users';
+COMMENT ON TABLE lessons IS 'Course lessons, assignments, quizzes, and other learning content';
+COMMENT ON TABLE submissions IS 'Student submissions for lessons and assignments';
 COMMENT ON VIEW student_recent_feedback IS 'View for easily querying recent graded submissions with feedback';
 
 COMMENT ON COLUMN submissions.feedback_viewed IS 'Whether the student has viewed the feedback';
