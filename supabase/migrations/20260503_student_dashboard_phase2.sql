@@ -17,10 +17,9 @@ CREATE TABLE IF NOT EXISTS global_announcements (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Index for active announcements
-CREATE INDEX IF NOT EXISTS idx_global_announcements_active 
-  ON global_announcements(start_date, end_date) 
-  WHERE end_date IS NULL OR end_date > NOW();
+-- Index for active announcements (without NOW() predicate to avoid immutability error)
+CREATE INDEX IF NOT EXISTS idx_global_announcements_dates 
+  ON global_announcements(start_date, end_date);
 
 -- ============================================================================
 -- 2. DISMISSED ANNOUNCEMENTS TABLE
