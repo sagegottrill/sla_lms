@@ -68,63 +68,6 @@ export default function CourseDetailPage() {
     }
   }, [enrolled, enrollments, course]);
 
-  // Persist progress to Supabase whenever completedLessons changes
-  const persistProgress = async (nextCompleted: Set<string>) => {
-    if (!appUser?.id || !course?.id || !enrolled) return;
-    const total    = allLessons.length;
-    const done     = nextCompleted.size;
-    const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-    setSavingProgress(true);
-    try {
-      await supabase
-        .from("enrollments")
-        .update({
-          progress,
-          current_lesson: JSON.stringify(Array.from(nextCompleted)),
-          last_accessed:  new Date().toISOString(),
-          ...(progress >= 100 ? { status: "completed", completed_at: new Date().toISOString() } : {}),
-        })
-        .eq("user_id", appUser.id)
-        .eq("course_id", course.id);
-    } catch (err) {
-      console.error("Failed to persist lesson progress:", err);
-    } finally {
-      setSavingProgress(false);
-    }
-  };
-
-   useEffect(() => {
-     const cid = course?.id;
-     if (cid == null || !Number.isFinite(Number(cid))) return;
-     let cancelled = false;
-     void api.getSkillsAssessments({ courseId: cid }).then((response) => {
-       if (!cancelled) setCourseAssessments(response.success ? (response.data || []) : []);
-     });
-     return () => {
-       cancelled = true;
-     };
-   }, [course?.id]);
-
-  // Lights-Out mode: dim navbar when video is active
-  useEffect(() => {
-    if (!activeVideo) { setNavDimmed(false); return; }
-    const navbar = document.querySelector("header") as HTMLElement | null;
-    if (!navbar) return;
-    setNavDimmed(true);
-    navbar.style.transition = "opacity 0.4s ease";
-    navbar.style.opacity = "0.15";
-    const restore = () => { navbar.style.opacity = "1"; };
-    const dim = () => { navbar.style.opacity = "0.15"; };
-    navbar.addEventListener("mouseenter", restore);
-    navbar.addEventListener("mouseleave", dim);
-    return () => {
-      navbar.style.opacity = "1";
-      navbar.removeEventListener("mouseenter", restore);
-      navbar.removeEventListener("mouseleave", dim);
-      setNavDimmed(false);
-    };
-  }, [activeVideo]);
-
   // Flatten all lessons for sidebar + progress calculation
   const allLessons = useMemo(() => {
     if (!course?.curriculum) return [];
@@ -137,6 +80,30 @@ export default function CourseDetailPage() {
       }))
     );
   }, [course]);
+
+  const persistProgress = async (nextCompleted: Set<string>) => {
+    if (!appUser?.id || !course?.id || !enrolled) return;
+    const total = allLessons.length;
+    const done = nextCompleted.size;
+    const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+    setSavingProgress(true);
+    try {
+      await supabase
+        .from("enrollments")
+        .update({
+          progress,
+          current_lesson: JSON.stringify(Array.from(nextCompleted)),
+          last_accessed: new Date().toISOString(),
+          ...(progress >= 100 ? { status: "completed", completed_at: new Date().toISOString() } : {}),
+        })
+        .eq("user_id", appUser.id)
+        .eq("course_id", course.id);
+    } catch (err) {
+      console.error("Failed to persist lesson progress:", err);
+    } finally {
+      setSavingProgress(false);
+    }
+  };
 
 
   const enrolled =

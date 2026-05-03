@@ -55,15 +55,9 @@ function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
     : (data.onboarding_completed === null ? true : Boolean(data.onboarding_completed));
   
   // Debug log for admin users
-  if (forcedRole === "admin") {
-    console.log("🔐 GOD_MODE ADMIN DETECTED:", { 
-      email, 
-      dbRole: data.role, 
-      forcedRole, 
-      finalRole: role,
-      onboardingCompleted 
-    });
-  }
+      if (forcedRole === "admin") {
+        // Silent admin detection - no console logging
+      }
   
   return {
     id: String(data.id),
@@ -206,19 +200,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      try {
        const response = await api.getProfile(userId);
        if (response?.success && response.data) {
-         const mapped = mapProfileRowToAppUser(response.data);
-         console.log("DEBUG AUTH:", { phase: "profile-load-primary", profile: response.data, user: authUser, appUser: mapped });
-         setAppUser(mapped);
-         return true;
+          const mapped = mapProfileRowToAppUser(response.data);
+          setAppUser(mapped);
+          return true;
        }
        if (authUser) {
          await ensureProfileFromAuthUser(authUser);
          const retryResponse = await api.getProfile(userId);
          if (retryResponse?.success && retryResponse.data) {
-           const mapped = mapProfileRowToAppUser(retryResponse.data);
-           console.log("DEBUG AUTH:", { phase: "profile-load-retry", profile: retryResponse.data, user: authUser, appUser: mapped });
-           setAppUser(mapped);
-           return true;
+            const mapped = mapProfileRowToAppUser(retryResponse.data);
+            setAppUser(mapped);
+            return true;
          }
        }
        console.error("Could not load profile for user:", userId);
@@ -227,9 +219,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      }
      if (authUser) {
        // Do not block a valid session on profile RLS / missing row issues.
-       const fallback = mapAuthUserToFallbackAppUser(authUser);
-       console.log("DEBUG AUTH:", { phase: "profile-load-fallback", profile: null, user: authUser, appUser: fallback });
-       setAppUser(fallback);
+        const fallback = mapAuthUserToFallbackAppUser(authUser);
+        setAppUser(fallback);
      }
     return false;
   };
@@ -260,14 +251,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // PILLAR 2: Frictionless Authentication State
     // Use getUser() for ACTIVE validation (confirms user isn't disabled/deleted)
     const initializeAuth = async () => {
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (user && !error) {
-          setUser(user);
-          console.log("DEBUG AUTH:", { phase: "initialize-auth-before-profile", profile: null, user, appUser: null });
-          // Use ref so this effect is resilient to function identity changes.
-          await loadUserProfileRef.current(user.id, user);
-        }
+        try {
+          const { data: { user }, error } = await supabase.auth.getUser();
+          if (user && !error) {
+            setUser(user);
+            // Use ref so this effect is resilient to function identity changes.
+            await loadUserProfileRef.current(user.id, user);
+          }
       } catch (err) {
         console.error("Auth initialization failed:", err);
       } finally {
@@ -283,11 +273,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log(`Auth Event: ${event}`);
-        
         setSession(session);
         setUser(session?.user ?? null);
-        console.log("DEBUG AUTH:", { phase: "auth-state-change", profile: null, user: session?.user ?? null, appUser });
         
         if (session?.user) {
           // Use ref to avoid stale closure issues inside this effect.

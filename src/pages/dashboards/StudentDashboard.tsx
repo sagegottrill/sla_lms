@@ -4,15 +4,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCourses, useUserEnrollments } from "@/hooks/useQueries";
 import { coursePathSegment } from "@/lib/publicRoutes";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Star, Clock, GraduationCap, HelpCircle, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star, Clock, GraduationCap, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import ToDoListWidget from "@/components/dashboard/ToDoListWidget";
+import RecentFeedbackWidget from "@/components/dashboard/RecentFeedbackWidget";
+import GlobalAnnouncement from "@/components/dashboard/GlobalAnnouncement";
+import CalendarWidget from "@/components/dashboard/CalendarWidget";
 
 export default function StudentDashboard() {
   const { appUser } = useAuth();
   const [activeTab, setActiveTab] = useState<"in_progress" | "completed">("in_progress");
   const navigate = useNavigate();
-  const [monthOffset, setMonthOffset] = useState(0);
 
   const { data: enrollmentsRaw = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
   const { data: allCourses = [], isLoading: loadingCourses } = useCourses({ publishedOnly: true });
@@ -59,21 +61,6 @@ export default function StudentDashboard() {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
-  // Learning plan calendar: browse months
-  const now = new Date();
-  const todayMonth = now.getMonth(); // 0..11
-  const todayYear = now.getFullYear();
-
-  const displayDate = new Date(now);
-  displayDate.setMonth(displayDate.getMonth() + monthOffset);
-
-  const currentMonthLabel = displayDate.toLocaleString("en-US", { month: "long", year: "numeric" });
-  const currentMonth = displayDate.getMonth(); // 0..11
-  const currentYear = displayDate.getFullYear();
-  const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  // Convert JS weekday (Sun=0) into Monday-based index (Mon=0 ... Sun=6)
-  const firstWeekdayIndex = (new Date(currentYear, currentMonth, 1).getDay() + 6) % 7;
-
   const currentCourses = activeTab === "in_progress" ? inProgressCourses : completedCourses;
 
   return (
@@ -86,83 +73,19 @@ export default function StudentDashboard() {
           {/* To-Do List Widget */}
           {appUser?.id && <ToDoListWidget userId={appUser.id} limit={7} />}
 
-          {/* Learning Plan Widget (Calendar) */}
-          <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
-            <h2 className="font-display font-semibold text-lg text-foreground mb-2">Learning plan</h2>
-            
-            <div className="flex items-center gap-1.5 mb-4">
-              {['M','T','W','T','F','S','S'].map((day, i) => (
-                <div key={i} className="flex-1 text-center">
-                  <div className="w-6 h-6 mx-auto rounded-full flex items-center justify-center text-[10px] font-semibold text-muted-foreground bg-muted/40 uppercase">
-                    {day}
-                  </div>
-                </div>
-              ))}
-            </div>
+          {/* Recent Feedback Widget */}
+          {appUser?.id && <RecentFeedbackWidget userId={appUser.id} limit={5} />}
 
-            <p onClick={() => navigate("/dashboard/calendar")} className="text-sm text-foreground font-medium hover:text-primary cursor-pointer transition-colors mb-6 inline-block">
-              Set your learning plan
-            </p>
-
-            <div className="flex items-center justify-between mb-4">
-              <span className="font-semibold text-sm text-foreground">{currentMonthLabel}</span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMonthOffset((v) => v - 1)}
-                  className="p-1 rounded-md hover:bg-muted transition-colors"
-                  aria-label="Previous month"
-                >
-                  <ChevronLeft className="w-4 h-4 text-muted-foreground" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMonthOffset((v) => v + 1)}
-                  className="p-1 rounded-md hover:bg-muted transition-colors"
-                  aria-label="Next month"
-                >
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-7 gap-y-2 text-center text-xs text-foreground/80">
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase">Mo</div>
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase">Tu</div>
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase">We</div>
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase">Th</div>
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase">Fr</div>
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase">Sa</div>
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase">Su</div>
-
-              {Array.from({ length: 42 }).map((_, idx) => {
-                const dayNumber = idx - firstWeekdayIndex + 1;
-                const isInMonth = dayNumber >= 1 && dayNumber <= daysInCurrentMonth;
-                const isToday =
-                  isInMonth &&
-                  dayNumber === now.getDate() &&
-                  currentMonth === todayMonth &&
-                  currentYear === todayYear;
-
-                return (
-                  <div
-                    key={idx}
-                    className={`p-1.5 ${
-                      isInMonth ? (isToday ? "text-primary font-semibold" : "text-foreground") : "text-muted-foreground/30"
-                    }`}
-                    aria-hidden={!isInMonth}
-                  >
-                    {isInMonth ? dayNumber : ""}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          {/* Functional Calendar Widget */}
+          {appUser?.id && <CalendarWidget userId={appUser.id} />}
           
         </div>
 
         {/* ————— RIGHT COLUMN (MAIN CONTENT) ————— */}
         <div className="lg:col-span-8 xl:col-span-9">
+          
+          {/* Global Announcements */}
+          {appUser?.id && <GlobalAnnouncement userId={appUser.id} />}
           
           {/* Header */}
           <div className="mb-6 sm:mb-8">
