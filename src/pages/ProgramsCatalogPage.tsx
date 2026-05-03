@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { Search, Users, Calendar, Clock, BookOpen, ChevronRight, Award, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";

@@ -4,8 +4,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCourses, useUserEnrollments } from "@/hooks/useQueries";
 import { coursePathSegment } from "@/lib/publicRoutes";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Star, Clock, GraduationCap, HelpCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star, Clock, GraduationCap, HelpCircle, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import ToDoListWidget from "@/components/dashboard/ToDoListWidget";
 
 export default function StudentDashboard() {
   const { appUser } = useAuth();
@@ -82,38 +83,8 @@ export default function StudentDashboard() {
         {/* ————— LEFT COLUMN (WIDGETS) ————— */}
         <div className="hidden lg:block lg:col-span-4 xl:col-span-3 space-y-8">
           
-          {/* Today's Goals Widget */}
-          <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
-            <h2 className="font-display font-semibold text-lg text-foreground mb-4">Next up</h2>
-            <div className="space-y-3 pl-1">
-              {inProgressCourses.length === 0 ? (
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Enroll in a course to see your next steps here.
-                </p>
-              ) : (
-                inProgressCourses.slice(0, 4).map((c: any) => (
-                  <Link
-                    key={c.id}
-                    to={`/courses/${coursePathSegment(c)}`}
-                    className="flex items-start gap-3 group rounded-xl -mx-1 px-1 py-1 hover:bg-muted/50 transition-colors"
-                  >
-                    <Star className="w-4 h-4 text-primary/70 shrink-0 mt-0.5" />
-                    <span className="text-sm font-medium text-foreground group-hover:text-primary line-clamp-2">
-                      Continue: {c.title}
-                    </span>
-                  </Link>
-                ))
-              )}
-              <div className="pt-2 flex flex-col gap-2 text-sm">
-                <Link to="/dashboard/skills" className="text-primary font-medium hover:text-primary/90">
-                  Skills assessment →
-                </Link>
-                <Link to="/dashboard/calendar" className="text-muted-foreground hover:text-primary transition-colors">
-                  Learning calendar →
-                </Link>
-              </div>
-            </div>
-          </div>
+          {/* To-Do List Widget */}
+          {appUser?.id && <ToDoListWidget userId={appUser.id} limit={7} />}
 
           {/* Learning Plan Widget (Calendar) */}
           <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
@@ -226,24 +197,28 @@ export default function StudentDashboard() {
             </p>
           </div>
 
-          {/* Finish setup — student onboarding only */}
+          {/* Simplified onboarding banner - dismissible */}
           {appUser?.role === "student" && !onboardingDone && (
-            <div className="bg-primary/5 dark:bg-muted/30 border border-transparent rounded-2xl p-4 sm:p-6 flex items-center gap-4 mb-6 sm:mb-8">
-              <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <GraduationCap className="w-5 h-5" />
-              </div>
-              <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <span className="text-foreground font-medium text-sm sm:text-base">
-                  Complete your profile setup to unlock the full dashboard experience.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => navigate("/onboarding")}
-                  className="text-sm font-semibold text-primary hover:text-primary/90 whitespace-nowrap transition-colors"
-                >
-                  Continue setup
-                </button>
-              </div>
+            <div className="bg-primary/5 dark:bg-muted/30 border border-border/20 rounded-xl p-3 flex items-center gap-3 mb-4">
+              <GraduationCap className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-sm text-foreground flex-1">
+                Complete your profile setup
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate("/onboarding")}
+                className="text-xs font-semibold text-primary hover:text-primary/90 whitespace-nowrap transition-colors px-3 py-1 rounded-lg hover:bg-primary/10"
+              >
+                Continue
+              </button>
+              <button
+                type="button"
+                onClick={() => {/* TODO: Implement dismiss */}}
+                className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                aria-label="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           )}
 
@@ -351,13 +326,6 @@ export default function StudentDashboard() {
           )}
           
         </div>
-      </div>
-      
-      {/* Help bubble overlay */}
-      <div className="hidden md:block fixed bottom-6 right-6">
-        <button className="w-10 h-10 bg-white ring-1 ring-black/5 dark:ring-white/10 border-0 shadow-md rounded-full flex items-center justify-center text-primary hover:bg-muted/50 transition-colors">
-          <HelpCircle className="w-5 h-5" />
-        </button>
       </div>
     </div>
   );
