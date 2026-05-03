@@ -95,20 +95,24 @@ CREATE INDEX IF NOT EXISTS idx_submissions_graded ON submissions(graded_at) WHER
 -- Enable RLS
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for submissions
-CREATE POLICY IF NOT EXISTS "Users can view their own submissions"
+-- RLS Policies for submissions (drop first to avoid conflicts)
+DROP POLICY IF EXISTS "Users can view their own submissions" ON submissions;
+CREATE POLICY "Users can view their own submissions"
   ON submissions FOR SELECT
   USING (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Users can insert their own submissions"
+DROP POLICY IF EXISTS "Users can insert their own submissions" ON submissions;
+CREATE POLICY "Users can insert their own submissions"
   ON submissions FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Users can update their own submissions"
+DROP POLICY IF EXISTS "Users can update their own submissions" ON submissions;
+CREATE POLICY "Users can update their own submissions"
   ON submissions FOR UPDATE
   USING (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Instructors can view submissions for their courses"
+DROP POLICY IF EXISTS "Instructors can view submissions for their courses" ON submissions;
+CREATE POLICY "Instructors can view submissions for their courses"
   ON submissions FOR SELECT
   USING (
     EXISTS (
@@ -119,7 +123,8 @@ CREATE POLICY IF NOT EXISTS "Instructors can view submissions for their courses"
     )
   );
 
-CREATE POLICY IF NOT EXISTS "Instructors can update submissions for their courses"
+DROP POLICY IF EXISTS "Instructors can update submissions for their courses" ON submissions;
+CREATE POLICY "Instructors can update submissions for their courses"
   ON submissions FOR UPDATE
   USING (
     EXISTS (
@@ -167,12 +172,14 @@ CREATE INDEX IF NOT EXISTS idx_lessons_due_date ON lessons(due_date) WHERE due_d
 -- Enable RLS
 ALTER TABLE lessons ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for lessons
-CREATE POLICY IF NOT EXISTS "Everyone can view published lessons"
+-- RLS Policies for lessons (drop first to avoid conflicts)
+DROP POLICY IF EXISTS "Everyone can view published lessons" ON lessons;
+CREATE POLICY "Everyone can view published lessons"
   ON lessons FOR SELECT
   USING (published = TRUE);
 
-CREATE POLICY IF NOT EXISTS "Instructors can view their own lessons"
+DROP POLICY IF EXISTS "Instructors can view their own lessons" ON lessons;
+CREATE POLICY "Instructors can view their own lessons"
   ON lessons FOR SELECT
   USING (
     EXISTS (
@@ -182,7 +189,8 @@ CREATE POLICY IF NOT EXISTS "Instructors can view their own lessons"
     )
   );
 
-CREATE POLICY IF NOT EXISTS "Instructors can insert lessons for their courses"
+DROP POLICY IF EXISTS "Instructors can insert lessons for their courses" ON lessons;
+CREATE POLICY "Instructors can insert lessons for their courses"
   ON lessons FOR INSERT
   WITH CHECK (
     EXISTS (
@@ -192,7 +200,8 @@ CREATE POLICY IF NOT EXISTS "Instructors can insert lessons for their courses"
     )
   );
 
-CREATE POLICY IF NOT EXISTS "Instructors can update their own lessons"
+DROP POLICY IF EXISTS "Instructors can update their own lessons" ON lessons;
+CREATE POLICY "Instructors can update their own lessons"
   ON lessons FOR UPDATE
   USING (
     EXISTS (
@@ -202,7 +211,8 @@ CREATE POLICY IF NOT EXISTS "Instructors can update their own lessons"
     )
   );
 
-CREATE POLICY IF NOT EXISTS "Instructors can delete their own lessons"
+DROP POLICY IF EXISTS "Instructors can delete their own lessons" ON lessons;
+CREATE POLICY "Instructors can delete their own lessons"
   ON lessons FOR DELETE
   USING (
     EXISTS (
@@ -212,7 +222,8 @@ CREATE POLICY IF NOT EXISTS "Instructors can delete their own lessons"
     )
   );
 
-CREATE POLICY IF NOT EXISTS "Enrolled students can view published lessons"
+DROP POLICY IF EXISTS "Enrolled students can view published lessons" ON lessons;
+CREATE POLICY "Enrolled students can view published lessons"
   ON lessons FOR SELECT
   USING (
     published = TRUE AND
