@@ -32,31 +32,32 @@ export default function NotificationPrefsPage() {
   const [extraPrefs, setExtraPrefs] = useState<Record<string, any>>({});
   const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // React Query — modern pattern with useEffect for side effects
-  const { data: notificationData, isLoading } = useQuery({
-    queryKey: ["notification-prefs", appUser?.id ?? ""],
-    queryFn: () => api.getNotificationPreferences(appUser!.id),
-    enabled: !!appUser?.id,
-  });
+   // React Query — modern pattern with useEffect for side effects
+   const { data: notificationData, isLoading } = useQuery({
+     queryKey: ["notification-prefs", appUser?.id ?? ""],
+     queryFn: () => api.getNotificationPreferences(appUser!.id),
+     enabled: !!appUser?.id,
+     select: (response) => response.success ? response.data : null,
+   });
 
-  // Handle data loading with useEffect (React Query v5 pattern)
-  useEffect(() => {
-    if (!notificationData) return;
-    
-    const row = notificationData as NotificationPreferences;
-    const loadedPrefs = (row.prefs ?? {}) as Record<string, any>;
-    setExtraPrefs(loadedPrefs);
-    setFrequency((row.frequency as "instant" | "hourly" | "daily") || "instant");
-    setQuietStart(row.quiet_start ?? "22:00");
-    setQuietEnd(row.quiet_end ?? "07:00");
-    setPrefs(prev =>
-      prev.map((p: NotifPref) => {
-        const cfg = loadedPrefs[p.key];
-        if (!cfg) return p;
-        return { ...p, email: Boolean(cfg.email), sms: Boolean(cfg.sms), push: Boolean(cfg.push) };
-      })
-    );
-  }, [notificationData]);
+   // Handle data loading with useEffect (React Query v5 pattern)
+   useEffect(() => {
+     if (!notificationData) return;
+     
+     const row = notificationData;
+     const loadedPrefs = (row.prefs ?? {}) as Record<string, any>;
+     setExtraPrefs(loadedPrefs);
+     setFrequency((row.frequency as "instant" | "hourly" | "daily") || "instant");
+     setQuietStart(row.quiet_start ?? "22:00");
+     setQuietEnd(row.quiet_end ?? "07:00");
+     setPrefs(prev =>
+       prev.map((p: NotifPref) => {
+         const cfg = loadedPrefs[p.key];
+         if (!cfg) return p;
+         return { ...p, email: Boolean(cfg.email), sms: Boolean(cfg.sms), push: Boolean(cfg.push) };
+       })
+     );
+   }, [notificationData]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -102,20 +103,20 @@ export default function NotificationPrefsPage() {
       return;
     }
 
-    setSaved(true);
-    const ok = await api.upsertNotificationPreferences({
-      userId: appUser.id,
-      frequency,
-      quietStart,
-      quietEnd,
-      prefs: { ...extraPrefs, ...prefsPayload },
-    });
+     setSaved(true);
+     const response = await api.upsertNotificationPreferences({
+       userId: appUser.id,
+       frequency,
+       quietStart,
+       quietEnd,
+       prefs: { ...extraPrefs, ...prefsPayload },
+     });
 
-    if (!ok) {
-      toast.error("Failed to save notification preferences.");
-      setSaved(false);
-      return;
-    }
+     if (!response.success) {
+       toast.error("Failed to save notification preferences.");
+       setSaved(false);
+       return;
+     }
 
     toast.success("Notification preferences saved!");
     savedTimeoutRef.current = setTimeout(() => setSaved(false), 1000);

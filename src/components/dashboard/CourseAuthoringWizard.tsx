@@ -6,11 +6,12 @@ import {
   Plus, Trash2, GripVertical, Upload, Check, AlertCircle, Clock,
   Settings, Eye, Zap, ToggleLeft, ToggleRight, ChevronLeft,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import { api } from "@/services/api";
-import { useAuth } from "@/contexts/AuthContext";
+ import { Button } from "@/components/ui/button";
+ import { toast } from "sonner";
+ import { cn } from "@/lib/utils";
+ import { api } from "@/services/api";
+ import type { ApiResponse } from "@/lib/utils/api";
+ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/react-query";
@@ -437,12 +438,12 @@ function StepAssessment({ questions, setQuestions }: {
             />
             {q.type === "mcq" && (
               <div className="grid grid-cols-2 gap-2">
-                {q.options?.map((opt, oi) => (
+                {(q.options ?? []).map((opt, oi) => (
                   <input key={oi}
                     className="rounded-lg ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
                     value={opt}
                     onChange={e => setQuestions(prev => prev.map(x => x.id === q.id ? {
-                      ...x, options: x.options?.map((o, idx) => idx === oi ? e.target.value : o)
+                      ...x, options: (x.options ?? []).map((o, idx) => idx === oi ? e.target.value : o)
                     } : x))}
                   />
                 ))}
@@ -570,18 +571,19 @@ export default function CourseAuthoringWizard() {
     let cancelled = false;
     if (!courseIdFromUrl) return;
 
-    (async () => {
-      try {
-        const c: any = await api.getCourseById(courseIdFromUrl);
-        if (!c || cancelled) return;
+     (async () => {
+       try {
+         const response = await api.getCourseById(courseIdFromUrl);
+         if (!response.success || !response.data || cancelled) return;
 
-        setIdentity({
-          title: String(c.title ?? ""),
-          description: String(c.description ?? ""),
-          subject: String(c.category ?? ""),
-          objectives: Array.isArray(c.what_youll_learn) ? c.what_youll_learn.join("\n") : "",
-        });
-        setCourseThumbnailUrl(typeof c.image === "string" ? c.image : null);
+         const c = response.data;
+         setIdentity({
+           title: String(c.title ?? ""),
+           description: String(c.description ?? ""),
+           subject: String(c.category ?? ""),
+           objectives: Array.isArray(c.what_youll_learn) ? c.what_youll_learn.join("\n") : "",
+         });
+         setCourseThumbnailUrl(typeof c.image === "string" ? c.image : null);
 
         const cur = Array.isArray(c.curriculum) ? c.curriculum : [];
         const mapped: Module[] = cur.map((m: any) => {
@@ -690,22 +692,26 @@ export default function CourseAuthoringWizard() {
       reviews: [],
     };
 
-    setSaving(true);
-    try {
-      if (courseIdFromUrl) {
-        await api.updateCourse(courseIdFromUrl, payload);
-      } else {
-        await api.createCourse(payload);
-      }
+     setSaving(true);
+     try {
+       let response: ApiResponse<any>;
+       if (courseIdFromUrl) {
+         response = await api.updateCourse(courseIdFromUrl, payload);
+       } else {
+         response = await api.createCourse(payload);
+       }
+       if (!response.success) {
+         throw new Error(response.error || "Failed to publish course");
+       }
 
-      toast.success(`"${title}" published successfully!`);
-      queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
-      navigate("/dashboard/courses", { replace: true });
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed to publish course.");
-    } finally {
-      setSaving(false);
-    }
+       toast.success(`"${title}" published successfully!`);
+       queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
+       navigate("/dashboard/courses", { replace: true });
+     } catch (e: any) {
+       toast.error(e?.message ?? "Failed to publish course.");
+     } finally {
+       setSaving(false);
+     }
   };
 
   const stepStatus = (): "draft" | "missing" | "ready" => {

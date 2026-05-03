@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 import { Search, Users, Calendar, Clock, BookOpen, ChevronRight, Award, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { api } from "@/services/api";
+import { usePrograms } from "@/hooks/useQueries";
 import { programPathSegment } from "@/lib/publicRoutes";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
@@ -152,26 +152,7 @@ function ProgramCard({ prog }: { prog: Program }) {
 export default function ProgramsCatalogPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const [programs, setPrograms] = useState<Program[]>([]);
-  const [loading, setLoading] = useState(true);
-
-   useEffect(() => {
-     const fetchPrograms = async () => {
-       setLoading(true);
-       try {
-         const response = await api.getPrograms({ activeCatalog: true });
-         // Ensure we always have an array
-         const programsData = Array.isArray(response.data) ? response.data : [];
-         setPrograms(programsData);
-       } catch (error) {
-         console.error("Failed to fetch programs:", error);
-         setPrograms([]);
-       } finally {
-         setLoading(false);
-       }
-     };
-     void fetchPrograms();
-   }, []);
+  const { data: programs = [], isLoading: loading } = usePrograms({ activeCatalog: true });
 
   // Ensure programs is always an array before filtering
   const safePrograms = Array.isArray(programs) ? programs : [];

@@ -22,15 +22,15 @@ export default function IncomeProgressionPage() {
   const [newMilestone, setNewMilestone] = useState({ date: "", title: "", type: "career" });
   const [milestoneList, setMilestoneList] = useState<Array<any>>([]);
 
-  // Fetch real certificate count
-  const { data: certsResult } = useQuery({
-    queryKey: ["certificates-count", appUser?.id ?? ""],
-    queryFn: () => api.getCertificates(appUser!.id),
-    enabled: !!appUser?.id,
-  });
+   // Fetch real certificate count
+   const { data: certsResult = [] } = useQuery({
+     queryKey: ["certificates-count", appUser?.id ?? ""],
+     queryFn: () => api.getCertificates(appUser!.id),
+     enabled: !!appUser?.id,
+     select: (response) => response.success ? response.data || [] : [],
+   });
    const certCount = useMemo(() => {
-     if (!certsResult?.success) return 0;
-     return Array.isArray(certsResult.data) ? certsResult.data.length : 0;
+     return certsResult.length;
    }, [certsResult]);
 
   // Fetch real current role from profile

@@ -46,55 +46,56 @@ export default function SettingsPage() {
     jobMatching: false,
   });
 
-  // React Query — replaces useEffect anti-pattern for notification prefs
-  useQuery({
-    queryKey: ["notification-prefs-settings", appUser?.id ?? ""],
-    queryFn: () => api.getNotificationPreferences(appUser!.id),
-    enabled: !!appUser?.id,
-    onSuccess: (row: any) => {
-      if (!row) return;
-      setNotificationPrefsRow(row);
-      const p = (row?.prefs ?? {}) as Record<string, any>;
-      setNotifications(prev => ({
-        ...prev,
-        courseUpdates:        Boolean(p.course_updates?.email  ?? prev.courseUpdates),
-        deadlineReminders:    Boolean(p.deadlines?.email       ?? prev.deadlineReminders),
-        programAnnouncements: Boolean(p.program_updates?.email ?? prev.programAnnouncements),
-        jobAlerts:            Boolean(p.job_matches?.email     ?? prev.jobAlerts),
-        marketingEmails:      Boolean(p.promotions?.email      ?? prev.marketingEmails),
-      }));
-      const privacyRow = (p.privacy ?? {}) as Record<string, any>;
-      setPrivacy(prev => ({
-        publicProfile: Boolean(privacyRow.publicProfile ?? prev.publicProfile),
-        showProgress:  Boolean(privacyRow.showProgress  ?? prev.showProgress),
-        jobMatching:   Boolean(privacyRow.jobMatching   ?? prev.jobMatching),
-      }));
-    },
-  });
+   // React Query — replaces useEffect anti-pattern for notification prefs
+   useQuery({
+     queryKey: ["notification-prefs-settings", appUser?.id ?? ""],
+     queryFn: () => api.getNotificationPreferences(appUser!.id),
+     enabled: !!appUser?.id,
+     select: (response) => response.success ? response.data : null,
+     onSuccess: (row) => {
+       if (!row) return;
+       setNotificationPrefsRow(row);
+       const p = (row?.prefs ?? {}) as Record<string, any>;
+       setNotifications(prev => ({
+         ...prev,
+         courseUpdates:        Boolean(p.course_updates?.email  ?? prev.courseUpdates),
+         deadlineReminders:    Boolean(p.deadlines?.email       ?? prev.deadlineReminders),
+         programAnnouncements: Boolean(p.program_updates?.email ?? prev.programAnnouncements),
+         jobAlerts:            Boolean(p.job_matches?.email     ?? prev.jobAlerts),
+         marketingEmails:      Boolean(p.promotions?.email      ?? prev.marketingEmails),
+       }));
+       const privacyRow = (p.privacy ?? {}) as Record<string, any>;
+       setPrivacy(prev => ({
+         publicProfile: Boolean(privacyRow.publicProfile ?? prev.publicProfile),
+         showProgress:  Boolean(privacyRow.showProgress  ?? prev.showProgress),
+         jobMatching:   Boolean(privacyRow.jobMatching   ?? prev.jobMatching),
+       }));
+     },
+   });
 
   const [passwords, setPasswords] = useState({ current: "", newPass: "", confirm: "" });
 
-  const handleSave = async () => {
-    if (!appUser?.id) return;
-    setSaved(true);
-    try {
-      const result = await api.updateProfile(appUser.id, {
-        name,
-        bio,
-        career_goal: careerGoal,
-      });
-      if (!result) {
-        toast.error("Save failed — check your Supabase connection.");
-        return;
-      }
-      await refreshProfile();
-      toast.success("Profile saved successfully!");
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to save profile.");
-    } finally {
-      setTimeout(() => setSaved(false), 600);
-    }
-  };
+   const handleSave = async () => {
+     if (!appUser?.id) return;
+     setSaved(true);
+     try {
+       const response = await api.updateProfile(appUser.id, {
+         name,
+         bio,
+         career_goal: careerGoal,
+       });
+       if (!response.success) {
+         toast.error("Save failed — check your Supabase connection.");
+         return;
+       }
+       await refreshProfile();
+       toast.success("Profile saved successfully!");
+     } catch (e: any) {
+       toast.error(e?.message || "Failed to save profile.");
+     } finally {
+       setTimeout(() => setSaved(false), 600);
+     }
+   };
 
   const handlePasswordUpdate = () => {
     if (!passwords.current || !passwords.newPass || !passwords.confirm) {
@@ -138,26 +139,29 @@ export default function SettingsPage() {
         nextPrefs[categoryKey] = { ...current, email: value };
       };
 
-      if (key === "courseUpdates") setEmailForCategory("course_updates", updated.courseUpdates);
-      if (key === "deadlineReminders") setEmailForCategory("deadlines", updated.deadlineReminders);
-      if (key === "programAnnouncements") setEmailForCategory("program_updates", updated.programAnnouncements);
-      if (key === "jobAlerts") setEmailForCategory("job_matches", updated.jobAlerts);
-      if (key === "marketingEmails") setEmailForCategory("promotions", updated.marketingEmails);
+       if (key === "courseUpdates") setEmailForCategory("course_updates", updated.courseUpdates);
+       if (key === "deadlineReminders") setEmailForCategory("deadlines", updated.deadlineReminders);
+       if (key === "programAnnouncements") setEmailForCategory("program_updates", updated.programAnnouncements);
+       if (key === "jobAlerts") setEmailForCategory("job_matches", updated.jobAlerts);
+       if (key === "marketingEmails") setEmailForCategory("promotions", updated.marketingEmails);
 
-      const r = await api.upsertNotificationPreferences({
-        userId: appUser.id,
-        frequency: notificationPrefsRow?.frequency ?? "instant",
-        quietStart: notificationPrefsRow?.quiet_start ?? "22:00",
-        quietEnd: notificationPrefsRow?.quiet_end ?? "07:00",
-        prefs: nextPrefs,
-      });
-      if (r) setNotificationPrefsRow(r);
-      else throw new Error("Upsert failed");
-    } catch (e: any) {
-      setNotifications(prev);
-      toast.error(e?.message ?? "Failed to save notification preferences.");
-    }
-  };
+       const response = await api.upsertNotificationPreferences({
+         userId: appUser.id,
+         frequency: notificationPrefsRow?.frequency ?? "instant",
+         quietStart: notificationPrefsRow?.quiet_start ?? "22:00",
+         quietEnd: notificationPrefsRow?.quiet_end ?? "07:00",
+         prefs: nextPrefs,
+       });
+       if (response.success) {
+         setNotificationPrefsRow(response.data);
+       } else {
+         throw new Error(response.error || "Upsert failed");
+       }
+     } catch (e: any) {
+       setNotifications(prev);
+       toast.error(e?.message ?? "Failed to save notification preferences.");
+     }
+   };
 
   const togglePrivacy = async (key: keyof typeof privacy) => {
     const prev = privacy;
@@ -176,15 +180,18 @@ export default function SettingsPage() {
         jobMatching: updated.jobMatching,
       };
 
-      const r = await api.upsertNotificationPreferences({
-        userId: appUser.id,
-        frequency: notificationPrefsRow?.frequency ?? "instant",
-        quietStart: notificationPrefsRow?.quiet_start ?? "22:00",
-        quietEnd: notificationPrefsRow?.quiet_end ?? "07:00",
-        prefs: nextPrefs,
-      });
-      if (r) setNotificationPrefsRow(r);
-      else throw new Error("Upsert failed");
+       const response = await api.upsertNotificationPreferences({
+         userId: appUser.id,
+         frequency: notificationPrefsRow?.frequency ?? "instant",
+         quietStart: notificationPrefsRow?.quiet_start ?? "22:00",
+         quietEnd: notificationPrefsRow?.quiet_end ?? "07:00",
+         prefs: nextPrefs,
+       });
+       if (response.success) {
+         setNotificationPrefsRow(response.data);
+       } else {
+         throw new Error(response.error || "Upsert failed");
+       }
     } catch (e: any) {
       setPrivacy(prev);
       toast.error(e?.message ?? "Failed to save privacy preferences.");

@@ -56,24 +56,27 @@ export default function LeadDashboardPage() {
       toast.error("A valid email is required.");
       return;
     }
-    setSaving(true);
-    try {
-      await api.createLeadCapture({
-        email:          form.email.trim(),
-        name:           form.name.trim(),
-        source:         form.source,
-        programInterest: form.programInterest.trim(),
-        notes:          form.notes.trim(),
-      });
-      toast.success("Lead captured!");
-      setForm(emptyForm);
-      setShowAdd(false);
-      queryClient.invalidateQueries({ queryKey: ['lead-captures'] });
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed to save lead.");
-    } finally {
-      setSaving(false);
-    }
+     setSaving(true);
+     try {
+       const response = await api.createLeadCapture({
+         email:          form.email.trim(),
+         name:           form.name.trim(),
+         source:         form.source,
+         programInterest: form.programInterest.trim(),
+         notes:          form.notes.trim(),
+       });
+       if (!response.success) {
+         throw new Error(response.error || "Failed to save lead");
+       }
+       toast.success("Lead captured!");
+       setForm(emptyForm);
+       setShowAdd(false);
+       queryClient.invalidateQueries({ queryKey: ['lead-captures'] });
+     } catch (e: any) {
+       toast.error(e?.message ?? "Failed to save lead.");
+     } finally {
+       setSaving(false);
+     }
   };
 
   const handleStatusChange = (id: string, status: string) => {

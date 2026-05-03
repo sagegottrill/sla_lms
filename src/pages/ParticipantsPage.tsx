@@ -161,16 +161,20 @@ export default function ParticipantsPage() {
     );
     if (userIds.length === 0) return;
     setRemoving(true);
-    try {
-      await Promise.all(userIds.map((userId) => api.dropAllEnrollmentsForUser(userId)));
-      toast.success("Selected participants removed from active enrollments.");
-      setSelected(new Set());
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to remove participants.");
-    } finally {
-      setRemoving(false);
-      queryClient.invalidateQueries({ queryKey: queryKeys.participants.all() });
-    }
+     try {
+       const results = await Promise.all(userIds.map((userId) => api.dropAllEnrollmentsForUser(userId)));
+       const anyFailed = results.some(r => !r.success);
+       if (anyFailed) {
+         throw new Error("Failed to remove some participants");
+       }
+       toast.success("Selected participants removed from active enrollments.");
+       setSelected(new Set());
+     } catch (e: any) {
+       toast.error(e?.message || "Failed to remove participants.");
+     } finally {
+       setRemoving(false);
+       queryClient.invalidateQueries({ queryKey: queryKeys.participants.all() });
+     }
   };
 
   const exportRoster = () => {
@@ -227,21 +231,27 @@ export default function ParticipantsPage() {
     }
   };
 
-  const handleDeleteParticipant = async (userId: string) => {
-    if (!userId) return;
-    setRemoving(true);
-    try {
-      await api.dropAllEnrollmentsForUser(userId);
-      await api.deleteProfile(userId);
-      toast.success("Participant deleted.");
-      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.base });
-      queryClient.invalidateQueries({ queryKey: queryKeys.participants.base });
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to delete participant.");
-    } finally {
-      setRemoving(false);
-    }
-  };
+   const handleDeleteParticipant = async (userId: string) => {
+     if (!userId) return;
+     setRemoving(true);
+     try {
+       const enrollResult = await api.dropAllEnrollmentsForUser(userId);
+       if (!enrollResult.success) {
+         throw new Error(enrollResult.error || "Failed to remove enrollments");
+       }
+       const deleteResult = await api.deleteProfile(userId);
+       if (!deleteResult.success) {
+         throw new Error(deleteResult.error || "Failed to delete profile");
+       }
+       toast.success("Participant deleted.");
+       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.base });
+       queryClient.invalidateQueries({ queryKey: queryKeys.participants.base });
+     } catch (e: any) {
+       toast.error(e?.message || "Failed to delete participant.");
+     } finally {
+       setRemoving(false);
+     }
+   };
 
   const openSmsModal = (participant: any) => {
     setSelectedParticipant(participant);

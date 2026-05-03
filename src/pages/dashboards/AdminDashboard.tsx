@@ -21,10 +21,11 @@ export default function AdminDashboard() {
   const [showAllMetrics, setShowAllMetrics] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: systemSettings } = useQuery({
-    queryKey: ["system_settings", "main"],
-    queryFn: api.getSystemSettings,
-  });
+   const { data: systemSettings } = useQuery({
+     queryKey: ["system_settings", "main"],
+     queryFn: api.getSystemSettings,
+     select: (response) => response.data,
+   });
 
   const [reminderInactivityDays, setReminderInactivityDays] = useState<number>(3);
   const [reminderDeadlineHours, setReminderDeadlineHours] = useState<number>(48);
@@ -37,13 +38,11 @@ export default function AdminDashboard() {
     setReminderDeadlineHours(Number.isFinite(h) ? h : 48);
   }, [systemSettings]);
 
-  const { data: pendingAppsRaw, isLoading: loadingPending } = useQuery({
-    queryKey: ["program_applications", "pending"],
-    queryFn: api.getPendingProgramApplications,
-  });
-
-  // Ensure pendingApps is always an array
-  const pendingApps = Array.isArray(pendingAppsRaw) ? pendingAppsRaw : [];
+   const { data: pendingApps = [], isLoading: loadingPending } = useQuery({
+     queryKey: ["program_applications", "pending"],
+     queryFn: api.getPendingProgramApplications,
+     select: (response) => response.data || [],
+   });
 
   const totalUsers = systemStats?.totalUsers ?? 0;
   const activeCourses = systemStats?.activeCourses ?? 0;

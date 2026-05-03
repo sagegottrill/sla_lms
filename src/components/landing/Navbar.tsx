@@ -162,7 +162,7 @@ export default function Navbar() {
 
                         {/* Menu items — no icons, clean Coursera text style */}
                         <div className="py-2">
-                          {getLandingProfileMenuItems(appUser?.role).map(({ label, href }) => (
+                          {(getLandingProfileMenuItems(appUser?.role) ?? []).map(({ label, href }) => (
                             <Link
                               key={label}
                               to={href}
@@ -244,7 +244,7 @@ export default function Navbar() {
                       <p className="text-xs text-muted-foreground">{appUser?.email}</p>
                     </div>
                   </div>
-                  {getLandingProfileMenuItems(appUser?.role).map(({ label, href }) => (
+                  {(getLandingProfileMenuItems(appUser?.role) ?? []).map(({ label, href }) => (
                     <Link key={label} to={href} onClick={() => setMobileOpen(false)}
                       className="block px-4 py-3 text-base font-medium text-foreground/80 hover:text-primary hover:bg-muted rounded-xl transition-colors">
                       {label}

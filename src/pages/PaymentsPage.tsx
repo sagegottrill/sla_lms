@@ -10,10 +10,11 @@ export default function PaymentsPage() {
   const { data: stats, isLoading } = useSystemStats();
   const totalRevenue = stats?.totalRevenue ?? 0;
 
-  const { data: payments = [], isLoading: loadingPayments } = useQuery({
-    queryKey: ["payments", "ledger"],
-    queryFn: api.getPayments,
-  });
+   const { data: payments = [], isLoading: loadingPayments } = useQuery({
+     queryKey: ["payments", "ledger"],
+     queryFn: api.getPayments,
+     select: (response) => response.data || [],
+   });
 
   const normalized = useMemo(() => {
     const mapStatus = (s: string) => {

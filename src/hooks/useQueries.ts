@@ -46,49 +46,59 @@ export const useCourse = (routeOrNumericId: string | number | undefined) => {
   });
 };
 
-export const useCreateCourseMutation = () => {
-  const queryClient = useQueryClient();
-  const { appUser } = useAuth();
-  return useMutation({
-    mutationFn: (course: Record<string, unknown>) =>
-      api.createCourse({
-        ...course,
-        instructor_id: appUser?.id ?? course.instructor_id,
-      }),
-    onSuccess: () => {
-      toast.success("Course created");
-    },
-    onError: () => {
-      toast.error("We couldn't create your course. Please try again.");
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
-      queryClient.invalidateQueries({ queryKey: ["site-config"] });
-    }
-  });
-};
+ export const useCreateCourseMutation = () => {
+   const queryClient = useQueryClient();
+   const { appUser } = useAuth();
+   return useMutation({
+     mutationFn: async (course: Record<string, unknown>) => {
+       const response = await api.createCourse({
+         ...course,
+         instructor_id: appUser?.id ?? course.instructor_id,
+       });
+       if (!response.success || !response.data) {
+         throw new Error(response.error || "Failed to create course");
+       }
+       return response.data;
+     },
+     onSuccess: () => {
+       toast.success("Course created");
+     },
+     onError: () => {
+       toast.error("We couldn't create your course. Please try again.");
+     },
+     onSettled: () => {
+       queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
+       queryClient.invalidateQueries({ queryKey: ["site-config"] });
+     }
+   });
+ };
 
-export const useUpdateCourseMutation = () => {
-  const queryClient = useQueryClient();
-  const { appUser } = useAuth();
-  return useMutation({
-    mutationFn: ({ id, updates }: { id: number; updates: Record<string, unknown> }) =>
-      api.updateCourse(id, {
-        ...updates,
-        instructor_id: appUser?.id ?? (updates as any).instructor_id,
-      }),
-    onSuccess: () => {
-      toast.success("Course updated");
-    },
-    onError: () => {
-      toast.error("We couldn't update your course. Please try again.");
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
-      queryClient.invalidateQueries({ queryKey: ["site-config"] });
-    }
-  });
-};
+ export const useUpdateCourseMutation = () => {
+   const queryClient = useQueryClient();
+   const { appUser } = useAuth();
+   return useMutation({
+     mutationFn: async ({ id, updates }: { id: number; updates: Record<string, unknown> }) => {
+       const response = await api.updateCourse(id, {
+         ...updates,
+         instructor_id: appUser?.id ?? (updates as any).instructor_id,
+       });
+       if (!response.success || !response.data) {
+         throw new Error(response.error || "Failed to update course");
+       }
+       return response.data;
+     },
+     onSuccess: () => {
+       toast.success("Course updated");
+     },
+     onError: () => {
+       toast.error("We couldn't update your course. Please try again.");
+     },
+     onSettled: () => {
+       queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
+       queryClient.invalidateQueries({ queryKey: ["site-config"] });
+     }
+   });
+ };
 
 // --- PROGRAMS ---
 /** @param options.activeCatalog — true = landing / programs catalog (hide completed cohorts). false = admin builder lists all. */
@@ -126,41 +136,52 @@ export const useProgram = (routeOrNumericId: string | number | undefined) => {
   });
 };
 
-export const useCreateProgramMutation = () => {
-  const queryClient = useQueryClient();
-  const { appUser } = useAuth();
-  return useMutation({
-    mutationFn: (program: any) => api.createProgram(program),
-    onSuccess: () => {
-      toast.success("Program created");
-    },
-    onError: () => {
-      toast.error("We couldn't create your program. Please try again.");
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.programs.base });
-      queryClient.invalidateQueries({ queryKey: ["site-config"] });
-    }
-  });
-};
+ export const useCreateProgramMutation = () => {
+   const queryClient = useQueryClient();
+   const { appUser } = useAuth();
+   return useMutation({
+     mutationFn: async (program: any) => {
+       const response = await api.createProgram(program);
+       if (!response.success || !response.data) {
+         throw new Error(response.error || "Failed to create program");
+       }
+       return response.data;
+     },
+     onSuccess: () => {
+       toast.success("Program created");
+     },
+     onError: () => {
+       toast.error("We couldn't create your program. Please try again.");
+     },
+     onSettled: () => {
+       queryClient.invalidateQueries({ queryKey: queryKeys.programs.base });
+       queryClient.invalidateQueries({ queryKey: ["site-config"] });
+     }
+   });
+ };
 
-export const useUpdateProgramMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, updates }: { id: number; updates: Record<string, unknown> }) =>
-      api.updateProgram(id, updates),
-    onSuccess: () => {
-      toast.success("Program updated");
-    },
-    onError: () => {
-      toast.error("We couldn't save this program. Please try again.");
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.programs.base });
-      queryClient.invalidateQueries({ queryKey: ["site-config"] });
-    }
-  });
-};
+ export const useUpdateProgramMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async ({ id, updates }: { id: number; updates: Record<string, unknown> }) => {
+       const response = await api.updateProgram(id, updates);
+       if (!response.success || !response.data) {
+         throw new Error(response.error || "Failed to update program");
+       }
+       return response.data;
+     },
+     onSuccess: () => {
+       toast.success("Program updated");
+     },
+     onError: () => {
+       toast.error("We couldn't save this program. Please try again.");
+     },
+     onSettled: () => {
+       queryClient.invalidateQueries({ queryKey: queryKeys.programs.base });
+       queryClient.invalidateQueries({ queryKey: ["site-config"] });
+     }
+   });
+ };
 
 // --- ENROLLMENTS ---
 export const useUserEnrollments = (userId: string | undefined) => {
@@ -173,15 +194,20 @@ export const useUserEnrollments = (userId: string | undefined) => {
   });
 };
 
-export const useEnrollUserMutation = () => {
-  const queryClient = useQueryClient();
+ export const useEnrollUserMutation = () => {
+   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: ({ userId, courseId }: { userId: string, courseId: number }) => 
-      api.enrollUser(userId, courseId),
-    
-    // PILLAR 2: Optimistic UI 4-Step Sequence
-    onMutate: async ({ userId, courseId }) => {
+   return useMutation({
+     mutationFn: async ({ userId, courseId }: { userId: string, courseId: number }) => {
+       const response = await api.enrollUser(userId, courseId);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to enroll user");
+       }
+       return response.data;
+     },
+     
+     // PILLAR 2: Optimistic UI 4-Step Sequence
+     onMutate: async ({ userId, courseId }) => {
       // NOTE: Here we fallback to 'student' assuming enrollment happens mostly there
       // A more robust app context might pass role in the variables payload
       const queryKey = queryKeys.enrollments.user('student', userId);
@@ -227,6 +253,7 @@ export const useProgramParticipants = () => {
   return useQuery({
     queryKey: queryKeys.participants.all(),
     queryFn: api.getProgramParticipants,
+    select: (data) => data.success ? data.data : [],
   });
 };
 
@@ -269,13 +296,18 @@ export const useProfile = (userId: string | undefined) => {
   });
 };
 
-export const useUpdateProfileMutation = () => {
-  const queryClient = useQueryClient();
-  const { appUser } = useAuth();
-  return useMutation({
-    mutationFn: ({ userId, updates }: { userId: string, updates: Record<string, unknown> }) => 
-      api.updateProfile(userId, updates),
-    onMutate: async ({ userId, updates }) => {
+ export const useUpdateProfileMutation = () => {
+   const queryClient = useQueryClient();
+   const { appUser } = useAuth();
+   return useMutation({
+     mutationFn: async ({ userId, updates }: { userId: string, updates: Record<string, unknown> }) => {
+       const response = await api.updateProfile(userId, updates);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to update profile");
+       }
+       return response.data;
+     },
+     onMutate: async ({ userId, updates }) => {
       const queryKey = queryKeys.profiles.all(appUser?.role);
       await queryClient.cancelQueries({ queryKey });
       const previousProfiles = queryClient.getQueryData(queryKey);
@@ -300,12 +332,18 @@ export const useUpdateProfileMutation = () => {
   });
 };
 
-export const useDeleteProfileMutation = () => {
-  const queryClient = useQueryClient();
-  const { appUser } = useAuth();
-  return useMutation({
-    mutationFn: (userId: string) => api.deleteProfile(userId),
-    onMutate: async (userId) => {
+ export const useDeleteProfileMutation = () => {
+   const queryClient = useQueryClient();
+   const { appUser } = useAuth();
+   return useMutation({
+     mutationFn: async (userId: string) => {
+       const response = await api.deleteProfile(userId);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to delete profile");
+       }
+       return response.data;
+     },
+     onMutate: async (userId) => {
       const queryKey = queryKeys.profiles.all(appUser?.role);
       await queryClient.cancelQueries({ queryKey });
       const previousProfiles = queryClient.getQueryData(queryKey);
@@ -328,62 +366,71 @@ export const useDeleteProfileMutation = () => {
   });
 };
 
-// --- STATS ---
-export const useSystemStats = () => {
-  const { appUser } = useAuth();
-  return useQuery({
-    queryKey: queryKeys.stats.system(appUser?.role),
-    queryFn: api.getSystemStats,
-  });
-};
+ // --- STATS ---
+ export const useSystemStats = () => {
+   const { appUser } = useAuth();
+   return useQuery({
+     queryKey: queryKeys.stats.system(appUser?.role),
+     queryFn: api.getSystemStats,
+     select: (response) => response.data,
+   });
+ };
 
-export const useInstructorStats = (instructorId: string | undefined) => {
-  const { appUser } = useAuth();
-  return useQuery({
-    queryKey: queryKeys.stats.instructor(appUser?.role, instructorId || ''),
-    queryFn: () => api.getInstructorStats(instructorId!),
-    enabled: !!instructorId,
-  });
-};
+ export const useInstructorStats = (instructorId: string | undefined) => {
+   const { appUser } = useAuth();
+   return useQuery({
+     queryKey: queryKeys.stats.instructor(appUser?.role, instructorId || ''),
+     queryFn: () => api.getInstructorStats(instructorId!),
+     enabled: !!instructorId,
+     select: (response) => response.data,
+   });
+ };
 
-export const useInstructorCourses = (instructorId: string | undefined) => {
-  const { appUser } = useAuth();
-  return useQuery({
-    // Using courses.list for an instructor's specific authored courses
-    queryKey: queryKeys.courses.list(appUser?.role, { instructorId }),
-    queryFn: () => api.getInstructorCourses(instructorId!),
-    enabled: !!instructorId,
-  });
-};
+ export const useInstructorCourses = (instructorId: string | undefined) => {
+   const { appUser } = useAuth();
+   return useQuery({
+     // Using courses.list for an instructor's specific authored courses
+     queryKey: queryKeys.courses.list(appUser?.role, { instructorId }),
+     queryFn: () => api.getInstructorCourses(instructorId!),
+     enabled: !!instructorId,
+     select: (response) => response.data || [],
+   });
+ };
 
-// --- SITE CONFIG ---
-export const useSiteConfig = (id: string = 'landing_page') => {
-  return useQuery({
-    queryKey: ['site-config', id],
-    queryFn: async () => {
-      const data = await api.getSiteConfig(id);
-      if (data) {
-        localStorage.setItem(`site_config_${id}`, JSON.stringify(data));
-      }
-      return data;
-    },
-    // "Speed Efficiency": Load from local cache immediately if available
-    initialData: () => {
-      const cached = localStorage.getItem(`site_config_${id}`);
-      return cached ? JSON.parse(cached) : undefined;
-    },
-    staleTime: 1000 * 60 * 30, // 30 minutes of "speed" before hard-rechecking
-  });
-};
+ // --- SITE CONFIG ---
+ export const useSiteConfig = (id: string = 'landing_page') => {
+   return useQuery({
+     queryKey: ['site-config', id],
+     queryFn: async () => {
+       const response = await api.getSiteConfig(id);
+       if (response.success && response.data) {
+         localStorage.setItem(`site_config_${id}`, JSON.stringify(response.data));
+         return response.data;
+       }
+       return null;
+     },
+     // "Speed Efficiency": Load from local cache immediately if available
+     initialData: () => {
+       const cached = localStorage.getItem(`site_config_${id}`);
+       return cached ? JSON.parse(cached) : undefined;
+     },
+     staleTime: 1000 * 60 * 30, // 30 minutes of "speed" before hard-rechecking
+   });
+ };
 
-export const useUpdateSiteConfigMutation = () => {
-  const queryClient = useQueryClient();
+ export const useUpdateSiteConfigMutation = () => {
+   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string, data: any }) => 
-      api.updateSiteConfig(id, data),
-    
-    onMutate: async ({ id, data }) => {
+   return useMutation({
+     mutationFn: async ({ id, data }: { id: string, data: any }) => {
+       const response = await api.updateSiteConfig(id, data);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to update site config");
+       }
+       return response.data;
+     },
+     
+     onMutate: async ({ id, data }) => {
       const queryKey = ['site-config', id];
       await queryClient.cancelQueries({ queryKey });
       const previousConfig = queryClient.getQueryData(queryKey);
@@ -412,191 +459,248 @@ export const useUpdateSiteConfigMutation = () => {
   });
 };
 
-// ============================================================================
-// CAMPAIGNS — React Query hooks (replaces useEffect anti-pattern)
-// ============================================================================
-export const useCampaigns = () => {
-  return useQuery({
-    queryKey: ['campaigns', 'all'],
-    queryFn: api.getCampaigns,
-  });
-};
+ // CAMPAIGNS — React Query hooks (replaces useEffect anti-pattern)
+ export const useCampaigns = () => {
+   return useQuery({
+     queryKey: ['campaigns', 'all'],
+     queryFn: api.getCampaigns,
+     select: (response) => response.data || [],
+   });
+ };
 
-export const useCreateCampaignMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: Parameters<typeof api.createCampaign>[0]) =>
-      api.createCampaign(payload),
-    onSuccess: () => toast.success("Campaign created!"),
-    onError: () => toast.error("Failed to create campaign. Check Supabase connection/RLS."),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['campaigns'] }),
-  });
-};
+ export const useCreateCampaignMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async (payload: Parameters<typeof api.createCampaign>[0]) => {
+       const response = await api.createCampaign(payload);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to create campaign");
+       }
+       return response.data;
+     },
+     onSuccess: () => toast.success("Campaign created!"),
+     onError: () => toast.error("Failed to create campaign. Check Supabase connection/RLS."),
+     onSettled: () => queryClient.invalidateQueries({ queryKey: ['campaigns'] }),
+   });
+ };
 
-// ============================================================================
-// EMAIL TEMPLATES — React Query hooks (replaces useEffect anti-pattern)
-// ============================================================================
-export const useEmailTemplates = () => {
-  return useQuery({
-    queryKey: ['email-templates', 'all'],
-    queryFn: api.getEmailTemplates,
-  });
-};
+ // EMAIL TEMPLATES — React Query hooks (replaces useEffect anti-pattern)
+ export const useEmailTemplates = () => {
+   return useQuery({
+     queryKey: ['email-templates', 'all'],
+     queryFn: api.getEmailTemplates,
+     select: (response) => response.data || [],
+   });
+ };
 
-export const useCreateEmailTemplateMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: Parameters<typeof api.createEmailTemplate>[0]) =>
-      api.createEmailTemplate(payload),
-    onSuccess: () => toast.success("Template created"),
-    onError: () => toast.error("Failed to create template. Check Supabase connection/RLS."),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['email-templates'] }),
-  });
-};
+ export const useCreateEmailTemplateMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async (payload: Parameters<typeof api.createEmailTemplate>[0]) => {
+       const response = await api.createEmailTemplate(payload);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to create template");
+       }
+       return response.data;
+     },
+     onSuccess: () => toast.success("Template created"),
+     onError: () => toast.error("Failed to create template. Check Supabase connection/RLS."),
+     onSettled: () => queryClient.invalidateQueries({ queryKey: ['email-templates'] }),
+   });
+ };
 
-export const useUpdateEmailTemplateMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: Parameters<typeof api.updateEmailTemplate>[0]) =>
-      api.updateEmailTemplate(payload),
-    onSuccess: () => toast.success("Template saved"),
-    onError: () => toast.error("Failed to save template. Check Supabase connection/RLS."),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['email-templates'] }),
-  });
-};
+ export const useUpdateEmailTemplateMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async (payload: Parameters<typeof api.updateEmailTemplate>[0]) => {
+       const response = await api.updateEmailTemplate(payload);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to update template");
+       }
+       return response.data;
+     },
+     onSuccess: () => toast.success("Template saved"),
+     onError: () => toast.error("Failed to save template. Check Supabase connection/RLS."),
+     onSettled: () => queryClient.invalidateQueries({ queryKey: ['email-templates'] }),
+   });
+ };
 
-// ============================================================================
-// FORUMS — React Query hooks (replaces useEffect anti-pattern)
-// ============================================================================
-export const useForumThreads = () => {
-  return useQuery({
-    queryKey: ['forum-threads', 'all'],
-    queryFn: api.getForumThreads,
-  });
-};
+ // FORUMS — React Query hooks (replaces useEffect anti-pattern)
+ export const useForumThreads = () => {
+   return useQuery({
+     queryKey: ['forum-threads', 'all'],
+     queryFn: api.getForumThreads,
+     select: (response) => response.data || [],
+   });
+ };
 
-export const useCreateForumThreadMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: Parameters<typeof api.createForumThread>[0]) =>
-      api.createForumThread(payload),
-    onSuccess: () => toast.success("Thread posted!"),
-    onError: () => toast.error("Failed to post thread. Check Supabase connection/RLS."),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['forum-threads'] }),
-  });
-};
+ export const useCreateForumThreadMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async (payload: Parameters<typeof api.createForumThread>[0]) => {
+       const response = await api.createForumThread(payload);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to post thread");
+       }
+       return response.data;
+     },
+     onSuccess: () => toast.success("Thread posted!"),
+     onError: () => toast.error("Failed to post thread. Check Supabase connection/RLS."),
+     onSettled: () => queryClient.invalidateQueries({ queryKey: ['forum-threads'] }),
+   });
+ };
 
-// ============================================================================
-// PLACEMENT OUTCOMES — React Query hooks
-// ============================================================================
-export const usePlacementOutcomes = () => {
-  return useQuery({
-    queryKey: ['placement-outcomes', 'all'],
-    queryFn: api.getPlacementOutcomes,
-  });
-};
+ // PLACEMENT OUTCOMES — React Query hooks
+ export const usePlacementOutcomes = () => {
+   return useQuery({
+     queryKey: ['placement-outcomes', 'all'],
+     queryFn: api.getPlacementOutcomes,
+     select: (response) => response.data || [],
+   });
+ };
 
-export const useCreatePlacementMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: Parameters<typeof api.createPlacementOutcome>[0]) =>
-      api.createPlacementOutcome(payload),
-    onSuccess: () => toast.success("Placement outcome logged!"),
-    onError: () => toast.error("Failed to save placement. Check Supabase connection/RLS."),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['placement-outcomes'] }),
-  });
-};
+ export const useCreatePlacementMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async (payload: Parameters<typeof api.createPlacementOutcome>[0]) => {
+       const response = await api.createPlacementOutcome(payload);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to save placement");
+       }
+       return response.data;
+     },
+     onSuccess: () => toast.success("Placement outcome logged!"),
+     onError: () => toast.error("Failed to save placement. Check Supabase connection/RLS."),
+     onSettled: () => queryClient.invalidateQueries({ queryKey: ['placement-outcomes'] }),
+   });
+ };
 
-export const useUpdatePlacementMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Record<string, unknown> }) =>
-      api.updatePlacementOutcome(id, updates),
-    onSuccess: () => toast.success("Placement updated"),
-    onError: () => toast.error("Failed to update placement."),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['placement-outcomes'] }),
-  });
-};
+ export const useUpdatePlacementMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async ({ id, updates }: { id: string; updates: Record<string, unknown> }) => {
+       const response = await api.updatePlacementOutcome(id, updates);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to update placement");
+       }
+       return response.data;
+     },
+     onSuccess: () => toast.success("Placement updated"),
+     onError: () => toast.error("Failed to update placement."),
+     onSettled: () => queryClient.invalidateQueries({ queryKey: ['placement-outcomes'] }),
+   });
+ };
 
-export const useDeletePlacementMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api.deletePlacementOutcome(id),
-    onSuccess: () => toast.success("Placement removed"),
-    onError: () => toast.error("Failed to delete placement."),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['placement-outcomes'] }),
-  });
-};
+ export const useDeletePlacementMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async (id: string) => {
+       const response = await api.deletePlacementOutcome(id);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to delete placement");
+       }
+       return response.data;
+     },
+     onSuccess: () => toast.success("Placement removed"),
+     onError: () => toast.error("Failed to delete placement."),
+     onSettled: () => queryClient.invalidateQueries({ queryKey: ['placement-outcomes'] }),
+   });
+ };
 
-// ============================================================================
-// INTERVIEW SCHEDULES — React Query hooks
-// ============================================================================
-export const useInterviewSchedules = () => {
-  return useQuery({
-    queryKey: ['interview-schedules', 'all'],
-    queryFn: api.getInterviewSchedules,
-  });
-};
+ // INTERVIEW SCHEDULES — React Query hooks
+ export const useInterviewSchedules = () => {
+   return useQuery({
+     queryKey: ['interview-schedules', 'all'],
+     queryFn: api.getInterviewSchedules,
+     select: (response) => response.data || [],
+   });
+ };
 
-export const useCreateInterviewMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: Parameters<typeof api.createInterviewSchedule>[0]) =>
-      api.createInterviewSchedule(payload),
-    onSuccess: () => toast.success("Interview scheduled!"),
-    onError: () => toast.error("Failed to schedule interview. Check Supabase connection/RLS."),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['interview-schedules'] }),
-  });
-};
+ export const useCreateInterviewMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async (payload: Parameters<typeof api.createInterviewSchedule>[0]) => {
+       const response = await api.createInterviewSchedule(payload);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to schedule interview");
+       }
+       return response.data;
+     },
+     onSuccess: () => toast.success("Interview scheduled!"),
+     onError: () => toast.error("Failed to schedule interview. Check Supabase connection/RLS."),
+     onSettled: () => queryClient.invalidateQueries({ queryKey: ['interview-schedules'] }),
+   });
+ };
 
-export const useUpdateInterviewMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Record<string, unknown> }) =>
-      api.updateInterviewSchedule(id, updates),
-    onSuccess: () => toast.success("Interview updated"),
-    onError: () => toast.error("Failed to update interview."),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['interview-schedules'] }),
-  });
-};
+ export const useUpdateInterviewMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async ({ id, updates }: { id: string; updates: Record<string, unknown> }) => {
+       const response = await api.updateInterviewSchedule(id, updates);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to update interview");
+       }
+       return response.data;
+     },
+     onSuccess: () => toast.success("Interview updated"),
+     onError: () => toast.error("Failed to update interview."),
+     onSettled: () => queryClient.invalidateQueries({ queryKey: ['interview-schedules'] }),
+   });
+ };
 
-export const useDeleteInterviewMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api.deleteInterviewSchedule(id),
-    onSuccess: () => toast.success("Interview removed"),
-    onError: () => toast.error("Failed to delete interview."),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['interview-schedules'] }),
-  });
-};
+ export const useDeleteInterviewMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async (id: string) => {
+       const response = await api.deleteInterviewSchedule(id);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to delete interview");
+       }
+       return response.data;
+     },
+     onSuccess: () => toast.success("Interview removed"),
+     onError: () => toast.error("Failed to delete interview."),
+     onSettled: () => queryClient.invalidateQueries({ queryKey: ['interview-schedules'] }),
+   });
+ };
 
-// ============================================================================
-// LEAD CAPTURES — React Query hooks
-// ============================================================================
-export const useLeadCaptures = () => {
-  return useQuery({
-    queryKey: ['lead-captures', 'all'],
-    queryFn: api.getLeadCaptures,
-  });
-};
+ // LEAD CAPTURES — React Query hooks
+ export const useLeadCaptures = () => {
+   return useQuery({
+     queryKey: ['lead-captures', 'all'],
+     queryFn: api.getLeadCaptures,
+     select: (response) => response.data || [],
+   });
+ };
 
-export const useUpdateLeadMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Record<string, unknown> }) =>
-      api.updateLeadCapture(id, updates),
-    onSuccess: () => toast.success("Lead updated"),
-    onError: () => toast.error("Failed to update lead."),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['lead-captures'] }),
-  });
-};
+ export const useUpdateLeadMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async ({ id, updates }: { id: string; updates: Record<string, unknown> }) => {
+       const response = await api.updateLeadCapture(id, updates);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to update lead");
+       }
+       return response.data;
+     },
+     onSuccess: () => toast.success("Lead updated"),
+     onError: () => toast.error("Failed to update lead."),
+     onSettled: () => queryClient.invalidateQueries({ queryKey: ['lead-captures'] }),
+   });
+ };
 
-export const useDeleteLeadMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api.deleteLeadCapture(id),
-    onSuccess: () => toast.success("Lead removed"),
-    onError: () => toast.error("Failed to delete lead."),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['lead-captures'] }),
-  });
-};
+ export const useDeleteLeadMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async (id: string) => {
+       const response = await api.deleteLeadCapture(id);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to delete lead");
+       }
+       return response.data;
+     },
+     onSuccess: () => toast.success("Lead removed"),
+     onError: () => toast.error("Failed to delete lead."),
+     onSettled: () => queryClient.invalidateQueries({ queryKey: ['lead-captures'] }),
+   });
+ };

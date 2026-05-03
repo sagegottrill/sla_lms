@@ -9,13 +9,14 @@ import { toast } from "sonner";
 export default function EarningsPage() {
   const { appUser } = useAuth();
 
-  const { data: paymentsResult, isLoading } = useQuery({
-    queryKey: ["instructor-payments", appUser?.id ?? ""],
-    queryFn: () => api.getInstructorPayments(appUser!.id),
-    enabled: !!appUser?.id,
-  });
+   const { data: paymentsResult = [], isLoading } = useQuery({
+     queryKey: ["instructor-payments", appUser?.id ?? ""],
+     queryFn: () => api.getInstructorPayments(appUser!.id),
+     enabled: !!appUser?.id,
+     select: (response) => response.success ? response.data || [] : [],
+   });
 
-  const payments = useMemo(() => (paymentsResult?.data ?? []) as any[], [paymentsResult]);
+   const payments = useMemo(() => paymentsResult, [paymentsResult]);
 
   const totalRevenue = useMemo(
     () => payments.filter(p => p.status === "successful").reduce((acc, p) => acc + Number(p.amount ?? 0), 0),

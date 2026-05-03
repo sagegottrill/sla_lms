@@ -200,7 +200,11 @@ export default function RolesPage() {
               className="rounded-xl"
               onClick={async () => {
                 if (!selectedUser) return;
-                await api.updateUserRole(selectedUser.id, newRole);
+                const response = await api.updateUserRole(selectedUser.id, newRole);
+                if (!response.success) {
+                  toast.error(response.error || "Failed to update role");
+                  return;
+                }
                 toast.success("Role updated");
                 setSelectedUser(null);
                 queryClient.invalidateQueries({ queryKey: queryKeys.profiles.base });
