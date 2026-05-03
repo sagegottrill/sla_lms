@@ -37,10 +37,13 @@ export default function AdminDashboard() {
     setReminderDeadlineHours(Number.isFinite(h) ? h : 48);
   }, [systemSettings]);
 
-  const { data: pendingApps = [], isLoading: loadingPending } = useQuery({
+  const { data: pendingAppsRaw, isLoading: loadingPending } = useQuery({
     queryKey: ["program_applications", "pending"],
     queryFn: api.getPendingProgramApplications,
   });
+
+  // Ensure pendingApps is always an array
+  const pendingApps = Array.isArray(pendingAppsRaw) ? pendingAppsRaw : [];
 
   const totalUsers = systemStats?.totalUsers ?? 0;
   const activeCourses = systemStats?.activeCourses ?? 0;

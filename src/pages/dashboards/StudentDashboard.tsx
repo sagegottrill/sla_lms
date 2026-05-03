@@ -16,7 +16,10 @@ export default function StudentDashboard() {
   const { data: enrollmentsRaw = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
   const { data: allCourses = [], isLoading: loadingCourses } = useCourses({ publishedOnly: true });
 
-  const enrollments = enrollmentsRaw.map((e: any) => ({
+  // Ensure enrollmentsRaw is always an array before mapping
+  const safeEnrollmentsRaw = Array.isArray(enrollmentsRaw) ? enrollmentsRaw : [];
+  
+  const enrollments = safeEnrollmentsRaw.map((e: any) => ({
     courseId: e.course_id,
     progress: Number(e.progress ?? 0),
   }));
