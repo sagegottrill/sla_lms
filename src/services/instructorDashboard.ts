@@ -37,6 +37,32 @@ export interface GradingStats {
   oldest_pending_days: number;
 }
 
+export interface UpcomingDeadline {
+  lesson_id: string;
+  assignment_title: string;
+  due_date: string;
+  course_id: number;
+  course_title: string;
+  expected_submissions: number;
+  received_submissions: number;
+  pending_submissions: number;
+}
+
+export interface ActivityFeedItem {
+  id: string;
+  instructor_id: string;
+  course_id: number;
+  course_title: string;
+  activity_type: 'submission' | 'discussion' | 'enrollment' | 'completion' | 'question' | 'comment';
+  student_id?: string;
+  student_name?: string;
+  student_email?: string;
+  related_item_id?: string;
+  activity_text: string;
+  activity_date: string;
+  read: boolean;
+}
+
 // ============================================================================
 // GRADING QUEUE FUNCTIONS
 // ============================================================================
@@ -353,5 +379,198 @@ export async function getCourseEngagementMetrics(courseId: number) {
   } catch (error) {
     console.error('Error in getCourseEngagementMetrics:', error);
     return null;
+  }
+}
+
+// ============================================================================
+// UPCOMING DEADLINES FUNCTIONS
+// ============================================================================
+
+/**
+ * Get upcoming deadlines for instructor across all courses
+ */
+export async function getInstructorUpcomingDeadlines(
+  instructorId: string,
+  days: number = 14
+): Promise<UpcomingDeadline[]> {
+  try {
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + days);
+
+    const { data, error } = await supabase
+      .from('instructor_upcoming_deadlines')
+      .select('*')
+      .eq('instructor_id', instructorId)
+      .lte('due_date', futureDate.toISOString())
+      .order('due_date', { ascending: true })
+      .limit(20);
+
+    if (error) {
+      console.error('Error fetching upcoming deadlines:', error);
+      return [];
+    }
+
+    return (data || []) as UpcomingDeadline[];
+  } catch (error) {
+    console.error('Error in getInstructorUpcomingDeadlines:', error);
+    return [];
+  }
+}
+
+/**
+ * Get upcoming deadlines for a specific course
+ */
+export async function getCourseUpcomingDeadlines(
+  courseId: number,
+  days: number = 14
+): Promise<UpcomingDeadline[]> {
+  try {
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + days);
+
+    const { data, error } = await supabase
+      .from('instructor_upcoming_deadlines')
+      .select('*')
+      .eq('course_id', courseId)
+      .lte('due_date', futureDate.toISOString())
+      .order('due_date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching course deadlines:', error);
+      return [];
+    }
+
+    return (data || []) as UpcomingDeadline[];
+  } catch (error) {
+    console.error('Error in getCourseUpcomingDeadlines:', error);
+    return [];
+  }
+}
+
+// ============================================================================
+// ACTIVITY FEED FUNCTIONS
+// ============================================================================
+
+/**
+ * Get recent activity for instructor
+ */
+export async function getInstructorActivityFeed(
+  instructorId: string,
+  hours: number = 48
+): Promise<ActivityFeedItem[]> {
+  try {
+    const hoursAgo = new Date();
+    hoursAgo.setHours(hoursAgo.getHours() - hours);
+
+    const { data, error } = await supabase
+      .from('instructor_recent_activity')
+      .select('*')
+      .eq('instructor_id', instructorId)
+      .gte('activity_date', hoursAgo.toISOString())
+      .order('activity_date', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error('Error fetching activity feed:', error);
+      return [];
+    }
+
+    return (data || []) as ActivityFeedItem[];
+  } catch (error) {
+    console.error('Error in getInstructorActivityFeed:', error);
+    return [];
+  }
+}
+
+/**
+ * Get activity for specific course
+ */
+export async function getCourseActivityFeed(
+  courseId: number,
+  hours: number = 48
+): Promise<ActivityFeedItem[]> {
+  try {
+    const hoursAgo = new Date();
+    hoursAgo.setHours(hoursAgo.getHours() - hours);
+
+    const { data, error } = await supabase
+      .from('instructor_recent_activity')
+      .select('*')
+      .eq('course_id', courseId)
+      .gte('activity_date', hoursAgo.toISOString())
+      .order('activity_date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching course activity:', error);
+      return [];
+    }
+
+    return (data || []) as ActivityFeedItem[];
+  } catch (error) {
+    console.error('Error in getCourseActivityFeed:', error);
+    return [];
+  }
+}
+
+/**
+ * Mark activity as read
+ */
+export async function markActivityRead(activityId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc('mark_activity_read', {
+      p_activity_id: activityId,
+    });
+
+    if (error) {
+      console.error('Error marking activity as read:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in markActivityRead:', error);
+    return false;
+  }
+}
+
+/**
+ * Mark all activity as read
+ */
+export async function markAllActivityRead(instructorId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc('mark_all_activity_read', {
+      p_instructor_id: instructorId,
+    });
+
+    if (error) {
+      console.error('Error marking all activity as read:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in markAllActivityRead:', error);
+    return false;
+  }
+}
+
+/**
+ * Get unread activity count
+ */
+export async function getUnreadActivityCount(instructorId: string): Promise<number> {
+  try {
+    const { data, error } = await supabase.rpc('get_unread_activity_count', {
+      p_instructor_id: instructorId,
+    });
+
+    if (error) {
+      console.error('Error getting unread count:', error);
+      return 0;
+    }
+
+    return data || 0;
+  } catch (error) {
+    console.error('Error in getUnreadActivityCount:', error);
+    return 0;
   }
 }
