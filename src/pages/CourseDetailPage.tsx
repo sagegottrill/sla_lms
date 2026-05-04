@@ -52,6 +52,25 @@ export default function CourseDetailPage() {
   const [courseAssessments, setCourseAssessments] = useState<Array<{ id: string; title?: string }>>([]);
   const [savingProgress, setSavingProgress] = useState(false);
 
+  // Calculate enrolled status FIRST before using it
+  const enrolled = useMemo(() => 
+    !!course && enrollments.some((e: { course_id?: number }) => e.course_id === course.id),
+    [course, enrollments]
+  );
+
+  // Flatten all lessons for sidebar + progress calculation
+  const allLessons = useMemo(() => {
+    if (!course?.curriculum) return [];
+    return course.curriculum.flatMap((mod: any) =>
+      (mod.items || []).map((item: any) => ({
+        title: typeof item === "string" ? item : item.title,
+        url: typeof item === "object" ? item.vimeo_url : "",
+        duration: typeof item === "object" ? item.duration : "",
+        module: mod.module,
+      }))
+    );
+  }, [course]);
+
   // Load persisted lesson completion from enrollment's current_lesson field
   useEffect(() => {
     if (!enrolled || !course) return;
@@ -67,19 +86,6 @@ export default function CourseDetailPage() {
       }
     }
   }, [enrolled, enrollments, course]);
-
-  // Flatten all lessons for sidebar + progress calculation
-  const allLessons = useMemo(() => {
-    if (!course?.curriculum) return [];
-    return course.curriculum.flatMap((mod: any) =>
-      (mod.items || []).map((item: any) => ({
-        title: typeof item === "string" ? item : item.title,
-        url: typeof item === "object" ? item.vimeo_url : "",
-        duration: typeof item === "object" ? item.duration : "",
-        module: mod.module,
-      }))
-    );
-  }, [course]);
 
   const persistProgress = async (nextCompleted: Set<string>) => {
     if (!appUser?.id || !course?.id || !enrolled) return;
@@ -104,10 +110,6 @@ export default function CourseDetailPage() {
       setSavingProgress(false);
     }
   };
-
-
-  const enrolled =
-    !!course && enrollments.some((e: { course_id?: number }) => e.course_id === course.id);
 
   useEffect(() => {
     if (enrolled && !activeVideo && course?.curriculum?.length > 0) {
