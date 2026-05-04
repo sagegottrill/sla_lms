@@ -207,12 +207,12 @@ export const api = {
       if (/^\d+$/.test(t)) {
         const n = Number(t);
         if (!Number.isFinite(n) || n < 1) return { data: undefined, error: null, success: true };
-        const result = await this.getCourseById(n);
+        const result = await api.getCourseById(n);
         return result;
       }
       if (UUID_ROUTE.test(t)) {
-        const result = await this.getCourseByPublicId(t);
-        return result;
+        const course = await fetchCourseRowByPublicId(t);
+        return { data: course, error: null, success: true };
       }
       return { data: undefined, error: null, success: true };
     } catch (error: any) {
