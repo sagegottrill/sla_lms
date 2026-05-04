@@ -1120,8 +1120,10 @@ export const api = {
     phone: string;
     goal: string;
     status: "pending";
-  }) => {
-    if (!USE_SUPABASE) return null;
+  }): Promise<ApiResponse<any>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: "Supabase not configured", success: false };
+    }
     const { data, error } = await supabase
       .from("course_applications")
       .insert({
@@ -1137,9 +1139,9 @@ export const api = {
       .single();
     if (error) {
       console.error("createCourseApplication error:", error.message);
-      return null;
+      return { data: null, error: error.message, success: false };
     }
-    return data;
+    return { data, error: null, success: true };
   },
 
   getCourseApplications: async (courseId: number): Promise<ApiResponse<any[]>> => {
