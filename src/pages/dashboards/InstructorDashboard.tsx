@@ -15,22 +15,70 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { useInstructorDashboardPrefs } from "@/hooks/useInstructorDashboardPrefs";
+import { useBulkCourseActions } from "@/hooks/useBulkCourseActions";
+import DashboardViewSwitcher from "@/components/instructor/DashboardViewSwitcher";
+import ListViewDashboard from "@/components/instructor/ListViewDashboard";
+import ActivityViewDashboard from "@/components/instructor/ActivityViewDashboard";
+import BulkCourseActions from "@/components/instructor/BulkCourseActions";
+import GradingQueueWidget from "@/components/instructor/GradingQueueWidget";
+import CourseAnalyticsWidget from "@/components/instructor/CourseAnalyticsWidget";
+import UpcomingDeadlinesWidget from "@/components/instructor/UpcomingDeadlinesWidget";
+import RecentActivityWidget from "@/components/instructor/RecentActivityWidget";
 
 export default function InstructorDashboard() {
   const { appUser } = useAuth();
   const [activeTab, setActiveTab] = useState<"published" | "drafts">("published");
+  const [selectedCourses, setSelectedCourses] = useState<number[]>([]);
 
   const { data: statsData, isLoading: loadingStats } = useInstructorStats(appUser?.id ?? "");
   const { data: courses = [], isLoading: loadingCourses } = useInstructorCourses(appUser?.id ?? "");
+  
+  // Phase 3: Dashboard preferences
+  const { 
+    preferences, 
+    isLoading: loadingPrefs,
+    updateView,
+    isUpdatingView 
+  } = useInstructorDashboardPrefs(appUser?.id ?? "");
+
+  // Phase 3: Bulk course actions
+  const {
+    togglePublish,
+    duplicate,
+    archive,
+    isTogglingPublish,
+    isDuplicating,
+    isArchiving,
+  } = useBulkCourseActions();
 
   const publishedCourses = courses.filter((c) => c.status === "published");
   const draftCourses = courses.filter((c) => c.status !== "published");
 
   const currentCourses = activeTab === "published" ? publishedCourses : draftCourses;
+  const currentView = preferences?.dashboard_view || 'card';
 
   const hour = new Date().getHours();
   const timeOfDay = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
   const firstName = appUser?.name?.split(" ")[0] || "Instructor";
+
+  // Phase 3: Bulk action handlers
+  const handlePublishToggle = (courseIds: number[]) => {
+    courseIds.forEach(id => togglePublish(id));
+    setSelectedCourses([]);
+  };
+
+  const handleDuplicate = (courseId: number, newTitle: string) => {
+    if (appUser?.id) {
+      duplicate({ courseId, newTitle, instructorId: appUser.id });
+    }
+  };
+
+  const handleArchive = (courseIds: number[], reason?: string) => {
+    if (appUser?.id) {
+      courseIds.forEach(id => archive({ courseId: id, instructorId: appUser.id, reason }));
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto py-6 sm:py-8 h-full min-h-[80vh]">
@@ -39,6 +87,21 @@ export default function InstructorDashboard() {
         {/* ————— LEFT COLUMN (WIDGETS) ————— */}
         <div className="hidden lg:block lg:col-span-4 xl:col-span-3 space-y-8">
           
+          {/* Phase 1: Grading Queue Widget */}
+          {preferences?.show_grading_queue !== false && appUser?.id && (
+            <GradingQueueWidget instructorId={appUser.id} />
+          )}
+
+          {/* Phase 2: Upcoming Deadlines Widget */}
+          {preferences?.show_upcoming_deadlines !== false && appUser?.id && (
+            <UpcomingDeadlinesWidget instructorId={appUser.id} />
+          )}
+
+          {/* Phase 2: Recent Activity Widget */}
+          {preferences?.show_recent_activity !== false && appUser?.id && (
+            <RecentActivityWidget instructorId={appUser.id} />
+          )}
+
           {/* Action Center */}
           <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
             <h2 className="font-display font-semibold text-lg text-foreground mb-4">Command Center</h2>
@@ -63,6 +126,11 @@ export default function InstructorDashboard() {
               </Link>
             </div>
           </div>
+
+          {/* Phase 1: Course Analytics Widget */}
+          {preferences?.show_analytics !== false && appUser?.id && (
+            <CourseAnalyticsWidget instructorId={appUser.id} />
+          )}
 
           {/* Core Analytics Widget (Minimalist) */}
           <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
@@ -107,19 +175,30 @@ export default function InstructorDashboard() {
           </div>
 
           {/* Pill Tabs */}
-          <div className="flex items-center gap-2 mb-6 border-b border-border/40 pb-2">
-            <button 
-              onClick={() => setActiveTab("published")}
-              className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${activeTab === "published" ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "text-foreground bg-transparent hover:bg-muted/80"}`}
-            >
-              Published ({publishedCourses.length})
-            </button>
-            <button 
-              onClick={() => setActiveTab("drafts")}
-              className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${activeTab === "drafts" ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "text-foreground bg-transparent hover:bg-muted/80"}`}
-            >
-              Drafts ({draftCourses.length})
-            </button>
+          <div className="flex items-center justify-between gap-4 mb-6 border-b border-border/40 pb-2">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setActiveTab("published")}
+                className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${activeTab === "published" ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "text-foreground bg-transparent hover:bg-muted/80"}`}
+              >
+                Published ({publishedCourses.length})
+              </button>
+              <button 
+                onClick={() => setActiveTab("drafts")}
+                className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${activeTab === "drafts" ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "text-foreground bg-transparent hover:bg-muted/80"}`}
+              >
+                Drafts ({draftCourses.length})
+              </button>
+            </div>
+
+            {/* Phase 3: View Switcher */}
+            {!loadingPrefs && (
+              <DashboardViewSwitcher
+                currentView={currentView}
+                onViewChange={updateView}
+                isUpdating={isUpdatingView}
+              />
+            )}
           </div>
 
           {/* Loading State */}
@@ -142,89 +221,136 @@ export default function InstructorDashboard() {
 
           {/* Courses List */}
           {!loadingCourses && (
-            <div className="space-y-4">
-              {currentCourses.length === 0 ? (
-                <div className="text-center p-12 bg-card ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl flex flex-col items-center">
-                  <p className="text-foreground font-semibold mb-2">No {activeTab} courses found</p>
-                  <p className="text-sm text-muted-foreground mb-6">Build your curriculum and share your expertise.</p>
-                  <Link to="/dashboard/courses/new">
-                    <Button className="bg-primary hover:bg-primary/90 font-bold px-8" size="lg">Create Course</Button>
-                  </Link>
-                </div>
-              ) : (
-                currentCourses.map((c) => (
-                  <div key={c.id} className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 sm:p-6 flex flex-col sm:flex-row gap-6 hover:border-border transition-colors group">
-                    
-                    {/* Image Thumbnail (Minimal) */}
-                    {c.image && (
-                      <div className="hidden sm:block w-32 shrink-0">
-                         <img src={c.image} alt={c.title} className="w-full h-20 object-cover rounded-lg ring-1 ring-black/5 dark:ring-white/10 border-0" />
-                      </div>
-                    )}
-
-                    {/* Left: Course Metas */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                      <Link to={`/courses/${coursePathSegment(c)}`} className="block">
-                        <h3 className="text-lg font-bold font-display text-foreground group-hover:text-primary transition-colors mb-1 line-clamp-1">
-                          {c.title}
-                        </h3>
-                      </Link>
-
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-2">
-                        <Users className="w-3.5 h-3.5" />
-                        <span className="font-semibold text-foreground/80">{(c.students || 0).toLocaleString()} learners</span>
-                        <span className="mx-1">·</span>
-                        <DollarSign className="w-3.5 h-3.5" />
-                        <span className="font-semibold text-foreground/80">₦{(c.revenue || 0).toLocaleString()} rev</span>
-                        {c.rating && c.rating > 0 && (
-                          <>
-                            <span className="mx-1">·</span>
-                            <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
-                            <span className="font-semibold text-foreground/80">{c.rating}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Right: Actions */}
-                    <div className="shrink-0 flex items-center gap-3 sm:border-l sm:border-border sm:pl-6">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
-                            aria-label={`Open actions for ${c.title}`}
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40 rounded-xl">
-                          <DropdownMenuItem asChild className="cursor-pointer font-medium text-xs py-2">
-                            <Link
-                              to={`/dashboard/courses/new?edit=${c.id}`}
-                              className="flex items-center justify-between gap-2"
-                            >
-                              Manage
-                            </Link>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-
-                  </div>
-                ))
+            <>
+              {/* Phase 3: List View */}
+              {currentView === 'list' && (
+                <ListViewDashboard
+                  courses={currentCourses.map(c => ({
+                    id: c.id,
+                    title: c.title,
+                    total_students: c.students,
+                    engagement_score: c.rating ? c.rating * 20 : undefined,
+                    published: c.status === 'published',
+                    created_at: c.created_at,
+                  }))}
+                  onPublishToggle={(courseId) => togglePublish(courseId)}
+                  onDuplicate={(courseId) => {
+                    const course = courses.find(c => c.id === courseId);
+                    if (course && appUser?.id) {
+                      handleDuplicate(courseId, `${course.title} (Copy)`);
+                    }
+                  }}
+                  onArchive={(courseId) => {
+                    if (appUser?.id) {
+                      handleArchive([courseId]);
+                    }
+                  }}
+                />
               )}
-            </div>
+
+              {/* Phase 3: Activity View */}
+              {currentView === 'activity' && (
+                <ActivityViewDashboard
+                  courses={currentCourses.map(c => ({
+                    id: c.id,
+                    title: c.title,
+                    total_students: c.students,
+                    engagement_score: c.rating ? c.rating * 20 : undefined,
+                    created_at: c.created_at,
+                    updated_at: c.updated_at,
+                  }))}
+                />
+              )}
+
+              {/* Card View (Default) */}
+              {currentView === 'card' && (
+                <div className="space-y-4">
+                  {currentCourses.length === 0 ? (
+                    <div className="text-center p-12 bg-card ring-1 ring-black/5 dark:ring-white/10 border-0 rounded-2xl flex flex-col items-center">
+                      <p className="text-foreground font-semibold mb-2">No {activeTab} courses found</p>
+                      <p className="text-sm text-muted-foreground mb-6">Build your curriculum and share your expertise.</p>
+                      <Link to="/dashboard/courses/new">
+                        <Button className="bg-primary hover:bg-primary/90 font-bold px-8" size="lg">Create Course</Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    currentCourses.map((c) => (
+                      <div key={c.id} className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 sm:p-6 flex flex-col sm:flex-row gap-6 hover:border-border transition-colors group">
+                        
+                        {/* Image Thumbnail (Minimal) */}
+                        {c.image && (
+                          <div className="hidden sm:block w-32 shrink-0">
+                             <img src={c.image} alt={c.title} className="w-full h-20 object-cover rounded-lg ring-1 ring-black/5 dark:ring-white/10 border-0" />
+                          </div>
+                        )}
+
+                        {/* Left: Course Metas */}
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                          <Link to={`/courses/${coursePathSegment(c)}`} className="block">
+                            <h3 className="text-lg font-bold font-display text-foreground group-hover:text-primary transition-colors mb-1 line-clamp-1">
+                              {c.title}
+                            </h3>
+                          </Link>
+
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-2">
+                            <Users className="w-3.5 h-3.5" />
+                            <span className="font-semibold text-foreground/80">{(c.students || 0).toLocaleString()} learners</span>
+                            <span className="mx-1">·</span>
+                            <DollarSign className="w-3.5 h-3.5" />
+                            <span className="font-semibold text-foreground/80">₦{(c.revenue || 0).toLocaleString()} rev</span>
+                            {c.rating && c.rating > 0 && (
+                              <>
+                                <span className="mx-1">·</span>
+                                <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+                                <span className="font-semibold text-foreground/80">{c.rating}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Right: Actions */}
+                        <div className="shrink-0 flex items-center gap-3 sm:border-l sm:border-border sm:pl-6">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+                                aria-label={`Open actions for ${c.title}`}
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40 rounded-xl">
+                              <DropdownMenuItem asChild className="cursor-pointer font-medium text-xs py-2">
+                                <Link
+                                  to={`/dashboard/courses/new?edit=${c.id}`}
+                                  className="flex items-center justify-between gap-2"
+                                >
+                                  Manage
+                                </Link>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </>
           )}
           
         </div>
       </div>
       
-      {/* Help bubble overlay */}
-      <div className="hidden md:block fixed bottom-6 right-6">
-        <button className="w-10 h-10 bg-white ring-1 ring-black/5 dark:ring-white/10 border-0 shadow-md rounded-full flex items-center justify-center text-primary hover:bg-muted/50 transition-colors">
-          <HelpCircle className="w-5 h-5" />
-        </button>
-      </div>
+      {/* Phase 3: Bulk Course Actions */}
+      <BulkCourseActions
+        selectedCourses={selectedCourses}
+        onPublishToggle={handlePublishToggle}
+        onDuplicate={handleDuplicate}
+        onArchive={handleArchive}
+        onClearSelection={() => setSelectedCourses([])}
+      />
     </div>
   );
 }

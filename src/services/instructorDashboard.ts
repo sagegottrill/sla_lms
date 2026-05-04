@@ -574,3 +574,194 @@ export async function getUnreadActivityCount(instructorId: string): Promise<numb
     return 0;
   }
 }
+
+// ============================================================================
+// DASHBOARD PREFERENCES FUNCTIONS
+// ============================================================================
+
+export interface InstructorDashboardPreferences {
+  id: string;
+  instructor_id: string;
+  dashboard_view: 'card' | 'list' | 'activity';
+  show_grading_queue: boolean;
+  show_analytics: boolean;
+  show_upcoming_deadlines: boolean;
+  show_recent_activity: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Get instructor dashboard preferences
+ */
+export async function getInstructorDashboardPreferences(
+  instructorId: string
+): Promise<InstructorDashboardPreferences | null> {
+  try {
+    const { data, error } = await supabase.rpc('get_instructor_dashboard_preferences', {
+      p_instructor_id: instructorId,
+    });
+
+    if (error) {
+      console.error('Error fetching dashboard preferences:', error);
+      return null;
+    }
+
+    return data as InstructorDashboardPreferences;
+  } catch (error) {
+    console.error('Error in getInstructorDashboardPreferences:', error);
+    return null;
+  }
+}
+
+/**
+ * Update dashboard view preference
+ */
+export async function updateInstructorDashboardView(
+  instructorId: string,
+  view: 'card' | 'list' | 'activity'
+): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc('update_instructor_dashboard_view', {
+      p_instructor_id: instructorId,
+      p_view: view,
+    });
+
+    if (error) {
+      console.error('Error updating dashboard view:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in updateInstructorDashboardView:', error);
+    return false;
+  }
+}
+
+/**
+ * Toggle widget visibility
+ */
+export async function toggleWidgetVisibility(
+  instructorId: string,
+  widget: string,
+  visible: boolean
+): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc('toggle_instructor_widget_visibility', {
+      p_instructor_id: instructorId,
+      p_widget: widget,
+      p_visible: visible,
+    });
+
+    if (error) {
+      console.error('Error toggling widget visibility:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in toggleWidgetVisibility:', error);
+    return false;
+  }
+}
+
+// ============================================================================
+// BULK COURSE ACTIONS FUNCTIONS
+// ============================================================================
+
+/**
+ * Toggle course publish status
+ */
+export async function toggleCoursePublishStatus(courseId: number): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc('toggle_course_publish_status', {
+      p_course_id: courseId,
+    });
+
+    if (error) {
+      console.error('Error toggling course publish status:', error);
+      return false;
+    }
+
+    return data as boolean;
+  } catch (error) {
+    console.error('Error in toggleCoursePublishStatus:', error);
+    return false;
+  }
+}
+
+/**
+ * Duplicate course
+ */
+export async function duplicateCourse(
+  courseId: number,
+  newTitle: string,
+  instructorId: string
+): Promise<number | null> {
+  try {
+    const { data, error } = await supabase.rpc('duplicate_course', {
+      p_course_id: courseId,
+      p_new_title: newTitle,
+      p_instructor_id: instructorId,
+    });
+
+    if (error) {
+      console.error('Error duplicating course:', error);
+      return null;
+    }
+
+    return data as number;
+  } catch (error) {
+    console.error('Error in duplicateCourse:', error);
+    return null;
+  }
+}
+
+/**
+ * Archive course
+ */
+export async function archiveCourse(
+  courseId: number,
+  instructorId: string,
+  reason?: string
+): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc('archive_course', {
+      p_course_id: courseId,
+      p_instructor_id: instructorId,
+      p_reason: reason || null,
+    });
+
+    if (error) {
+      console.error('Error archiving course:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in archiveCourse:', error);
+    return false;
+  }
+}
+
+/**
+ * Unarchive course
+ */
+export async function unarchiveCourse(courseId: number): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc('unarchive_course', {
+      p_course_id: courseId,
+    });
+
+    if (error) {
+      console.error('Error unarchiving course:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in unarchiveCourse:', error);
+    return false;
+  }
+}
