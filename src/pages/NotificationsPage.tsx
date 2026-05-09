@@ -56,18 +56,21 @@ export default function NotificationsPage() {
        ]);
 
        setNotificationPrefsRow(prefsResponse.success ? prefsResponse.data : null);
-       setSystemSettings(settingsResponse.success ? settingsResponse.data : null);
+       const settings = settingsResponse.success ? settingsResponse.data : null;
+       setSystemSettings(settings);
 
        const smart = (prefsResponse.data?.prefs?.smart_reminders ?? {}) as Record<string, unknown>;
+       const inactivityDaysLocal = Number(settings?.inactivity_reminder_days ?? 3);
+       const deadlineHoursLocal = Number(settings?.assessment_deadline_alert_hours ?? 48);
        setReminders((prev) =>
          prev.map((r) => ({
            ...r,
            active: typeof smart[r.id] === "boolean" ? Boolean(smart[r.id]) : r.active,
            desc:
              r.id === "inactivity"
-               ? `After ${Number.isFinite(inactivityDays) ? inactivityDays : 3} days of no activity`
+               ? `After ${Number.isFinite(inactivityDaysLocal) ? inactivityDaysLocal : 3} days of no activity`
                : r.id === "deadline"
-                 ? `${Number.isFinite(deadlineHours) ? deadlineHours : 48}h before quiz/assignment due`
+                 ? `${Number.isFinite(deadlineHoursLocal) ? deadlineHoursLocal : 48}h before quiz/assignment due`
                  : r.desc,
          }))
        );
@@ -174,7 +177,7 @@ export default function NotificationsPage() {
       byId.set(n.id, n);
     }
     return Array.from(byId.values()).sort((a, b) => b.sortTs - a.sortTs);
-  }, [enrollments, loadingEnrollments, readIds, reminders]);
+  }, [enrollments, loadingEnrollments, readIds, reminders, inactivityDays]);
 
   const filteredNotifs = useMemo(() => {
     return derivedNotifs.filter((n) => !dismissedIds.has(n.id));

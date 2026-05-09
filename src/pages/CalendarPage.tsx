@@ -49,9 +49,10 @@ export default function CalendarPage() {
   const { data: rawEnrollments = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
   const { data: catalog = [], isLoading: loadingCatalog } = useCourses({ publishedOnly: true });
 
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
+  const todayStr = useMemo(() => formatDate(today), [today]);
   const [weekStart, setWeekStart] = useState(() => getMonday(today));
-  const [selectedDate, setSelectedDate] = useState(formatDate(today));
+  const [selectedDate, setSelectedDate] = useState(todayStr);
 
   const weekDates = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -126,7 +127,6 @@ export default function CalendarPage() {
   const selectedEvents = allEvents[selectedDate] ?? [];
 
   const upcoming = useMemo(() => {
-    const todayStr = formatDate(today);
     return Object.entries(allEvents)
       .flatMap(([date, evs]) => evs.map(ev => ({ ...ev, date })))
       .filter(ev => ev.date >= todayStr)
@@ -141,7 +141,7 @@ export default function CalendarPage() {
           urgency: diff <= 2 ? "soon" as const : diff <= 7 ? "upcoming" as const : "later" as const,
         };
       });
-  }, [allEvents]);
+  }, [allEvents, today, todayStr]);
 
   const isLoading = loadingEnrollments || loadingCatalog;
 
@@ -187,7 +187,7 @@ export default function CalendarPage() {
               {weekDates.map((date, i) => {
                 const dateStr    = formatDate(date);
                 const isSelected = selectedDate === dateStr;
-                const isToday    = dateStr === formatDate(today);
+                const isToday    = dateStr === todayStr;
                 const dayEvents  = allEvents[dateStr];
                 return (
                   <div key={dateStr}>

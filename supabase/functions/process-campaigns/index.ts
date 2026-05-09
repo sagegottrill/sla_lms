@@ -17,7 +17,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
  * Triggered by pg_cron SQL (run in Supabase SQL Editor):
  *   SELECT cron.schedule(
  *     'process-campaigns',
- *     '*/15 * * * *',
+ *     '*\\/15 * * * *', -- every 15 minutes (escaped to avoid closing this comment)
  *     $$SELECT net.http_post(
  *       url := 'https://<project-ref>.supabase.co/functions/v1/process-campaigns',
  *       headers := '{"Authorization": "Bearer <service-role-key>", "Content-Type": "application/json"}'::jsonb,
