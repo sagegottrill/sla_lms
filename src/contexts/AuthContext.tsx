@@ -82,6 +82,13 @@ function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
 }
 
 function mapAuthUserToFallbackAppUser(authUser: User): AppUser {
+  const getLocalOnboardingOverride = (userId: string) => {
+    try {
+      return localStorage.getItem(`onboarding_override_completed:${userId}`) === "true";
+    } catch {
+      return false;
+    }
+  };
   const meta = authUser.user_metadata || {};
   const name =
     (typeof meta.full_name === "string" && meta.full_name) ||
@@ -94,6 +101,7 @@ function mapAuthUserToFallbackAppUser(authUser: User): AppUser {
     undefined;
   const forcedRole = forceAdminRoleByEmail(authUser.email ?? null);
   const role = forcedRole ?? inferRoleFromAuthUserForFallback(authUser);
+  const overrideCompleted = getLocalOnboardingOverride(authUser.id);
   return {
     id: authUser.id,
     name,
@@ -102,7 +110,7 @@ function mapAuthUserToFallbackAppUser(authUser: User): AppUser {
     avatar,
     onboarding: {
       ...defaultOnboarding,
-      completed: isStaffRole(role) ? true : defaultOnboarding.completed,
+      completed: isStaffRole(role) ? true : (overrideCompleted ? true : defaultOnboarding.completed),
     },
   };
 }
@@ -369,9 +377,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const completeOnboarding = async (data: Partial<OnboardingData>) => {
     if (!user) return;
 
+    // Persist an override to prevent redirect loops if the profile row cannot be read immediately (RLS/network).
+    try {
+      localStorage.setItem(`onboarding_override_completed:${user.id}`, "true");
+    } catch {
+      // ignore storage failures (private mode / blocked storage)
+    }
+
     // Optimistic UI update
     setAppUser((prev) => {
-      if (!prev) return prev;
+      if (!prev) {
+        const fallback = mapAuthUserToFallbackAppUser(user);
+        return {
+          ...fallback,
+          careerGoal: data.careerGoal || fallback.careerGoal,
+          onboarding: { ...fallback.onboarding, ...data, completed: true },
+        };
+      }
       return {
         ...prev,
         careerGoal: data.careerGoal || prev.careerGoal,

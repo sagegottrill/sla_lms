@@ -213,7 +213,7 @@ export default function OnboardingPage() {
     setFinishing(true);
     try {
       // 1. Update Profile in DB using the captured data
-      await supabase
+      const { error: profileUpdateError } = await supabase
         .from("profiles")
         .update({
           role: "student",
@@ -223,6 +223,7 @@ export default function OnboardingPage() {
           interests: interests,
         })
         .eq("id", user.id);
+      if (profileUpdateError) throw profileUpdateError;
 
       // 2. Invalidate React Query Cache strictly as requested
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.base });
@@ -231,7 +232,8 @@ export default function OnboardingPage() {
       await completeOnboarding({ completed: true });
 
       toast.success("Profile setup complete! Welcome aboard.");
-      navigate("/dashboard");
+      useOnboardingStore.getState().resetForm();
+      navigate("/dashboard", { replace: true });
     } catch (error) {
       toast.error("Failed to finalize onboarding setup.");
       setFinishing(false);

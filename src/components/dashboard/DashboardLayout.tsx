@@ -44,13 +44,15 @@ export default function DashboardLayout() {
       !isStaffRole(appUser.role) &&  // Double-check: NEVER staff
       needsOnboarding
     ) {
-      console.trace("ONBOARDING REDIRECT TRACE", {
-        loading,
-        isAuthenticated,
-        role: appUser.role,
-        needsOnboarding,
-        path: location.pathname,
-      });
+      if (import.meta.env.DEV) {
+        console.trace("ONBOARDING REDIRECT TRACE", {
+          loading,
+          isAuthenticated,
+          role: appUser.role,
+          needsOnboarding,
+          path: location.pathname,
+        });
+      }
       navigate("/onboarding", { replace: true });
     }
   }, [loading, isAuthenticated, appUser, needsOnboarding, navigate, location.pathname]);
