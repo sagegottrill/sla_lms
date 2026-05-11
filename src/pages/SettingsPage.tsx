@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { Camera, Save, Shield } from "lucide-react";
@@ -7,12 +7,20 @@ import { toast } from "sonner";
 import { api } from "@/services/api";
 import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
+import { usePlatformConfig, useUpdatePlatformConfigMutation } from "@/hooks/useQueries";
 
-const tabs = ["Profile", "Account", "Notifications", "Privacy", "Appearance"];
+const baseTabs = ["Profile", "Account", "Notifications", "Privacy", "Appearance"] as const;
 
 export default function SettingsPage() {
   const { appUser, refreshProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState("Profile");
+  const isAdmin = appUser?.role === "admin";
+  const tabs = useMemo(() => {
+    const t = [...baseTabs] as string[];
+    if (isAdmin) t.push("Platform");
+    return t;
+  }, [isAdmin]);
+
+  const [activeTab, setActiveTab] = useState<string>("Profile");
   const [name, setName] = useState(appUser?.name ?? "");
   const [bio, setBio] = useState(appUser?.bio ?? "");
   const [careerGoal, setCareerGoal] = useState(appUser?.careerGoal ?? "");
@@ -32,6 +40,46 @@ export default function SettingsPage() {
     setCareerGoal(appUser?.careerGoal ?? "");
   }, [appUser?.avatar, appUser?.name, appUser?.bio, appUser?.careerGoal]);
 
+  // --- Platform: Twilio config (admin-only) ---
+  // Only query when admin; otherwise avoid touching the table (RLS).
+  const { data: twilioConfig } = usePlatformConfig("twilio", { enabled: isAdmin });
+  const updatePlatformConfigMutation = useUpdatePlatformConfigMutation();
+  const [twilioAccountSid, setTwilioAccountSid] = useState("");
+  const [twilioAuthToken, setTwilioAuthToken] = useState("");
+  const [twilioPhoneNumber, setTwilioPhoneNumber] = useState("");
+  const [twilioWhatsappNumber, setTwilioWhatsappNumber] = useState("");
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const cfg = (twilioConfig ?? {}) as Record<string, any>;
+    setTwilioAccountSid(typeof cfg.accountSid === "string" ? cfg.accountSid : "");
+    setTwilioAuthToken(typeof cfg.authToken === "string" ? cfg.authToken : "");
+    setTwilioPhoneNumber(typeof cfg.phoneNumber === "string" ? cfg.phoneNumber : "");
+    setTwilioWhatsappNumber(typeof cfg.whatsappNumber === "string" ? cfg.whatsappNumber : "");
+  }, [isAdmin, twilioConfig]);
+
+  const saveTwilioConfig = async () => {
+    if (!appUser?.id) return;
+    if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
+      toast.error("Please fill TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER.");
+      return;
+    }
+    try {
+      await updatePlatformConfigMutation.mutateAsync({
+        id: "twilio",
+        data: {
+          accountSid: twilioAccountSid.trim(),
+          authToken: twilioAuthToken.trim(),
+          phoneNumber: twilioPhoneNumber.trim(),
+          whatsappNumber: twilioWhatsappNumber.trim(),
+        },
+      });
+      toast.success("Twilio settings saved.");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save Twilio settings.");
+    }
+  };
+
   const [notifications, setNotifications] = useState({
     courseUpdates: true,
     deadlineReminders: true,
@@ -46,32 +94,35 @@ export default function SettingsPage() {
     jobMatching: false,
   });
 
-   // React Query — replaces useEffect anti-pattern for notification prefs
-   useQuery({
+   // React Query — load notification prefs row
+   const notificationPrefsQuery = useQuery({
      queryKey: ["notification-prefs-settings", appUser?.id ?? ""],
      queryFn: () => api.getNotificationPreferences(appUser!.id),
      enabled: !!appUser?.id,
-     select: (response) => response.success ? response.data : null,
-     onSuccess: (row) => {
-       if (!row) return;
-       setNotificationPrefsRow(row);
-       const p = (row?.prefs ?? {}) as Record<string, any>;
-       setNotifications(prev => ({
-         ...prev,
-         courseUpdates:        Boolean(p.course_updates?.email  ?? prev.courseUpdates),
-         deadlineReminders:    Boolean(p.deadlines?.email       ?? prev.deadlineReminders),
-         programAnnouncements: Boolean(p.program_updates?.email ?? prev.programAnnouncements),
-         jobAlerts:            Boolean(p.job_matches?.email     ?? prev.jobAlerts),
-         marketingEmails:      Boolean(p.promotions?.email      ?? prev.marketingEmails),
-       }));
-       const privacyRow = (p.privacy ?? {}) as Record<string, any>;
-       setPrivacy(prev => ({
-         publicProfile: Boolean(privacyRow.publicProfile ?? prev.publicProfile),
-         showProgress:  Boolean(privacyRow.showProgress  ?? prev.showProgress),
-         jobMatching:   Boolean(privacyRow.jobMatching   ?? prev.jobMatching),
-       }));
-     },
+     select: (response) => (response.success ? response.data : null),
    });
+
+   useEffect(() => {
+     const row = notificationPrefsQuery.data;
+     if (!row) return;
+     setNotificationPrefsRow(row);
+     const p = (row?.prefs ?? {}) as Record<string, any>;
+     setNotifications((prev) => ({
+       ...prev,
+       courseUpdates: Boolean(p.course_updates?.email ?? prev.courseUpdates),
+       deadlineReminders: Boolean(p.deadlines?.email ?? prev.deadlineReminders),
+       programAnnouncements: Boolean(p.program_updates?.email ?? prev.programAnnouncements),
+       jobAlerts: Boolean(p.job_matches?.email ?? prev.jobAlerts),
+       marketingEmails: Boolean(p.promotions?.email ?? prev.marketingEmails),
+     }));
+     const privacyRow = (p.privacy ?? {}) as Record<string, any>;
+     setPrivacy((prev) => ({
+       ...prev,
+       publicProfile: Boolean(privacyRow.publicProfile ?? prev.publicProfile),
+       showProgress: Boolean(privacyRow.showProgress ?? prev.showProgress),
+       jobMatching: Boolean(privacyRow.jobMatching ?? prev.jobMatching),
+     }));
+   }, [notificationPrefsQuery.data]);
 
   const [passwords, setPasswords] = useState({ current: "", newPass: "", confirm: "" });
 
@@ -357,6 +408,75 @@ export default function SettingsPage() {
                     onClick={() => toast.warning("To delete your account, please contact administrative support.")}>
                     Delete Account
                   </Button>
+                </div>
+              </>
+            )}
+
+            {activeTab === "Platform" && isAdmin && (
+              <>
+                <div className="flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-primary" />
+                  <h2 className="font-display text-lg font-bold text-foreground">Platform Settings</h2>
+                </div>
+
+                <div className="rounded-2xl border border-border/40 bg-background p-5 space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-foreground">Twilio</h3>
+                    <p className="text-sm text-muted-foreground">
+                      These are stored server-side and used by the `twilio-notify` Edge Function.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1.5 block">TWILIO_ACCOUNT_SID</label>
+                    <input
+                      value={twilioAccountSid}
+                      onChange={(e) => setTwilioAccountSid(e.target.value)}
+                      placeholder="AC..."
+                      className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1.5 block">TWILIO_AUTH_TOKEN</label>
+                    <input
+                      type="password"
+                      value={twilioAuthToken}
+                      onChange={(e) => setTwilioAuthToken(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1.5 block">TWILIO_PHONE_NUMBER</label>
+                    <input
+                      value={twilioPhoneNumber}
+                      onChange={(e) => setTwilioPhoneNumber(e.target.value)}
+                      placeholder="+18444481077"
+                      className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1.5 block">TWILIO_WHATSAPP_NUMBER (optional)</label>
+                    <input
+                      value={twilioWhatsappNumber}
+                      onChange={(e) => setTwilioWhatsappNumber(e.target.value)}
+                      placeholder="whatsapp:+18444481077"
+                      className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={saveTwilioConfig}
+                      className="rounded-xl gradient-card text-primary-foreground hover:opacity-90 flex items-center gap-2"
+                      disabled={updatePlatformConfigMutation.isPending}
+                    >
+                      <Save className="w-4 h-4" /> {updatePlatformConfigMutation.isPending ? "Saving..." : "Save Twilio Settings"}
+                    </Button>
+                  </div>
                 </div>
               </>
             )}

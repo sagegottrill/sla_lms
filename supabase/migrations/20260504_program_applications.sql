@@ -7,7 +7,7 @@
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS program_applications (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   program_id INTEGER NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,

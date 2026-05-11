@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCourses, useUserEnrollments } from "@/hooks/useQueries";
@@ -25,11 +25,11 @@ export default function StudentDashboard() {
   const [dashboardView, setDashboardView] = useState<'card' | 'list' | 'activity'>('card');
   
   // Update local state when preferences load
-  useState(() => {
+  useEffect(() => {
     if (preferences?.dashboard_view) {
       setDashboardView(preferences.dashboard_view);
     }
-  });
+  }, [preferences?.dashboard_view]);
 
   const { data: enrollmentsRaw = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
   const { data: allCourses = [], isLoading: loadingCourses } = useCourses({ publishedOnly: true });

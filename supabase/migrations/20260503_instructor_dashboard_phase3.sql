@@ -6,7 +6,7 @@
 -- ============================================================================
 -- Stores instructor dashboard preferences and settings
 CREATE TABLE IF NOT EXISTS instructor_dashboard_preferences (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   instructor_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE UNIQUE,
   dashboard_view TEXT CHECK (dashboard_view IN ('card', 'list', 'activity')) DEFAULT 'card',
   show_grading_queue BOOLEAN DEFAULT TRUE,
@@ -25,7 +25,7 @@ CREATE INDEX IF NOT EXISTS idx_instructor_dashboard_preferences_instructor_id ON
 -- ============================================================================
 -- Stores archived courses
 CREATE TABLE IF NOT EXISTS archived_courses (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
   archived_by UUID NOT NULL REFERENCES profiles(id),
   archived_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

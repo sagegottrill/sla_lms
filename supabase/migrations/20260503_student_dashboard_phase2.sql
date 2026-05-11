@@ -6,7 +6,7 @@
 -- ============================================================================
 -- Stores institution-wide announcements visible to all users
 CREATE TABLE IF NOT EXISTS global_announcements (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   priority TEXT CHECK (priority IN ('low', 'medium', 'high')) DEFAULT 'medium',
@@ -26,7 +26,7 @@ CREATE INDEX IF NOT EXISTS idx_global_announcements_dates
 -- ============================================================================
 -- Tracks which users have dismissed which announcements
 CREATE TABLE IF NOT EXISTS dismissed_announcements (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   announcement_id UUID NOT NULL REFERENCES global_announcements(id) ON DELETE CASCADE,
   dismissed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -42,7 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_dismissed_announcements_announcement_id ON dismis
 -- ============================================================================
 -- Stores personal calendar events created by users
 CREATE TABLE IF NOT EXISTS user_calendar_events (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   description TEXT,

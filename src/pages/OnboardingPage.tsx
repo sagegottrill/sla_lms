@@ -212,24 +212,26 @@ export default function OnboardingPage() {
   const handleFinish = async () => {
     setFinishing(true);
     try {
-      // 1. Update Profile in DB using the captured data
+      // Mark auth context as complete first (includes local override to prevent redirect loops).
+      await completeOnboarding({ completed: true, interests });
+
+      // Best-effort: persist extra onboarding fields to profiles row.
+      // If the DB isn't fully migrated yet, we still allow the user to proceed to the dashboard.
       const { error: profileUpdateError } = await supabase
         .from("profiles")
         .update({
           role: "student",
           avatar_url: avatarUrl || null,
           onboarding_completed: true,
-          skills: skills,
-          interests: interests,
+          skills,
+          interests,
         })
         .eq("id", user.id);
-      if (profileUpdateError) throw profileUpdateError;
+      if (profileUpdateError) {
+        console.warn("Onboarding profile update failed:", profileUpdateError.message);
+      }
 
-      // 2. Invalidate React Query Cache strictly as requested
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.base });
-
-      // 3. Mark auth context as complete
-      await completeOnboarding({ completed: true });
 
       toast.success("Profile setup complete! Welcome aboard.");
       useOnboardingStore.getState().resetForm();

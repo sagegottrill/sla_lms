@@ -23,7 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_submissions_graded_by ON submissions(graded_by);
 -- ============================================================================
 -- Stores pre-calculated analytics for performance
 CREATE TABLE IF NOT EXISTS course_analytics_cache (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE UNIQUE,
   total_students INTEGER DEFAULT 0,
   active_students INTEGER DEFAULT 0,

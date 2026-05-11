@@ -6,7 +6,7 @@
 -- ============================================================================
 -- Stores activity feed items for instructors
 CREATE TABLE IF NOT EXISTS instructor_activity_feed (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   instructor_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
   activity_type TEXT CHECK (activity_type IN ('submission', 'discussion', 'enrollment', 'completion', 'question', 'comment')) NOT NULL,

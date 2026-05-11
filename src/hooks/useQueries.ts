@@ -459,6 +459,35 @@ export const useProfile = (userId: string | undefined) => {
   });
 };
 
+// --- PLATFORM CONFIG (Admin) ---
+export const usePlatformConfig = (id: string, opts?: { enabled?: boolean }) => {
+  return useQuery({
+    queryKey: ["platform-config", id],
+    queryFn: async () => {
+      const response = await api.getPlatformConfig(id);
+      if (response.success && response.data) return response.data;
+      throw new Error(response.error || "Failed to load platform config");
+    },
+    enabled: opts?.enabled ?? true,
+    staleTime: 1000 * 10,
+  });
+};
+
+export const useUpdatePlatformConfigMutation = () => {
+  const queryClient = useQueryClient();
+  const { appUser } = useAuth();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await api.updatePlatformConfig(id, data, appUser?.id);
+      if (!response.success) throw new Error(response.error || "Failed to update platform config");
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["platform-config", variables.id] });
+    },
+  });
+};
+
  // CAMPAIGNS — React Query hooks (replaces useEffect anti-pattern)
  export const useCampaigns = () => {
    return useQuery({

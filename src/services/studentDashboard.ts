@@ -261,6 +261,8 @@ export async function getDashboardPreferences(userId: string): Promise<Dashboard
       .maybeSingle();
 
     if (error) {
+      // If the table isn't migrated yet, don't block the dashboard.
+      if (error.code === "PGRST205" || error.code === "42P01") return null;
       console.error('Error fetching dashboard preferences:', error);
       return null;
     }

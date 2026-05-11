@@ -6,7 +6,7 @@
 -- ============================================================================
 -- Stores user-created to-do items (personal tasks, reminders)
 CREATE TABLE IF NOT EXISTS user_todo_items (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   description TEXT,
@@ -26,7 +26,7 @@ CREATE INDEX IF NOT EXISTS idx_user_todo_items_due_date ON user_todo_items(due_d
 -- ============================================================================
 -- Stores user preferences for dashboard customization
 CREATE TABLE IF NOT EXISTS user_dashboard_preferences (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE UNIQUE,
   dashboard_view TEXT CHECK (dashboard_view IN ('card', 'list', 'activity')) DEFAULT 'card',
   show_onboarding_banner BOOLEAN DEFAULT TRUE,

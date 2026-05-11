@@ -132,6 +132,7 @@ ON CONFLICT (key) DO NOTHING;
 
 -- Permissions: Readable by all authenticated users
 ALTER TABLE permissions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permissions readable by authenticated users" ON permissions;
 CREATE POLICY "Permissions readable by authenticated users"
   ON permissions FOR SELECT
   TO authenticated
@@ -139,11 +140,13 @@ CREATE POLICY "Permissions readable by authenticated users"
 
 -- Custom Roles: Admins can manage, others can view
 ALTER TABLE custom_roles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Custom roles readable by authenticated users" ON custom_roles;
 CREATE POLICY "Custom roles readable by authenticated users"
   ON custom_roles FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Custom roles manageable by admins" ON custom_roles;
 CREATE POLICY "Custom roles manageable by admins"
   ON custom_roles FOR ALL
   TO authenticated
@@ -164,11 +167,13 @@ CREATE POLICY "Custom roles manageable by admins"
 
 -- User Custom Roles: Users can view their own, admins can manage all
 ALTER TABLE user_custom_roles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their own custom roles" ON user_custom_roles;
 CREATE POLICY "Users can view their own custom roles"
   ON user_custom_roles FOR SELECT
   TO authenticated
   USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Admins can manage all custom role assignments" ON user_custom_roles;
 CREATE POLICY "Admins can manage all custom role assignments"
   ON user_custom_roles FOR ALL
   TO authenticated
@@ -189,6 +194,7 @@ CREATE POLICY "Admins can manage all custom role assignments"
 
 -- User Groups: Admins and program managers can manage
 ALTER TABLE user_groups ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "User groups readable by staff" ON user_groups;
 CREATE POLICY "User groups readable by staff"
   ON user_groups FOR SELECT
   TO authenticated
@@ -200,6 +206,7 @@ CREATE POLICY "User groups readable by staff"
     )
   );
 
+DROP POLICY IF EXISTS "User groups manageable by admins and program managers" ON user_groups;
 CREATE POLICY "User groups manageable by admins and program managers"
   ON user_groups FOR ALL
   TO authenticated
@@ -220,6 +227,7 @@ CREATE POLICY "User groups manageable by admins and program managers"
 
 -- User Group Members: Same as user groups
 ALTER TABLE user_group_members ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "User group members readable by staff" ON user_group_members;
 CREATE POLICY "User group members readable by staff"
   ON user_group_members FOR SELECT
   TO authenticated
@@ -231,6 +239,7 @@ CREATE POLICY "User group members readable by staff"
     )
   );
 
+DROP POLICY IF EXISTS "User group members manageable by admins and program managers" ON user_group_members;
 CREATE POLICY "User group members manageable by admins and program managers"
   ON user_group_members FOR ALL
   TO authenticated
@@ -251,6 +260,7 @@ CREATE POLICY "User group members manageable by admins and program managers"
 
 -- System Health Logs: Admins only
 ALTER TABLE system_health_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "System health logs readable by admins" ON system_health_logs;
 CREATE POLICY "System health logs readable by admins"
   ON system_health_logs FOR SELECT
   TO authenticated
@@ -262,6 +272,7 @@ CREATE POLICY "System health logs readable by admins"
     )
   );
 
+DROP POLICY IF EXISTS "System health logs insertable by service role" ON system_health_logs;
 CREATE POLICY "System health logs insertable by service role"
   ON system_health_logs FOR INSERT
   TO authenticated
@@ -269,6 +280,7 @@ CREATE POLICY "System health logs insertable by service role"
 
 -- Masquerade Sessions: Admins only
 ALTER TABLE masquerade_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Masquerade sessions manageable by admins" ON masquerade_sessions;
 CREATE POLICY "Masquerade sessions manageable by admins"
   ON masquerade_sessions FOR ALL
   TO authenticated

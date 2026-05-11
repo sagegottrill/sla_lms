@@ -1503,6 +1503,42 @@ export const api = {
   },
 
   // -------------------------
+  // PLATFORM CONFIG (Admin)
+  // -------------------------
+  getPlatformConfig: async (id: string): Promise<ApiResponse<any>> => {
+    if (!USE_SUPABASE) {
+      return { data: {}, error: null, success: true };
+    }
+    const { data, error } = await supabase.from("platform_config").select("*").eq("id", id).maybeSingle();
+    if (error) {
+      console.error("Supabase getPlatformConfig error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+    if (!data?.data || typeof data.data !== "object") {
+      return { data: {}, error: null, success: true };
+    }
+    return { data: data.data as Record<string, unknown>, error: null, success: true };
+  },
+
+  updatePlatformConfig: async (id: string, configData: unknown, userId?: string): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: configData, error: null, success: true };
+    }
+    const payload: Record<string, unknown> = { id, data: configData, updated_at: new Date().toISOString() };
+    if (userId) payload.updated_by = userId;
+    const { data, error } = await supabase
+      .from("platform_config")
+      .upsert(payload, { onConflict: "id" })
+      .select()
+      .single();
+    if (error) {
+      console.error("Supabase updatePlatformConfig error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+    return { data: data?.data, error: null, success: true };
+  },
+
+  // -------------------------
   // SKILLS ASSESSMENTS
   // -------------------------
   getSkillsAssessments: async (filters?: {
