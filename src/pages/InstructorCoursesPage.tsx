@@ -2,16 +2,22 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useInstructorCourses, useCourses } from "@/hooks/useQueries";
 import { Link, useNavigate } from "react-router-dom";
-import { BookOpen, Users, DollarSign, Star, Plus, Search, Loader2 } from "lucide-react";
+import { BookOpen, Users, DollarSign, Star, Plus, Search, Loader2, EyeOff, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { api } from "@/services/api";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function InstructorCoursesPage() {
   const { appUser } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [updatingCourseId, setUpdatingCourseId] = useState<number | null>(null);
 
   const isStaffCatalog =
     appUser?.role === "admin" || appUser?.role === "program_manager";
+  const isAdmin = appUser?.role === "admin";
 
   const { data: allCourses = [], isLoading: loadingAll } = useCourses({
     publishedOnly: false,
@@ -30,6 +36,35 @@ export default function InstructorCoursesPage() {
       ),
     [courses, search]
   );
+
+  const handleTogglePublish = async (courseId: number, currentStatus: string) => {
+    if (!isAdmin) {
+      toast.error("Only admins can unpublish courses");
+      return;
+    }
+
+    const newStatus = currentStatus === "published" ? "draft" : "published";
+    const action = newStatus === "published" ? "Publishing" : "Unpublishing";
+
+    setUpdatingCourseId(courseId);
+    
+    try {
+      const response = await api.updateCourse(courseId, { status: newStatus });
+      
+      if (response.success) {
+        toast.success(`Course ${newStatus === "published" ? "published" : "unpublished"} successfully`);
+        // Invalidate queries to refresh the course list
+        queryClient.invalidateQueries({ queryKey: ["courses"] });
+        queryClient.invalidateQueries({ queryKey: ["instructorCourses"] });
+      } else {
+        toast.error(`Failed to ${action.toLowerCase()} course: ${response.error}`);
+      }
+    } catch (error: any) {
+      toast.error(`Error ${action.toLowerCase()} course: ${error.message}`);
+    } finally {
+      setUpdatingCourseId(null);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
@@ -145,11 +180,37 @@ export default function InstructorCoursesPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Link to={`/dashboard/courses/new?edit=${course.id}`}>
-                        <Button variant="outline" className="h-8 px-4 text-xs font-semibold rounded-md border-border bg-transparent hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity">
-                          Manage
-                        </Button>
-                      </Link>
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {isAdmin && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleTogglePublish(course.id, course.status || "draft")}
+                            disabled={updatingCourseId === course.id}
+                            className="h-8 px-3 text-xs font-semibold rounded-md border-border bg-transparent hover:bg-muted"
+                            title={course.status === "published" ? "Unpublish course" : "Publish course"}
+                          >
+                            {updatingCourseId === course.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : course.status === "published" ? (
+                              <>
+                                <EyeOff className="w-3.5 h-3.5 mr-1.5" />
+                                Unpublish
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="w-3.5 h-3.5 mr-1.5" />
+                                Publish
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        <Link to={`/dashboard/courses/new?edit=${course.id}`}>
+                          <Button variant="outline" className="h-8 px-4 text-xs font-semibold rounded-md border-border bg-transparent hover:bg-muted">
+                            Manage
+                          </Button>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

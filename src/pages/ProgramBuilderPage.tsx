@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useCourses, useCreateProgramMutation, useUpdateProgramMutation, useProgram } from "@/hooks/useQueries";
 import { supabase } from "@/lib/supabase";
 
-const CATEGORIES = ["Data Science", "Technology", "Business", "Leadership", "Finance", "Marketing", "Health", "Design"];
+const CATEGORIES = ["Data Science", "Technology", "Business", "Leadership", "Finance", "Marketing", "Health", "Design", "Administrative and Business Support"];
 const LEVELS = ["All Levels", "Beginner", "Intermediate", "Advanced"] as const;
 
 type Partner = { id: number; name: string; logoUrl: string };

@@ -14,7 +14,7 @@ import { useUIStore } from "@/store/useUIStore";
 import imageCompression from "browser-image-compression";
 import { supabase } from "@/lib/supabase";
 
-const CATEGORIES = ["Data Science", "Technology", "Business", "Leadership", "Finance", "Marketing", "Health", "Design", "Career Development"];
+const CATEGORIES = ["Data Science", "Technology", "Business", "Leadership", "Finance", "Marketing", "Health", "Design", "Career Development", "Administrative and Business Support"];
 const LEVELS = ["Beginner", "Intermediate", "Advanced", "All Levels"];
 const BADGES = ["New", "Bestseller", "Hot", "Popular", "Top Rated", "Free"];
 
@@ -44,7 +44,9 @@ export default function CourseBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [published, setPublished] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const imageRef = useRef<HTMLInputElement>(null);
+  const avatarRef = useRef<HTMLInputElement>(null);
   /** After a new course is first saved, we get a row `id` for course-scoped storage paths. */
   const [savedNewCourseId, setSavedNewCourseId] = useState<number | null>(null);
   const thumbnailCourseId = isEdit && editId > 0 ? editId : savedNewCourseId;
@@ -227,6 +229,49 @@ export default function CourseBuilderPage() {
       setUploadingImage(false);
       // allow re-selecting the same file
       if (imageRef.current) imageRef.current.value = "";
+    }
+  };
+
+  /** Instructor Avatar → Supabase Storage bucket `courses` */
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!thumbnailCourseId) {
+      toast.error("Save your course as a draft or publish once first so it has an ID, then upload the instructor avatar.");
+      e.target.value = "";
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      // Browser-side image compression (smaller for avatars)
+      const options = { maxSizeMB: 0.3, maxWidthOrHeight: 800, useWebWorker: true };
+      const compressedFile = await imageCompression(file, options);
+
+      const fileExt = file.name.split(".").pop() ?? "jpg";
+      const filePath = `instructors/${thumbnailCourseId}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('courses')
+        .upload(filePath, compressedFile, {
+          upsert: true,
+          contentType: compressedFile.type || file.type,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('courses')
+        .getPublicUrl(filePath);
+
+      setInstructorAvatar(publicUrl);
+      toast.success("Instructor avatar uploaded!");
+    } catch (err: any) {
+      toast.error(`Avatar upload failed: ${err?.message ?? "Unknown error"}`);
+    } finally {
+      setUploadingAvatar(false);
+      // allow re-selecting the same file
+      if (avatarRef.current) avatarRef.current.value = "";
     }
   };
 
@@ -461,8 +506,48 @@ export default function CourseBuilderPage() {
                 <textarea value={instructorBio} onChange={e => setInstructorBio(e.target.value)} rows={3} placeholder="Short instructor bio..." className={inputCls + " resize-none"} />
               </div>
               <div className="sm:col-span-2">
-                <label className={labelCls}>Avatar Image URL</label>
-                <input value={instructorAvatar} onChange={e => setInstructorAvatar(e.target.value)} placeholder="https://..." className={inputCls} />
+                <label className={labelCls}>Instructor Avatar</label>
+                <div className="flex gap-3 items-start">
+                  <div className="flex-1">
+                    <input
+                      ref={avatarRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => avatarRef.current?.click()}
+                      disabled={uploadingAvatar || !thumbnailCourseId}
+                      className="w-full rounded-xl gap-2"
+                    >
+                      {uploadingAvatar ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          {instructorAvatar ? "Change Avatar" : "Upload Avatar"}
+                        </>
+                      )}
+                    </Button>
+                    {!thumbnailCourseId && (
+                      <p className="text-xs text-amber-600 mt-1">Save as draft first to enable avatar upload</p>
+                    )}
+                    {instructorAvatar && (
+                      <p className="text-xs text-muted-foreground mt-1">Avatar uploaded successfully</p>
+                    )}
+                  </div>
+                  {instructorAvatar && (
+                    <div className="relative w-20 h-20 rounded-xl overflow-hidden ring-1 ring-black/5 dark:ring-white/10 shrink-0">
+                      <img src={instructorAvatar} alt="Instructor" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

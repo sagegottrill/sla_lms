@@ -1,125 +1,196 @@
-# 🚀 Quick Start - All Fixes Applied
+# ⚡ Quick Start - Unpublish Feature
 
-## ✅ Status: ALL COMPLETE
+## 🎯 What You Need to Know
 
-All uncompleted work has been successfully fixed and verified.
-
----
-
-## 📋 What Was Fixed
-
-### 1. TypeScript Errors ✅
-- **ReportsPage.tsx**: Fixed 9 implicit 'any' type errors
-- **NotificationPrefsPage.tsx**: Fixed deprecated React Query API + type errors
-- **Result**: ✅ 0 TypeScript errors, build passes successfully
-
-### 2. Type Definitions ✅
-- Added comprehensive TypeScript interfaces in `src/types/index.ts`
-- Created proper types for: ProgramRow, Participant, SystemStats, NotificationPreferences, etc.
-- **Result**: ✅ Full type safety across the application
-
-### 3. Database Migration ✅
-- Migration file ready: `supabase/missing_tables_migration.sql`
-- Creates 5 tables: placement_outcomes, interview_schedules, lead_captures, system_settings, audit_logs
-- **Result**: ✅ Ready to apply (see instructions below)
+**Feature:** Admin users can now unpublish courses with one click  
+**Files Changed:** 1 (InstructorCoursesPage.tsx)  
+**Database Changes:** 0 (none)  
+**Risk Level:** 🟢 Low  
+**Time to Test:** 15 minutes  
+**Time to Deploy:** 5 minutes  
+**Time to Rollback:** 30 seconds  
 
 ---
 
-## 🎯 Next Step: Apply Database Migration
+## ✅ Pre-Deployment Checklist (15 min)
 
-### Quick Instructions:
-
-1. **Open Supabase Dashboard**
-   - Go to https://supabase.com/dashboard
-   - Select your project
-
-2. **Navigate to SQL Editor**
-   - Click "SQL Editor" in sidebar
-   - Click "New query"
-
-3. **Copy & Run Migration**
-   - Open `supabase/missing_tables_migration.sql`
-   - Copy all content
-   - Paste into SQL Editor
-   - Click "Run" (or Ctrl+Enter)
-
-4. **Verify Success**
-   - Check "Table Editor" in sidebar
-   - You should see 5 new tables
-
-**Detailed Guide**: See `DATABASE_MIGRATION_GUIDE.md` for step-by-step instructions with screenshots and troubleshooting.
-
----
-
-## ✅ Verification
-
-### Build Status
+### 1. Environment Check (2 min)
 ```bash
-✓ TypeScript compilation: PASSED (0 errors)
-✓ Production build: PASSED
-✓ All chunks generated successfully
+# Verify .env exists
+cat .env | grep VITE_SUPABASE
+
+# Start dev server
+npm run dev
+
+# Open http://localhost:5173
+# Check console - should NOT see "Supabase credentials are not set"
 ```
 
-### Files Modified
-- ✅ `src/pages/ReportsPage.tsx` - All type errors fixed
-- ✅ `src/pages/NotificationPrefsPage.tsx` - Deprecated API replaced
-- ✅ `src/types/index.ts` - New type definitions added
-- ✅ `supabase/missing_tables_migration.sql` - Ready to apply
+### 2. Backend Test (5 min)
+Open browser console (F12):
+```javascript
+// Test connection
+const { supabase } = await import('/src/lib/supabase.ts');
+const { data: { user } } = await supabase.auth.getUser();
+console.log('User:', user?.email);
 
-### New Documentation
-- ✅ `DATABASE_MIGRATION_GUIDE.md` - Complete migration instructions
-- ✅ `FIXES_COMPLETED.md` - Detailed summary of all fixes
-- ✅ `QUICK_START.md` - This file (quick reference)
+// Test role
+const { data: profile } = await supabase
+  .from('profiles')
+  .select('role')
+  .eq('id', user?.id)
+  .single();
+console.log('Role:', profile?.role); // Should be 'admin'
+
+// Test read
+const { data, error } = await supabase
+  .from('courses')
+  .select('id, title, status')
+  .limit(1);
+console.log('Can read:', !!data, 'Error:', error); // Should be true, null
+```
+
+### 3. Update Test (5 min)
+⚠️ Uses a real course - pick a test course!
+```javascript
+// Get test course
+const { data: course } = await supabase
+  .from('courses')
+  .select('id, title, status')
+  .limit(1)
+  .single();
+console.log('Before:', course);
+
+// Update
+const { data: updated, error } = await supabase
+  .from('courses')
+  .update({ status: 'draft' })
+  .eq('id', course.id)
+  .select()
+  .single();
+console.log('After:', updated, 'Error:', error); // Error should be null
+
+// Restore
+await supabase
+  .from('courses')
+  .update({ status: course.status })
+  .eq('id', course.id);
+console.log('Restored');
+```
+
+### 4. UI Test (3 min)
+1. Log in as admin
+2. Go to Dashboard → Courses
+3. Hover over a published course
+4. Click "Unpublish"
+5. Verify: loading spinner → success toast → status changes
+6. Click "Publish" to restore
 
 ---
 
-## 🧪 Testing Checklist
+## 🚀 Deployment (5 min)
 
-After applying the database migration:
+### If All Tests Pass:
+```bash
+# 1. Commit
+git add src/pages/InstructorCoursesPage.tsx
+git commit -m "feat: Add unpublish functionality for admin users"
 
-- [ ] Navigate to Reports page - should load without errors
-- [ ] Navigate to Notification Preferences page - should load without errors
-- [ ] Verify data displays correctly
-- [ ] Test placement outcomes (admin/program manager)
-- [ ] Test interview scheduling (admin/program manager)
-- [ ] Test lead capture forms (public)
+# 2. Push
+git push origin main
 
----
-
-## 📚 Documentation
-
-| Document | Purpose |
-|----------|---------|
-| `QUICK_START.md` | This file - Quick reference |
-| `FIXES_COMPLETED.md` | Detailed summary of all fixes |
-| `DATABASE_MIGRATION_GUIDE.md` | Step-by-step migration instructions |
+# 3. Verify
+# - Check build succeeds
+# - Test in production
+# - Monitor for errors
+```
 
 ---
 
-## 🎉 Summary
+## 🔄 Rollback (30 sec)
 
-**All uncompleted work is now complete!**
+### If Something Goes Wrong:
+```bash
+# Quick revert
+git revert HEAD
+git push
+```
 
-✅ TypeScript errors: **FIXED**
-✅ Deprecated APIs: **FIXED**
-✅ Type definitions: **ADDED**
-✅ Database migration: **READY**
-✅ Build verification: **PASSED**
-✅ Documentation: **COMPLETE**
-
-**Status**: 🟢 **PRODUCTION READY**
-
----
-
-## 💡 Need Help?
-
-- **Migration Issues**: See `DATABASE_MIGRATION_GUIDE.md` → Troubleshooting section
-- **Type Errors**: All fixed - run `npm run build` to verify
-- **API Issues**: Check Supabase connection and RLS policies
+### Or Emergency Disable:
+```typescript
+// In InstructorCoursesPage.tsx line 20:
+const isAdmin = false; // Disable feature
+```
 
 ---
 
-**Last Updated**: 2026-05-02
-**Build Status**: ✅ PASSING
-**TypeScript**: ✅ 0 ERRORS
-**Migration**: ⏳ READY TO APPLY
+## 📊 What to Monitor (24 hours)
+
+**Watch for:**
+- ❌ Errors in browser console
+- ❌ RLS violations in Supabase logs
+- ❌ Student complaints about missing courses
+
+**Success indicators:**
+- ✅ Admins can unpublish/publish
+- ✅ No errors
+- ✅ UI updates correctly
+
+---
+
+## 🆘 Troubleshooting
+
+### "Supabase credentials are not set"
+```bash
+cp .env.example .env
+# Edit .env with your credentials
+npm run dev
+```
+
+### "Your role is not admin"
+```sql
+-- In Supabase SQL Editor:
+UPDATE profiles 
+SET role = 'admin' 
+WHERE email = 'your-email@example.com';
+```
+
+### "Permission denied" or "RLS violation"
+```sql
+-- Verify policy exists:
+SELECT policyname 
+FROM pg_policies 
+WHERE tablename = 'courses' 
+  AND policyname = 'Staff can update courses';
+```
+
+---
+
+## 📚 Full Documentation
+
+For detailed information, see:
+- **READY_TO_DEPLOY.md** - Complete deployment guide
+- **DEPLOYMENT_SUMMARY.md** - Executive summary
+- **test-unpublish-backend.md** - Detailed test scripts
+- **UNPUBLISH_VERIFICATION_CHECKLIST.md** - Full checklist
+
+---
+
+## ✅ Final Check
+
+Before pushing, confirm:
+- [ ] All 4 tests passed
+- [ ] Build succeeds (`npm run build`)
+- [ ] No TypeScript errors
+- [ ] Stakeholder approved
+- [ ] You understand rollback plan
+
+---
+
+## 🎉 You're Ready!
+
+**Tests pass?** → Deploy  
+**Tests fail?** → Fix issues first  
+**Questions?** → Read full documentation  
+
+**Good luck! 🚀**
