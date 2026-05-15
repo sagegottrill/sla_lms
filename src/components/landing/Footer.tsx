@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Mail, Twitter, Linkedin, Instagram, Youtube } from "lucide-react";
+import { BookOpen, Mail, Twitter, Linkedin, Instagram, Youtube, Facebook } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -17,9 +17,10 @@ const footerLinks: Record<string, { label: string; href: string }[]> = {
 };
 
 const socials = [
-  { icon: Twitter, href: "https://twitter.com/SheLeadsAfrica", label: "Twitter" },
-  { icon: Linkedin, href: "https://www.linkedin.com/company/she-leads-africa", label: "LinkedIn" },
   { icon: Instagram, href: "https://www.instagram.com/sheleadsafrica", label: "Instagram" },
+  { icon: Linkedin, href: "https://www.linkedin.com/company/sheleadsafrica-org", label: "LinkedIn" },
+  { icon: Facebook, href: "https://www.facebook.com/sheleadsafrica", label: "Facebook" },
+  { icon: Twitter, href: "https://x.com/sheleadsafrica", label: "Twitter" },
   { icon: Youtube, href: "https://www.youtube.com/@sheleadsafrica", label: "YouTube" },
 ];
 
