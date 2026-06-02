@@ -220,11 +220,24 @@ type EnrollMutationMeta = { silentToast?: boolean };
       // 2. Snapshot prior state for fallback
       const previousEnrollments = queryClient.getQueryData(queryKey);
  
-      // 3. Inject optimistic state (Inject placeholder until DB resolves)
-      queryClient.setQueryData(queryKey, (old: any) => [
-        ...(old || []),
-        { id: 'temp-' + Date.now(), user_id: userId, course_id: courseId, status: 'active', enrolled_at: new Date().toISOString() }
-      ]);
+      // 3. Inject optimistic state (cache holds ApiResponse from queryFn, not the select() array)
+      const placeholder = {
+        id: 'temp-' + Date.now(),
+        user_id: userId,
+        course_id: courseId,
+        status: 'active',
+        enrolled_at: new Date().toISOString(),
+      };
+      queryClient.setQueryData(queryKey, (old: unknown) => {
+        if (old && typeof old === 'object' && 'data' in old && Array.isArray((old as { data: unknown }).data)) {
+          const prev = old as { data: unknown[]; success?: boolean; error?: string | null };
+          return { ...prev, data: [...prev.data, placeholder], success: true, error: null };
+        }
+        if (Array.isArray(old)) {
+          return [...old, placeholder];
+        }
+        return { data: [placeholder], error: null, success: true };
+      });
  
       // 4. Return context for rollback
       return { previousEnrollments, queryKey, role };
