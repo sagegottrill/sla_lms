@@ -178,6 +178,15 @@ export default function CourseDetailPage() {
     );
   }
 
+  const rawCoursePrice = Number(course.price ?? 0);
+  const coursePriceNgn = Number.isFinite(rawCoursePrice) ? Math.max(0, rawCoursePrice) : null;
+  const isFreeCourse = coursePriceNgn === 0;
+  const priceLabel = coursePriceNgn === null
+    ? "Price unavailable"
+    : coursePriceNgn === 0
+      ? "Free"
+      : `₦${coursePriceNgn.toLocaleString()}`;
+
   const handleEnroll = async () => {
     if (!appUser) {
       toast.error("Please log in to enrol.");
@@ -185,14 +194,17 @@ export default function CourseDetailPage() {
       return;
     }
     
-    // Enterprise Optimistic UI
     toast.promise(
-      enrollMutation.mutateAsync({ userId: appUser.id, courseId: course.id }),
+      enrollMutation.mutateAsync(
+        { userId: appUser.id, courseId: course.id },
+        { meta: { silentToast: true } },
+      ),
       {
         loading: "Enrolling...",
         success: "Successfully enrolled in course!",
-        error: "Failed to enrol. Please try again."
-      }
+        error: (err) =>
+          err instanceof Error ? err.message : "Failed to enrol. Please try again.",
+      },
     );
   };
 
@@ -396,7 +408,7 @@ export default function CourseDetailPage() {
                    {!enrolled && <img src={course.image} alt={course.title} className="w-full aspect-video object-cover" />}
                    <div className="p-6 space-y-4">
                      <div className="flex items-baseline gap-2">
-                       <div className="text-3xl font-bold font-display text-foreground">{course.price === 0 ? "Free" : `₦${course.price?.toLocaleString()}`}</div>
+                       <div className="text-3xl font-bold font-display text-foreground">{priceLabel}</div>
                        {course.originalPrice && (
                          <div className="text-lg font-bold text-muted-foreground line-through">₦{course.originalPrice?.toLocaleString()}</div>
                        )}
@@ -405,17 +417,21 @@ export default function CourseDetailPage() {
                        <Button disabled className="w-full bg-secondary text-primary rounded-xl h-11 font-semibold opacity-100 flex items-center justify-center gap-2">
                          <CheckCircle className="w-5 h-5" /> Enrolled
                        </Button>
-                     ) : course.price === 0 ? (
+                    ) : isFreeCourse ? (
                        <Button onClick={handleEnroll} disabled={enrollMutation.isPending} className="w-full gradient-card text-primary-foreground rounded-xl h-11 font-semibold shadow-brand-sm hover:opacity-90">
                          {enrollMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "Enrol for Free"}
                        </Button>
+                    ) : coursePriceNgn === null ? (
+                      <Button disabled className="w-full rounded-xl h-11 font-semibold">
+                        Price unavailable
+                      </Button>
                      ) : (
                        <Button
                          type="button"
                          onClick={openPaidEnrollModal}
                          className="w-full gradient-card text-primary-foreground rounded-xl h-11 font-semibold shadow-brand-sm hover:opacity-90"
                        >
-                         Enrol Now — ₦{course.price?.toLocaleString()}
+                         Enrol Now — ₦{coursePriceNgn.toLocaleString()}
                        </Button>
                      )}
                      
@@ -457,18 +473,22 @@ export default function CourseDetailPage() {
       {!enrolled && (
         <div className="lg:hidden sticky top-0 z-20 bg-card border-b border-border p-4 flex items-center justify-between gap-4">
             <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-display text-foreground">{course.price === 0 ? "Free" : `₦${course.price?.toLocaleString()}`}</span>
+            <span className="text-2xl font-bold font-display text-foreground">{priceLabel}</span>
             {course.originalPrice && (
                 <span className="text-sm font-bold text-muted-foreground line-through">₦{course.originalPrice?.toLocaleString()}</span>
             )}
             </div>
-            {course.price === 0 ? (
+            {isFreeCourse ? (
             <Button onClick={handleEnroll} disabled={enrollMutation.isPending} className="gradient-card text-primary-foreground rounded-xl font-semibold px-6">
                 {enrollMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Enrol for Free"}
             </Button>
+            ) : coursePriceNgn === null ? (
+            <Button disabled className="rounded-xl font-semibold px-6">
+                Price unavailable
+            </Button>
             ) : (
             <Button type="button" onClick={openPaidEnrollModal} className="gradient-card text-primary-foreground rounded-xl font-semibold px-6">
-                Enrol — ₦{course.price?.toLocaleString()}
+                Enrol — ₦{coursePriceNgn.toLocaleString()}
             </Button>
             )}
         </div>

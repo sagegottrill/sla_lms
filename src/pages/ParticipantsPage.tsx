@@ -1,12 +1,12 @@
 ﻿import { useState, useRef, useEffect } from "react";
-import { Search, Download, Users, Bell, Trash2, Mail, MoreHorizontal, MessageSquare } from "lucide-react";
+import { Search, Download, Users, Bell, Trash2, Mail, MoreHorizontal, MessageSquare, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FilterChips } from "@/components/dashboard/FilterChips";
 import { PageContainer, PageHeader } from "@/components/common/PageContainer";
 import { DESIGN_TOKENS } from "@/lib/design-tokens";
 
 import { toast } from "sonner";
-import { useProgramParticipants } from "@/hooks/useQueries";
+import { useCourses, useProgramParticipants } from "@/hooks/useQueries";
 import { api } from "@/services/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/react-query";
@@ -37,10 +37,14 @@ import {
 
 export default function ParticipantsPage() {
   const { data: participants = [], isLoading } = useProgramParticipants();
+  const { data: courses = [], isLoading: loadingCourses } = useCourses({ publishedOnly: false });
   const [search, setSearch] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [removing, setRemoving] = useState(false);
+  const [enrollModalOpen, setEnrollModalOpen] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [enrollingCourse, setEnrollingCourse] = useState(false);
   const queryClient = useQueryClient();
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const messageTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -261,6 +265,41 @@ export default function ParticipantsPage() {
     setSmsModalOpen(true);
   };
 
+  const openEnrollModal = (participant: any) => {
+    setSelectedParticipant(participant);
+    setSelectedCourseId("");
+    setEnrollModalOpen(true);
+  };
+
+  const handleEnrollParticipantInCourse = async () => {
+    const userId = String(selectedParticipant?.user_id ?? "");
+    const courseId = Number(selectedCourseId);
+    if (!userId) {
+      toast.error("This learner record is missing a user account id.");
+      return;
+    }
+    if (!Number.isFinite(courseId) || courseId < 1) {
+      toast.error("Select a course first.");
+      return;
+    }
+
+    setEnrollingCourse(true);
+    try {
+      const response = await api.enrollUser(userId, courseId);
+      if (!response.success) {
+        throw new Error(response.error || "Could not enroll this learner.");
+      }
+      toast.success("Learner enrolled in course.");
+      setEnrollModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.participants.base });
+      queryClient.invalidateQueries({ queryKey: queryKeys.enrollments.base });
+    } catch (e: any) {
+      toast.error(e?.message || "Could not enroll this learner.");
+    } finally {
+      setEnrollingCourse(false);
+    }
+  };
+
   const handleSendSms = async () => {
     if (!phoneNumber || !smsMessage) {
       toast.error("Please provide both phone number and message.");
@@ -458,6 +497,13 @@ export default function ParticipantsPage() {
                             Send SMS / WhatsApp
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            onClick={() => openEnrollModal(p)}
+                            className="cursor-pointer font-medium text-xs py-2"
+                          >
+                            <BookOpen className={cn(DESIGN_TOKENS.iconSmall, "mr-2")} />
+                            Enroll in course
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onClick={() => void handleDeleteParticipant(String((p as any).user_id ?? ""))}
                             className="cursor-pointer font-medium text-xs py-2 text-destructive focus:text-destructive"
                           >
@@ -556,6 +602,52 @@ export default function ParticipantsPage() {
                {sending ? "Sending..." : `Send ${smsChannel === "whatsapp" ? "WhatsApp" : "SMS"}`}
              </Button>
            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={enrollModalOpen} onOpenChange={setEnrollModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Enroll learner in course</DialogTitle>
+            <DialogDescription>
+              Add {selectedParticipant?.name || "this learner"} to a course. If they are already enrolled, nothing will be duplicated.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="course">Course</Label>
+              <Select value={selectedCourseId} onValueChange={setSelectedCourseId} disabled={loadingCourses}>
+                <SelectTrigger id="course">
+                  <SelectValue placeholder={loadingCourses ? "Loading courses..." : "Select a course"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {courses.map((course: any) => (
+                    <SelectItem key={course.id} value={String(course.id)}>
+                      {course.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEnrollModalOpen(false)}
+              disabled={enrollingCourse}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEnrollParticipantInCourse}
+              disabled={enrollingCourse || !selectedCourseId}
+              className="bg-primary hover:bg-primary/90"
+            >
+              {enrollingCourse ? "Enrolling..." : "Enroll learner"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

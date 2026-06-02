@@ -85,9 +85,36 @@
       DROP POLICY IF EXISTS "baseline_payments_insert" ON public.payments;
       DROP POLICY IF EXISTS "baseline_payments_update_admin" ON public.payments;
 
-      DROP POLICY IF EXISTS "baseline_program_applications_select" ON public.program_applications;
-      DROP POLICY IF EXISTS "baseline_program_applications_insert" ON public.program_applications;
-      DROP POLICY IF EXISTS "baseline_program_applications_update" ON public.program_applications;
+      DO $$
+      BEGIN
+        IF to_regclass('public.course_applications') IS NOT NULL THEN
+          EXECUTE 'DROP POLICY IF EXISTS "Users can insert own course applications" ON public.course_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "Users can read own course applications" ON public.course_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "Staff and course instructor can read course applications" ON public.course_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "Users can view their own applications" ON public.course_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "Users can create their own applications" ON public.course_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "Users can update their own pending applications" ON public.course_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "Instructors can view applications for their courses" ON public.course_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "Admins can view all applications" ON public.course_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "Admins can update any application" ON public.course_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "baseline_course_applications_select" ON public.course_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "baseline_course_applications_insert" ON public.course_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "baseline_course_applications_update" ON public.course_applications';
+        END IF;
+
+        IF to_regclass('public.program_applications') IS NOT NULL THEN
+          EXECUTE 'DROP POLICY IF EXISTS "Users can view their own applications" ON public.program_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "Users can create their own applications" ON public.program_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "Users can update their own pending applications" ON public.program_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "Program managers can view applications" ON public.program_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "Admins can view all applications" ON public.program_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "Staff can update any application" ON public.program_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "baseline_program_applications_select" ON public.program_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "baseline_program_applications_insert" ON public.program_applications';
+          EXECUTE 'DROP POLICY IF EXISTS "baseline_program_applications_update" ON public.program_applications';
+        END IF;
+      END
+      $$;
 
       -- ---------------------------------------------------------------------------
       -- 1) ROLE HELPERS (SECURITY DEFINER to avoid recursive profiles policy checks)
@@ -286,7 +313,60 @@
         WITH CHECK (public.is_admin());
 
       -- ---------------------------------------------------------------------------
-      -- 8) PROGRAM APPLICATIONS (optional admin approvals flow)
+      -- 8) COURSE APPLICATIONS (paid course intake before checkout)
+      -- ---------------------------------------------------------------------------
+      CREATE TABLE IF NOT EXISTS public.course_applications (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+        course_id int NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
+        full_name text NOT NULL DEFAULT '',
+        email text NOT NULL DEFAULT '',
+        phone text NOT NULL DEFAULT '',
+        goal text,
+        status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed')),
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_course_applications_user_id ON public.course_applications(user_id);
+      CREATE INDEX IF NOT EXISTS idx_course_applications_course_id ON public.course_applications(course_id);
+      CREATE INDEX IF NOT EXISTS idx_course_applications_status ON public.course_applications(status);
+      CREATE INDEX IF NOT EXISTS idx_course_applications_created_at ON public.course_applications(created_at DESC);
+
+      ALTER TABLE public.course_applications ENABLE ROW LEVEL SECURITY;
+
+      CREATE POLICY "baseline_course_applications_select"
+        ON public.course_applications FOR SELECT
+        TO authenticated
+        USING (
+          (SELECT auth.uid()) = user_id
+          OR public.is_admin_or_pm()
+          OR EXISTS (
+            SELECT 1
+            FROM public.courses c
+            WHERE c.id = course_applications.course_id
+              AND c.instructor_id = (SELECT auth.uid())
+          )
+        );
+
+      CREATE POLICY "baseline_course_applications_insert"
+        ON public.course_applications FOR INSERT
+        TO authenticated
+        WITH CHECK ((SELECT auth.uid()) = user_id);
+
+      CREATE POLICY "baseline_course_applications_update"
+        ON public.course_applications FOR UPDATE
+        TO authenticated
+        USING (
+          ((SELECT auth.uid()) = user_id AND status = 'pending')
+          OR public.is_admin_or_pm()
+        )
+        WITH CHECK (
+          ((SELECT auth.uid()) = user_id AND status = 'pending')
+          OR public.is_admin_or_pm()
+        );
+
+      -- ---------------------------------------------------------------------------
+      -- 9) PROGRAM APPLICATIONS (optional admin approvals flow)
       -- ---------------------------------------------------------------------------
       CREATE TABLE IF NOT EXISTS public.program_applications (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -295,7 +375,7 @@
         full_name text NOT NULL,
         phone text NOT NULL DEFAULT '',
         email text NOT NULL,
-        status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+        status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed')),
         created_at timestamptz NOT NULL DEFAULT now()
       );
 
@@ -321,4 +401,55 @@
         TO authenticated
         USING (public.is_admin_or_pm())
         WITH CHECK (public.is_admin_or_pm());
+
+      -- ---------------------------------------------------------------------------
+      -- 10) ENROLLMENT TRIGGER SAFETY (courses without instructor_id must not block enroll)
+      -- ---------------------------------------------------------------------------
+      CREATE OR REPLACE FUNCTION public.trigger_enrollment_activity()
+      RETURNS TRIGGER
+      LANGUAGE plpgsql
+      SECURITY DEFINER
+      SET search_path = public, pg_temp
+      AS $$
+      DECLARE
+        v_instructor_id uuid;
+        v_course_title text;
+        v_student_name text;
+      BEGIN
+        IF NEW.course_id IS NULL THEN
+          RETURN NEW;
+        END IF;
+
+        SELECT c.instructor_id, c.title
+        INTO v_instructor_id, v_course_title
+        FROM public.courses c
+        WHERE c.id = NEW.course_id;
+
+        IF v_instructor_id IS NULL THEN
+          RETURN NEW;
+        END IF;
+
+        SELECT p.name INTO v_student_name FROM public.profiles p WHERE p.id = NEW.user_id;
+
+        PERFORM public.create_instructor_activity(
+          v_instructor_id,
+          NEW.course_id,
+          'enrollment',
+          NEW.user_id,
+          NEW.id,
+          COALESCE(v_student_name, 'A student') || ' enrolled in ' || COALESCE(v_course_title, 'a course')
+        );
+
+        RETURN NEW;
+      EXCEPTION
+        WHEN OTHERS THEN
+          RETURN NEW;
+      END;
+      $$;
+
+      DROP TRIGGER IF EXISTS enrollment_activity_trigger ON public.enrollments;
+      CREATE TRIGGER enrollment_activity_trigger
+        AFTER INSERT ON public.enrollments
+        FOR EACH ROW
+        EXECUTE FUNCTION public.trigger_enrollment_activity();
     

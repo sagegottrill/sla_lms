@@ -185,26 +185,34 @@ DECLARE
   v_course_title TEXT;
   v_student_name TEXT;
 BEGIN
-  -- Get instructor and course info
+  IF NEW.course_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
   SELECT c.instructor_id, c.title
   INTO v_instructor_id, v_course_title
   FROM courses c
   WHERE c.id = NEW.course_id;
 
-  -- Get student name
+  IF v_instructor_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
   SELECT name INTO v_student_name FROM profiles WHERE id = NEW.user_id;
 
-  -- Create activity
   PERFORM create_instructor_activity(
     v_instructor_id,
     NEW.course_id,
     'enrollment',
     NEW.user_id,
     NEW.id,
-    v_student_name || ' enrolled in ' || v_course_title
+    COALESCE(v_student_name, 'A student') || ' enrolled in ' || COALESCE(v_course_title, 'a course')
   );
 
   RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 

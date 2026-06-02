@@ -194,23 +194,25 @@ export const useUserEnrollments = (userId: string | undefined) => {
   });
 };
 
+type EnrollMutationMeta = { silentToast?: boolean };
+
  export const useEnrollUserMutation = () => {
    const queryClient = useQueryClient();
+   const { appUser } = useAuth();
 
    return useMutation({
      mutationFn: async ({ userId, courseId }: { userId: string, courseId: number }) => {
        const response = await api.enrollUser(userId, courseId);
        if (!response.success) {
-         throw new Error(response.error || "Failed to enroll user");
+         throw new Error(response.error || "We couldn't enroll you. Please try again.");
        }
        return response.data;
      },
      
      // PILLAR 2: Optimistic UI 4-Step Sequence
      onMutate: async ({ userId, courseId }) => {
-      // NOTE: Here we fallback to 'student' assuming enrollment happens mostly there
-      // A more robust app context might pass role in the variables payload
-      const queryKey = queryKeys.enrollments.user('student', userId);
+      const role = appUser?.role ?? "student";
+      const queryKey = queryKeys.enrollments.user(role, userId);
       
       // 1. Intercept & Cancel in-flight queries
       await queryClient.cancelQueries({ queryKey });
@@ -225,25 +227,29 @@ export const useUserEnrollments = (userId: string | undefined) => {
       ]);
  
       // 4. Return context for rollback
-      return { previousEnrollments, queryKey };
+      return { previousEnrollments, queryKey, role };
     },
 
     // Revert on error (Pillar 2 Directive)
-    onError: (err, variables, context) => {
+    onError: (err, variables, context, mutation) => {
       if (context?.queryKey) {
         queryClient.setQueryData(context.queryKey, context.previousEnrollments);
       }
-      toast.error("We couldn't enroll that learner. Please try again.");
+      const meta = mutation.meta as EnrollMutationMeta | undefined;
+      if (meta?.silentToast) return;
+      const message = err instanceof Error ? err.message : "We couldn't enroll you. Please try again.";
+      toast.error(message);
     },
-    onSuccess: () => {
+    onSuccess: (_data, _variables, _context, mutation) => {
+      const meta = mutation.meta as EnrollMutationMeta | undefined;
+      if (meta?.silentToast) return;
       toast.success("Enrollment updated");
     },
 
-    onSettled: (data, error, variables, context) => {
-      // Final Sync Pass (Pillar 2 Directive)
-      if (context?.queryKey) {
-        queryClient.invalidateQueries({ queryKey: context.queryKey });
-      }
+    onSettled: (_data, _error, variables, context) => {
+      const role = context?.role ?? appUser?.role ?? "student";
+      queryClient.invalidateQueries({ queryKey: queryKeys.enrollments.user(role, variables.userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.enrollments.base });
     }
   });
 };

@@ -74,6 +74,92 @@ function isUniqueViolation(error: { code?: string } | null | undefined): boolean
   return error?.code === "23505";
 }
 
+function isNoRowsReturnedError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const msg = String(error.message ?? "").toLowerCase();
+  return error.code === "PGRST116" || msg.includes("0 rows") || msg.includes("json object requested");
+}
+
+export function formatEnrollmentError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("infinite recursion")) {
+    return "Account permissions need to be fixed in Supabase (profiles RLS). Ask an admin to re-run production_rls_baseline.sql.";
+  }
+  if (m.includes("violates foreign key") && m.includes("profiles")) {
+    return "Your profile is not set up yet. Sign out, sign in again, then try enrolling.";
+  }
+  if (m.includes("violates foreign key") && m.includes("courses")) {
+    return "This course is no longer available for enrollment.";
+  }
+  if (m.includes("permission denied") || m.includes("row-level security") || m.includes("rls")) {
+    return "You do not have permission to enroll. Please sign in again.";
+  }
+  if (m.includes("not-null") && m.includes("instructor_id")) {
+    return "This course is missing an instructor assignment. Contact support.";
+  }
+  if (m.includes("duplicate key") || m.includes("unique constraint") || m.includes("already enrolled")) {
+    return "You are already enrolled in this course.";
+  }
+  if (m.includes("jwt") || m.includes("not authenticated") || m.includes("session")) {
+    return "Your session expired. Please sign in again.";
+  }
+  return message.trim() || "We could not complete enrollment. Please try again.";
+}
+
+async function ensureProfileExistsForEnrollment(userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { data: existing, error: readError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (existing?.id) return { ok: true };
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { ok: false, error: "Your session expired. Please sign in again." };
+  }
+
+  if (user.id !== userId) {
+    return {
+      ok: false,
+      error: readError?.message
+        ? formatEnrollmentError(readError.message)
+        : "Could not verify your profile before enrolling.",
+    };
+  }
+
+  const meta = user.user_metadata || {};
+  const name =
+    (typeof meta.full_name === "string" && meta.full_name) ||
+    (typeof meta.name === "string" && meta.name) ||
+    user.email?.split("@")[0] ||
+    "User";
+  const avatar =
+    (typeof meta.avatar_url === "string" && meta.avatar_url) ||
+    (typeof meta.picture === "string" && meta.picture) ||
+    undefined;
+
+  const { error: insertError } = await supabase.from("profiles").insert({
+    id: user.id,
+    name,
+    email: user.email ?? "",
+    role: "student",
+    avatar_url: avatar,
+    onboarding_completed: false,
+  });
+
+  if (insertError && !isUniqueViolation(insertError)) {
+    return { ok: false, error: formatEnrollmentError(insertError.message) };
+  }
+
+  return { ok: true };
+}
+
 function defaultLandingPageConfig(): Record<string, unknown> {
   return {
     featured_course_ids: [] as number[],
@@ -454,36 +540,77 @@ export const api = {
     if (!USE_SUPABASE) {
       return { data: null, error: null, success: true };
     }
+
+    const profileReady = await ensureProfileExistsForEnrollment(userId);
+    if (!profileReady.ok) {
+      return { data: null, error: profileReady.error, success: false };
+    }
+
+    const payload = {
+      user_id: userId,
+      course_id: courseId,
+      status: "active" as const,
+      progress: 0,
+      enrolled_at: new Date().toISOString(),
+      last_accessed: new Date().toISOString(),
+    };
+
+    const fetchExistingEnrollment = async () => {
+      const { data: existing, error: existingError } = await supabase
+        .from("enrollments")
+        .select(ENROLLMENT_SELF_COLUMNS)
+        .eq("user_id", userId)
+        .eq("course_id", courseId)
+        .maybeSingle();
+      if (existingError) {
+        console.error("Supabase enrollUser existing enrollment lookup error:", existingError.message);
+        return { data: null, error: formatEnrollmentError(existingError.message), success: false as const };
+      }
+      if (existing) {
+        return { data: existing, error: null, success: true as const };
+      }
+      return {
+        data: { ...payload, id: `local-${userId}-${courseId}` },
+        error: null,
+        success: true as const,
+      };
+    };
+
     const { data, error } = await supabase
       .from("enrollments")
-      .insert({
-        user_id: userId,
-        course_id: courseId,
-        status: "active",
-        progress: 0,
-        enrolled_at: new Date().toISOString(),
-        last_accessed: new Date().toISOString(),
-      })
+      .insert(payload)
       .select(ENROLLMENT_SELF_COLUMNS)
-      .single();
-    if (error) {
-      if (isUniqueViolation(error)) {
-        const { data: existing, error: existingError } = await supabase
-          .from("enrollments")
-          .select(ENROLLMENT_SELF_COLUMNS)
-          .eq("user_id", userId)
-          .eq("course_id", courseId)
-          .maybeSingle();
-        if (existingError) {
-          console.error("Supabase enrollUser existing enrollment lookup error:", existingError.message);
-          return { data: null, error: existingError.message, success: false };
-        }
-        return { data: existing, error: null, success: true };
-      }
-      console.error("Supabase enrollUser error:", error.message);
-      return { data: null, error: error.message, success: false };
+      .maybeSingle();
+
+    if (!error && data) {
+      return { data, error: null, success: true };
     }
-    return { data, error: null, success: true };
+
+    if (!error && !data) {
+      return fetchExistingEnrollment();
+    }
+
+    if (error && (isUniqueViolation(error) || isNoRowsReturnedError(error))) {
+      return fetchExistingEnrollment();
+    }
+
+    if (error) {
+      console.error("Supabase enrollUser error:", error.message, (error as { code?: string }).code);
+      const { error: insertOnlyError } = await supabase.from("enrollments").insert(payload);
+      if (!insertOnlyError) {
+        return fetchExistingEnrollment();
+      }
+      if (isUniqueViolation(insertOnlyError)) {
+        return fetchExistingEnrollment();
+      }
+      return {
+        data: null,
+        error: formatEnrollmentError(insertOnlyError.message || error.message),
+        success: false,
+      };
+    }
+
+    return fetchExistingEnrollment();
   },
 
   /** Program-level cohort membership (no course row; `program_id` set, `course_id` null). */
@@ -491,25 +618,76 @@ export const api = {
     if (!USE_SUPABASE) {
       return { data: null, error: null, success: true };
     }
+    if (!userId || userId === "null" || userId === "undefined") {
+      return {
+        data: null,
+        error: "This application is not linked to a signed-in learner account, so it cannot be enrolled automatically.",
+        success: false,
+      };
+    }
+
+    const profileReady = await ensureProfileExistsForEnrollment(userId);
+    if (!profileReady.ok) {
+      return { data: null, error: profileReady.error, success: false };
+    }
+
+    const payload = {
+      user_id: userId,
+      program_id: programId,
+      status: "active" as const,
+      progress: 0,
+      enrolled_at: new Date().toISOString(),
+      last_accessed: new Date().toISOString(),
+    };
+
+    const fetchExistingEnrollment = async () => {
+      const { data: existing, error: existingError } = await supabase
+        .from("enrollments")
+        .select(ENROLLMENT_SELF_COLUMNS)
+        .eq("user_id", userId)
+        .eq("program_id", programId)
+        .maybeSingle();
+      if (existingError) {
+        console.error("Supabase enrollUserInProgram existing enrollment lookup error:", existingError.message);
+        return { data: null, error: formatEnrollmentError(existingError.message), success: false as const };
+      }
+      if (existing) {
+        return { data: existing, error: null, success: true as const };
+      }
+      return {
+        data: { ...payload, id: `local-${userId}-${programId}` },
+        error: null,
+        success: true as const,
+      };
+    };
+
     const { data, error } = await supabase
       .from("enrollments")
-      .insert({
-        user_id: userId,
-        program_id: programId,
-        status: "active",
-        progress: 0,
-        enrolled_at: new Date().toISOString(),
-      })
+      .insert(payload)
       .select(ENROLLMENT_SELF_COLUMNS)
-      .single();
-    if (error) {
-      if ((error as { code?: string }).code === "23505") {
-        return { data: null, error: null, success: true };
-      }
-      console.error("Supabase enrollUserInProgram error:", error.message);
-      return { data: null, error: error.message, success: false };
+      .maybeSingle();
+    if (!error && data) {
+      return { data, error: null, success: true };
     }
-    return { data, error: null, success: true };
+    if (!error && !data) {
+      return fetchExistingEnrollment();
+    }
+    if (error && (isUniqueViolation(error) || isNoRowsReturnedError(error))) {
+      return fetchExistingEnrollment();
+    }
+    if (error) {
+      console.error("Supabase enrollUserInProgram error:", error.message, (error as { code?: string }).code);
+      const { error: insertOnlyError } = await supabase.from("enrollments").insert(payload);
+      if (!insertOnlyError || isUniqueViolation(insertOnlyError)) {
+        return fetchExistingEnrollment();
+      }
+      return {
+        data: null,
+        error: formatEnrollmentError(insertOnlyError.message || error.message),
+        success: false,
+      };
+    }
+    return fetchExistingEnrollment();
   },
 
   getUserEnrollments: async (userId: string): Promise<ApiResponse<any[]>> => {
@@ -1080,18 +1258,25 @@ export const api = {
 
   approveProgramApplication: async (applicationId: string, userId: string, programId: number): Promise<ApiResponse<any | null>> => {
     if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    if (!userId || userId === "null" || userId === "undefined") {
+      return {
+        data: null,
+        error: "This application is not linked to a signed-in learner account, so it cannot be approved into enrollment automatically.",
+        success: false,
+      };
+    }
+
+    const result = await api.enrollUserInProgram(userId, programId);
+    if (!result?.success) {
+      return { data: null, error: result?.error || "Failed to enroll user", success: false };
+    }
+
     const { error } = await supabase.from("program_applications").update({ status: "approved" }).eq("id", applicationId);
     if (error && !isMissingRelationError(error)) {
       console.error("approveProgramApplication error:", error.message);
       return { data: null, error: error.message, success: false };
     }
-    const result = await api.enrollUserInProgram(userId, programId);
-    // Since enrollUserInProgram now returns ApiResponse, we need to handle it
-    if (result && result.success) {
-      return { data: result.data, error: null, success: true };
-    } else {
-      return { data: null, error: result?.error || "Failed to enroll user", success: false };
-    }
+    return { data: result.data, error: null, success: true };
   },
 
   rejectProgramApplication: async (applicationId: string): Promise<ApiResponse<boolean>> => {

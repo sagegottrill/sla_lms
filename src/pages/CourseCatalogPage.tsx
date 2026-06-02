@@ -29,6 +29,11 @@ const levels = ["All Levels", "Beginner", "Intermediate", "Advanced"];
 const sortOptions = ["Most Popular", "Highest Rated", "Newest", "Price: Low to High", "Price: High to Low"];
 const priceRanges = ["Any Price", "Free", 'Under ₦50,000', '₦50,000–₦100,000', 'Over ₦100,000'];
 
+const normalizedCoursePrice = (price: unknown) => {
+  const value = Number(price ?? 0);
+  return Number.isFinite(value) ? Math.max(0, value) : null;
+};
+
 export default function CourseCatalogPage() {
   const [searchParams] = useSearchParams();
   const qFromUrl = searchParams.get("q") || "";
@@ -323,7 +328,7 @@ export default function CourseCatalogPage() {
                     </div>
                     {/* Pill tags — hidden on mobile to save space */}
                     <div className="hidden md:flex flex-wrap gap-1.5 mb-3">
-                      {course.price === 0 && (
+                      {normalizedCoursePrice(course.price) === 0 && (
                         <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Free</span>
                       )}
                       <span className="text-[10px] font-bold text-primary bg-primary/8 px-2 py-0.5 rounded-full">Certificate</span>
@@ -336,7 +341,13 @@ export default function CourseCatalogPage() {
                     </div>
 
                     <div className="mt-auto flex items-center justify-between">
-                      <span className="text-base md:text-lg font-display font-bold text-foreground pr-2">₦{course.price}</span>
+                      <span className="text-base md:text-lg font-display font-bold text-foreground pr-2">
+                        {normalizedCoursePrice(course.price) === 0
+                          ? "Free"
+                          : normalizedCoursePrice(course.price) === null
+                            ? "Price unavailable"
+                            : `₦${normalizedCoursePrice(course.price)?.toLocaleString()}`}
+                      </span>
                       <Link
                         to={`/courses/${coursePathSegment(course)}`}
                         className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-lg gradient-card text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"

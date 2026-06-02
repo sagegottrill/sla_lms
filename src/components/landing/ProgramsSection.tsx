@@ -135,7 +135,7 @@ export default function ProgramsSection() {
 
                 <div className="flex items-center justify-between mt-auto">
                   <div className="flex items-baseline gap-2">
-                    {program.price === 0 ? (
+                    {Number(program.price ?? 0) === 0 ? (
                       <>
                         <span className="text-xl font-display font-bold text-foreground">Free</span>
                         {program.original_price && <span className="text-sm text-muted-foreground line-through">₦{program.original_price}</span>}
@@ -149,7 +149,7 @@ export default function ProgramsSection() {
                   </div>
                   <Link to={`/programs/${programPathSegment(program)}/apply`}>
                     <Button size="sm" className="rounded-xl text-xs px-4 h-8 gradient-card text-primary-foreground hover:opacity-90 gap-1">
-                      Enroll Now <ArrowRight className="w-3 h-3" />
+                      Apply Now <ArrowRight className="w-3 h-3" />
                     </Button>
                   </Link>
                 </div>

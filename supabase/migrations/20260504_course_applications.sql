@@ -6,6 +6,29 @@
 -- 1. CREATE COURSE APPLICATIONS TABLE
 -- ============================================================================
 
+CREATE OR REPLACE FUNCTION public.current_profile_role()
+RETURNS text
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT p.role::text
+  FROM public.profiles p
+  WHERE p.id = auth.uid()
+  LIMIT 1
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_admin_or_pm()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT COALESCE(public.current_profile_role() IN ('admin', 'program_manager'), false)
+$$;
+
 CREATE TABLE IF NOT EXISTS course_applications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -68,25 +91,13 @@ CREATE POLICY "Instructors can view applications for their courses"
 DROP POLICY IF EXISTS "Admins can view all applications" ON course_applications;
 CREATE POLICY "Admins can view all applications"
   ON course_applications FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'admin'
-    )
-  );
+  USING (public.is_admin_or_pm());
 
 -- Admins can update any application
 DROP POLICY IF EXISTS "Admins can update any application" ON course_applications;
 CREATE POLICY "Admins can update any application"
   ON course_applications FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'admin'
-    )
-  );
+  USING (public.is_admin_or_pm());
 
 -- ============================================================================
 -- 4. TRIGGER FOR UPDATED_AT

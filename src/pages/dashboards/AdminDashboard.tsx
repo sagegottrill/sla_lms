@@ -287,7 +287,11 @@ export default function AdminDashboard() {
                       <Button
                         className="rounded-xl text-xs bg-primary hover:bg-primary/90 text-white"
                         onClick={async () => {
-                          await api.approveProgramApplication(String(a.id), String(a.user_id), Number(a.program_id));
+                          const response = await api.approveProgramApplication(String(a.id), String(a.user_id), Number(a.program_id));
+                          if (!response.success) {
+                            toast.error(response.error || "Could not approve and enroll this applicant.");
+                            return;
+                          }
                           toast.success("Application approved");
                           queryClient.invalidateQueries({ queryKey: ["program_applications", "pending"] });
                           queryClient.invalidateQueries({ queryKey: queryKeys.participants.base });

@@ -25,7 +25,7 @@ const currencies = [
 export default function CheckoutPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { appUser } = useAuth();
+  const { appUser, openAuthModal } = useAuth();
   const routeInvalid = id != null && id !== "" && !isCourseOrProgramRouteParam(id);
 
   const { data: course, isLoading: loading } = useCourse(id);
@@ -54,7 +54,8 @@ export default function CheckoutPage() {
   });
 
   // `course.price` is NGN naira (not kobo). Paystack NGN charges use kobo: price * 100.
-  const priceNgn = Math.max(0, Number(course?.price ?? 0));
+  const rawPriceNgn = Number(course?.price ?? 0);
+  const priceNgn = Number.isFinite(rawPriceNgn) ? Math.max(0, rawPriceNgn) : NaN;
   const originalPriceNgn = Math.max(
     0,
     Number((course as any)?.originalPrice ?? (course as any)?.original_price ?? 0),
@@ -180,6 +181,7 @@ export default function CheckoutPage() {
   const handlePay = () => {
     if (!course || !appUser) {
       toast.error("Please log in to complete payment.");
+      openAuthModal("login");
       return;
     }
     if (!Number.isFinite(priceNgn)) {
@@ -193,15 +195,18 @@ export default function CheckoutPage() {
       enrollMutation.mutate(
         { userId: appUser.id, courseId: course.id },
         {
+          meta: { silentToast: true },
           onSuccess: () => {
             setProcessing(false);
             setStep("success");
           },
-          onError: () => {
+          onError: (err) => {
             setProcessing(false);
-            toast.error("Failed to enrol for free. Please try again.");
+            toast.error(
+              err instanceof Error ? err.message : "Failed to enrol for free. Please try again.",
+            );
           },
-        }
+        },
       );
       return;
     }
@@ -240,12 +245,19 @@ export default function CheckoutPage() {
       },
       onSuccess: async () => {
         try {
-          await enrollMutation.mutateAsync({ userId: appUser.id, courseId: course.id });
+          await enrollMutation.mutateAsync(
+            { userId: appUser.id, courseId: course.id },
+            { meta: { silentToast: true } },
+          );
           setProcessing(false);
           setStep("success");
-        } catch {
+        } catch (err) {
           setProcessing(false);
-          toast.error("Payment succeeded, but enrollment failed to finalize.");
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : "Payment succeeded, but enrollment failed to finalize.",
+          );
         }
       },
       onClose: () => {
@@ -269,14 +281,20 @@ export default function CheckoutPage() {
             </div>
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <h1 className="font-display text-3xl font-bold text-foreground mb-3">Payment Successful!</h1>
-            <p className="text-sm text-foreground font-medium mb-1">You’ve just made a massive power move by investing in yourself. Your tribe is rooting for you!</p>
+            <h1 className="font-display text-3xl font-bold text-foreground mb-3">
+              {priceNgn === 0 ? "Enrollment Complete!" : "Payment Successful!"}
+            </h1>
+            <p className="text-sm text-foreground font-medium mb-1">
+              {priceNgn === 0
+                ? "You now have access to this course."
+                : "You’ve just made a massive power move by investing in yourself. Your tribe is rooting for you!"}
+            </p>
             <p className="text-muted-foreground mb-2">Get ready to level up in</p>
             <p className="text-lg font-semibold text-foreground mb-6">{course.title}</p>
             <div className="bg-card rounded-2xl shadow-sm border-0 p-6 mb-6 text-left space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Amount paid</span>
-                <span className="font-bold text-foreground">{currency.symbol}{convertPrice(course.price)} {currency.code}</span>
+                <span className="font-bold text-foreground">{currency.symbol}{convertPrice(priceNgn)} {currency.code}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Method</span>
@@ -295,7 +313,9 @@ export default function CheckoutPage() {
               <Download className="w-4 h-4" /> Download Receipt
             </Button>
             <p className="text-xs text-muted-foreground mb-6">
-              Enrollment is being confirmed. Use your downloaded receipt as proof of payment.
+              {priceNgn === 0
+                ? "Your course access has been added to your dashboard."
+                : "Enrollment is being confirmed. Use your downloaded receipt as proof of payment."}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link to={`/courses/${coursePathSegment(course)}`}>
@@ -380,7 +400,7 @@ export default function CheckoutPage() {
                       className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                   </div>
                   <Button onClick={handleSubmitDetails} className="w-full sm:w-auto gradient-card text-primary-foreground rounded-xl h-11 font-semibold hover:opacity-90">
-                    Continue to Payment
+                    {priceNgn === 0 ? "Continue to Enrollment" : "Continue to Payment"}
                   </Button>
                 </>
               )}
@@ -472,7 +492,7 @@ export default function CheckoutPage() {
                           <span className="text-muted-foreground">Account Number</span>
                           <span className="text-foreground font-mono font-medium">0174 5829 310</span>
                           <span className="text-muted-foreground">Amount</span>
-                          <span className="text-foreground font-bold">{currency.symbol}{convertPrice(course.price)} {currency.code}</span>
+                          <span className="text-foreground font-bold">{currency.symbol}{convertPrice(priceNgn)} {currency.code}</span>
                         </div>
                       </div>
                       <div>
@@ -491,7 +511,9 @@ export default function CheckoutPage() {
                         Processing payment...
                       </span>
                     ) : (
-                      `Pay ${currency.symbol}${convertPrice(priceNgn)} ${currency.code}`
+                      priceNgn === 0
+                        ? "Complete Free Enrollment"
+                        : `Pay ${currency.symbol}${convertPrice(priceNgn)} ${currency.code}`
                     )}
                   </Button>
                   <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground">

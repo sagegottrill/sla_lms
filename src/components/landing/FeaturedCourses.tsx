@@ -16,6 +16,10 @@ const badgeStyles: Record<string, string> = {
 };
 
 function CourseCard({ course, index }: { course: Course; index: number }) {
+  const rawPrice = Number(course.price ?? 0);
+  const coursePrice = Number.isFinite(rawPrice) ? Math.max(0, rawPrice) : null;
+  const isFree = coursePrice === 0;
+
   return (
     <Link to={`/courses/${coursePathSegment(course)}`}>
     <motion.div
@@ -32,7 +36,7 @@ function CourseCard({ course, index }: { course: Course; index: number }) {
         <span className={`absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-bold ${badgeStyles[course.badge] ?? "bg-primary text-primary-foreground"}`}>
           {course.badge}
         </span>
-        {course.price === 0 && (
+        {isFree && (
           <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-card/90 flex items-center justify-center">
             <Zap className="w-4 h-4 text-primary" />
           </div>
@@ -63,14 +67,16 @@ function CourseCard({ course, index }: { course: Course; index: number }) {
         </div>
         <div className="flex items-center justify-between mt-1">
           <div className="flex items-baseline gap-2">
-            {course.price === 0 ? (
+            {isFree ? (
               <>
                 <span className="text-base font-bold text-primary">Free</span>
                 {course.originalPrice && <span className="text-xs text-muted-foreground line-through">₦{course.originalPrice}</span>}
               </>
+            ) : coursePrice === null ? (
+              <span className="text-base font-bold text-foreground">Price unavailable</span>
             ) : (
               <>
-                <span className="text-base font-bold text-foreground">₦{course.price}</span>
+                <span className="text-base font-bold text-foreground">₦{coursePrice.toLocaleString()}</span>
                 {course.originalPrice && (
                   <span className="text-xs text-muted-foreground line-through">₦{course.originalPrice}</span>
                 )}

@@ -27,7 +27,7 @@ function useCountdown(targetDate: string) {
 }
 
 export default function CtaSection() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, openAuthModal } = useAuth();
   const { data: config } = useSiteConfig();
   const promo = config?.promo;
   const countdown = useCountdown(promo?.deadline);
@@ -86,11 +86,22 @@ export default function CtaSection() {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                <Link to={isAuthenticated ? "/dashboard" : "/signup"} className="w-full sm:w-auto">
-                  <Button size="lg" className="w-full sm:w-auto rounded-xl px-8 h-12 text-base font-semibold hover:opacity-90 shadow-brand-md bg-secondary text-primary gap-2">
-                    {isAuthenticated ? "Go to Dashboard" : "Secure Your Spot"} <ArrowRight className="w-4 h-4" />
+                {isAuthenticated ? (
+                  <Link to="/dashboard" className="w-full sm:w-auto">
+                    <Button size="lg" className="w-full sm:w-auto rounded-xl px-8 h-12 text-base font-semibold hover:opacity-90 shadow-brand-md bg-secondary text-primary gap-2">
+                      Go to Dashboard <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    type="button"
+                    size="lg"
+                    onClick={() => openAuthModal("signup")}
+                    className="w-full sm:w-auto rounded-xl px-8 h-12 text-base font-semibold hover:opacity-90 shadow-brand-md bg-secondary text-primary gap-2"
+                  >
+                    Secure Your Spot <ArrowRight className="w-4 h-4" />
                   </Button>
-                </Link>
+                )}
                 <Link to="/programs" className="w-full sm:w-auto">
                   <Button size="lg"
                     className="w-full sm:w-auto rounded-xl px-8 h-12 text-base font-semibold bg-white/10 text-white border border-white/25 hover:bg-white/20 backdrop-blur-sm">

@@ -15,7 +15,7 @@ export default function ProgramApplicationPage() {
   const { id } = useParams();
   const routeInvalid = id != null && id !== "" && !isCourseOrProgramRouteParam(id);
   const { data: program, isLoading } = useProgram(id);
-  const { user } = useAuth();
+  const { user, openAuthModal } = useAuth();
   const queryClient = useQueryClient();
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -72,11 +72,16 @@ export default function ProgramApplicationPage() {
 
   const handleSubmit = async () => {
     if (!validateStep() || !program) return;
+    if (!user?.id) {
+      toast.error("Please log in before submitting your application.");
+      openAuthModal("login");
+      return;
+    }
      setSubmitting(true);
      try {
        const programId = (program as { id: number }).id;
        const payload = {
-         user_id: user?.id ?? null,
+         user_id: user.id,
          program_id: programId,
          full_name: form.fullName.trim(),
          phone: form.phone.trim(),
@@ -216,7 +221,7 @@ export default function ProgramApplicationPage() {
               disabled={submitting}
               className="gradient-card text-primary-foreground rounded-xl hover:opacity-90 px-8"
             >
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Application"}
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : user ? "Submit Application" : "Log in to Apply"}
             </Button>
           </div>
         </motion.div>
