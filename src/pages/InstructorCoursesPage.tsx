@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/services/api";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { coursePathSegment } from "@/lib/publicRoutes";
 
 export default function InstructorCoursesPage() {
   const { appUser } = useAuth();
@@ -146,15 +147,17 @@ export default function InstructorCoursesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
-                {filtered.map((course) => (
+                {filtered.map((course) => {
+                  const courseHref = `/courses/${coursePathSegment(course)}`;
+                  return (
                   <tr key={course.id} className="hover:bg-muted/10 transition-colors group">
                     <td className="px-6 py-4">
-                      <div className="flex flex-col">
+                      <Link to={courseHref} className="flex flex-col rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30">
                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">{course.category || "General"}</span>
                          <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
                            {course.title}
                          </h3>
-                      </div>
+                      </Link>
                     </td>
                     {isStaffCatalog && (
                       <td className="px-6 py-4 text-xs text-muted-foreground max-w-[180px]">
@@ -180,7 +183,12 @@ export default function InstructorCoursesPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <Link to={courseHref}>
+                          <Button variant="outline" className="h-8 px-4 text-xs font-semibold rounded-md border-border bg-transparent hover:bg-muted">
+                            Preview
+                          </Button>
+                        </Link>
                         {isAdmin && (
                           <Button 
                             variant="outline" 
@@ -213,7 +221,8 @@ export default function InstructorCoursesPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Star, Clock, Users, Play, CheckCircle, ChevronDown, Globe, BookOpen, ArrowLeft, Loader2, Video, Check, Maximize, Minimize, ClipboardList } from "lucide-react";
@@ -29,6 +29,7 @@ export default function CourseDetailPage() {
   const routeInvalid = id != null && id !== "" && !isCourseOrProgramRouteParam(id);
 
   const { appUser, openAuthModal } = useAuth();
+  const playerSectionRef = useRef<HTMLDivElement | null>(null);
 
   const [enrollModalOpen, setEnrollModalOpen] = useState(false);
   const [enrollSubmitting, setEnrollSubmitting] = useState(false);
@@ -57,6 +58,11 @@ export default function CourseDetailPage() {
     !!course && enrollments.some((e: { course_id?: number }) => e.course_id === course.id),
     [course, enrollments]
   );
+  const canPreviewCourse =
+    appUser?.role === "admin" ||
+    appUser?.role === "program_manager" ||
+    appUser?.role === "instructor";
+  const canAccessLessons = enrolled || canPreviewCourse;
 
   // Flatten all lessons for sidebar + progress calculation
   const allLessons = useMemo(() => {
@@ -111,8 +117,15 @@ export default function CourseDetailPage() {
     }
   };
 
+  const selectLessonVideo = (url: string) => {
+    setActiveVideo(url);
+    window.setTimeout(() => {
+      playerSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
+
   useEffect(() => {
-    if (enrolled && !activeVideo && course?.curriculum?.length > 0) {
+    if (canAccessLessons && !activeVideo && course?.curriculum?.length > 0) {
       const firstMod = course.curriculum[0];
       if (firstMod?.items?.length > 0) {
         const firstItem = firstMod.items[0];
@@ -120,7 +133,7 @@ export default function CourseDetailPage() {
         if (url) setActiveVideo(url);
       }
     }
-  }, [enrolled, course, activeVideo]);
+  }, [canAccessLessons, course, activeVideo]);
 
   if (routeInvalid) {
     return (
@@ -270,10 +283,10 @@ export default function CourseDetailPage() {
       </div>
 
       {/* Hero / Player Area */}
-      <div className="gradient-hero pb-8">
-        <div className={`max-w-7xl mx-auto px-6 pt-12 grid ${enrolled && activeVideo && isTheaterMode ? "lg:grid-cols-1" : "lg:grid-cols-3"} gap-8 transition-all duration-300`}>
-          <div className={enrolled && activeVideo && isTheaterMode ? "lg:col-span-1" : "lg:col-span-2 flex flex-col justify-center"}>
-            {enrolled && activeVideo ? (
+      <div ref={playerSectionRef} className="gradient-hero pb-8 scroll-mt-4">
+        <div className={`max-w-7xl mx-auto px-6 pt-12 grid ${canAccessLessons && activeVideo && isTheaterMode ? "lg:grid-cols-1" : "lg:grid-cols-3"} gap-8 transition-all duration-300`}>
+          <div className={canAccessLessons && activeVideo && isTheaterMode ? "lg:col-span-1" : "lg:col-span-2 flex flex-col justify-center"}>
+            {canAccessLessons && activeVideo ? (
               <div 
                 className="w-full bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 relative z-10 mb-6 group transition-all duration-300"
                 style={{ aspectRatio: '16/9' }}
@@ -310,7 +323,7 @@ export default function CourseDetailPage() {
               </>
             )}
 
-            {enrolled && activeVideo && (
+            {canAccessLessons && activeVideo && (
                <div>
                   <h1 className="font-display text-2xl font-bold text-primary-foreground mb-2 leading-tight">
                     {course.title}
@@ -323,7 +336,7 @@ export default function CourseDetailPage() {
           {/* Sticky context card or sidebar for inactive theater mode */}
           {!isTheaterMode && (
              <div className="hidden lg:block relative z-20 lg:col-span-1">
-               {enrolled && activeVideo ? (
+               {canAccessLessons && activeVideo ? (
                  /* Checkmark Sidebar — shown next to active video */
                  <div className="sticky top-6 bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 shadow-sm overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 48px)' }}>
                    {/* Progress Header */}
@@ -350,7 +363,7 @@ export default function CourseDetailPage() {
                          <button
                            key={idx}
                            onClick={() => {
-                             if (lesson.url) setActiveVideo(lesson.url);
+                             if (lesson.url) selectLessonVideo(lesson.url);
                              else toast.info("No video for this lesson yet.");
                            }}
                            className={cn(
@@ -470,7 +483,7 @@ export default function CourseDetailPage() {
       </div>
 
       {/* Mobile enrol bar */}
-      {!enrolled && (
+      {!enrolled && !canPreviewCourse && (
         <div className="lg:hidden sticky top-0 z-20 bg-card border-b border-border p-4 flex items-center justify-between gap-4">
             <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold font-display text-foreground">{priceLabel}</span>
@@ -498,7 +511,7 @@ export default function CourseDetailPage() {
       <div className="max-w-7xl mx-auto px-6 py-10 grid lg:grid-cols-3 gap-10">
         <div className={cn("space-y-10", "lg:col-span-2")}>
           
-          {enrolled && activeVideo && course.whatYoullLearn?.length > 0 && (
+          {canAccessLessons && activeVideo && course.whatYoullLearn?.length > 0 && (
              <section className="bg-card p-6 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0">
                 <h2 className="font-display text-lg font-bold text-foreground mb-3">Course Objectives</h2>
                 <div className="grid sm:grid-cols-2 gap-2">
@@ -555,8 +568,8 @@ export default function CourseDetailPage() {
                             <button
                               key={j}
                               onClick={() => {
-                                if (!enrolled) { toast.error("Please enrol to watch lessons."); return; }
-                                if (url) setActiveVideo(url);
+                                if (!canAccessLessons) { toast.error("Please enrol to watch lessons."); return; }
+                                if (url) selectLessonVideo(url);
                                 else toast.info("No video URL provided for this lesson.");
                               }}
                               className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 text-sm transition-colors ${isActive ? "bg-primary/5 border-l-2 border-primary" : "hover:bg-muted/30 border-l-2 border-transparent"}`}

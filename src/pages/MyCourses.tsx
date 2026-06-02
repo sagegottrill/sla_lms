@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, Play, Clock, Star, Filter, Search, CheckCircle2, Lock, AlertTriangle, Snowflake } from "lucide-react";
+import { BookOpen, Play, Clock, Star, Filter, Search, CheckCircle2, AlertTriangle, Snowflake } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -121,11 +121,11 @@ export default function MyCourses() {
               ) : course.status === "not-started" ? (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-12 h-12 rounded-full bg-foreground/40 flex items-center justify-center">
-                    <Lock className="w-5 h-5 text-primary-foreground" />
+                    <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
                   </div>
                 </div>
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute inset-0 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                   <div className="w-12 h-12 rounded-full gradient-card flex items-center justify-center shadow-brand-md">
                     <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
                   </div>
