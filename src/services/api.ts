@@ -60,11 +60,18 @@ async function fetchProgramRowByPublicId(publicId: string): Promise<Program | un
 const PROFILE_COLUMNS =
   "id, name, email, role, avatar_url, bio, headline, location, linkedin, career_goal, skills, interests, onboarding_completed, joined, created_at, updated_at";
 
+const ENROLLMENT_SELF_COLUMNS =
+  "id, user_id, course_id, program_id, status, progress, current_lesson, last_accessed, enrolled_at, completed_at";
+
 function isMissingRelationError(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false;
   const msg = String(error.message ?? "").toLowerCase();
   // PostgREST schema-cache missing relation and Postgres undefined_table.
   return error.code === "PGRST205" || error.code === "42P01" || msg.includes("could not find the table");
+}
+
+function isUniqueViolation(error: { code?: string } | null | undefined): boolean {
+  return error?.code === "23505";
 }
 
 function defaultLandingPageConfig(): Record<string, unknown> {
@@ -449,9 +456,33 @@ export const api = {
     }
     const { data, error } = await supabase
       .from("enrollments")
-      .insert({ user_id: userId, course_id: courseId, enrolled_at: new Date().toISOString() })
-      .select().single();
-    if (error) { console.error("Supabase enrollUser error:", error.message); return { data: null, error: error.message, success: false }; }
+      .insert({
+        user_id: userId,
+        course_id: courseId,
+        status: "active",
+        progress: 0,
+        enrolled_at: new Date().toISOString(),
+        last_accessed: new Date().toISOString(),
+      })
+      .select(ENROLLMENT_SELF_COLUMNS)
+      .single();
+    if (error) {
+      if (isUniqueViolation(error)) {
+        const { data: existing, error: existingError } = await supabase
+          .from("enrollments")
+          .select(ENROLLMENT_SELF_COLUMNS)
+          .eq("user_id", userId)
+          .eq("course_id", courseId)
+          .maybeSingle();
+        if (existingError) {
+          console.error("Supabase enrollUser existing enrollment lookup error:", existingError.message);
+          return { data: null, error: existingError.message, success: false };
+        }
+        return { data: existing, error: null, success: true };
+      }
+      console.error("Supabase enrollUser error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
     return { data, error: null, success: true };
   },
 
@@ -469,7 +500,7 @@ export const api = {
         progress: 0,
         enrolled_at: new Date().toISOString(),
       })
-      .select()
+      .select(ENROLLMENT_SELF_COLUMNS)
       .single();
     if (error) {
       if ((error as { code?: string }).code === "23505") {

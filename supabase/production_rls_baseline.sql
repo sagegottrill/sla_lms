@@ -246,7 +246,10 @@
       CREATE POLICY "baseline_enrollments_insert"
         ON public.enrollments FOR INSERT
         TO authenticated
-        WITH CHECK ((SELECT auth.uid()) = user_id);
+      WITH CHECK (
+        (SELECT auth.uid()) = user_id
+        OR public.is_admin_or_pm()
+      );
 
       CREATE POLICY "baseline_enrollments_update"
         ON public.enrollments FOR UPDATE
