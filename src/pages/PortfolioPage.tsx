@@ -156,10 +156,27 @@ export default function PortfolioPage() {
             <input value={newItem.tags} onChange={e => setNewItem(p => ({ ...p, tags: e.target.value }))}
               placeholder="Tags (comma-separated, e.g. Python, Data)"
               className="w-full px-3 py-2 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            <div className="border-2 border-dashed border-border rounded-xl p-4 text-center hover:border-primary/40 transition-all">
+            <label className="border-2 border-dashed border-border rounded-xl p-4 text-center hover:border-primary/40 transition-all cursor-pointer block">
               <Upload className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
-              <p className="text-xs text-muted-foreground">Add a link above (file upload is not enabled here).</p>
-            </div>
+              <p className="text-xs text-muted-foreground">Upload a PDF or document (optional)</p>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file || !appUser?.id) return;
+                  const url = await api.uploadUserDocument(appUser.id, file, "portfolio");
+                  if (url) {
+                    setNewItem((p) => ({ ...p, link_url: url, type: "document" }));
+                    toast.success("File uploaded.");
+                  } else {
+                    toast.error("Upload failed. Ensure the documents storage bucket exists.");
+                  }
+                  e.target.value = "";
+                }}
+              />
+            </label>
             {formError ? (
               <p className="text-xs text-destructive">{formError}</p>
             ) : (

@@ -121,7 +121,8 @@ export default function NotificationsPage() {
 
     const items: Array<Notif | null> = (enrollments ?? []).map((e: any) => {
       const courseTitle = e?.courses?.title ?? e?.courses?.name ?? e?.courses?.course_title ?? "Course";
-      const progress = typeof e?.progress === "number" ? e.progress : 0;
+      const progress = Number(e?.progress ?? 0);
+      const isCompleted = progress >= 100 || e?.status === "completed";
 
       const rawLast =
         e?.last_accessed ?? e?.enrolled_at ?? e?.updated_at ?? e?.created_at ?? null;
@@ -131,20 +132,20 @@ export default function NotificationsPage() {
       const recentlyActive = lastMs !== null && now - lastMs <= inactivityMs;
 
       const type: NotifType =
-        progress >= 100 ? "certificate" : recentlyActive ? "message" : "reminder";
+        isCompleted ? "certificate" : recentlyActive ? "message" : "reminder";
 
       if (type === "reminder" && !inactivityActive) return null;
 
       const title =
-        progress >= 100
-          ? `Certificate ready: ${courseTitle}`
+        isCompleted
+          ? `Course completed: ${courseTitle}`
           : recentlyActive
             ? `Keep going: ${courseTitle} in progress`
             : `Reminder: ${courseTitle} needs attention`;
 
       const body =
-        progress >= 100
-          ? "Nice work! Your completion is recorded. Check your certificates."
+        isCompleted
+          ? "Nice work! Open Certificates to download your credential once it is issued."
           : recentlyActive
             ? "We noticed recent activity. Continue from where you left off."
             : "Come back to your learning journey and resume your course progress.";

@@ -5,6 +5,8 @@ import { Star, Clock, Users, Play, CheckCircle, ChevronDown, Globe, BookOpen, Ar
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCourse, useUserEnrollments, useEnrollUserMutation } from "@/hooks/useQueries";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/react-query";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -44,6 +46,7 @@ export default function CourseDetailPage() {
   const { data: course, isLoading: loadingCourse } = useCourse(id);
   const { data: enrollments = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
   const enrollMutation = useEnrollUserMutation();
+  const queryClient = useQueryClient();
 
   const [openModule, setOpenModule] = useState<number | null>(0);
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
@@ -100,7 +103,7 @@ export default function CourseDetailPage() {
     const progress = total > 0 ? Math.round((done / total) * 100) : 0;
     setSavingProgress(true);
     try {
-      await supabase
+      const { error } = await supabase
         .from("enrollments")
         .update({
           progress,
@@ -110,19 +113,67 @@ export default function CourseDetailPage() {
         })
         .eq("user_id", appUser.id)
         .eq("course_id", course.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: queryKeys.enrollments.base });
+      if (progress >= 100) {
+        const certRes = await api.issueCertificate(
+          appUser.id,
+          course.id,
+          course.title,
+          course.instructor ?? "SLA",
+          course.duration ?? "",
+        );
+        if (certRes.success) {
+          toast.success("Course complete! Your certificate is ready.");
+        }
+      }
     } catch (err) {
       console.error("Failed to persist lesson progress:", err);
+      toast.error("Could not save your progress. Please try again.");
     } finally {
       setSavingProgress(false);
     }
   };
 
-  const selectLessonVideo = (url: string) => {
+  const markLessonComplete = (title: string) => {
+    if (!enrolled) return;
+    setCompletedLessons((prev) => {
+      const next = new Set(prev);
+      next.add(title);
+      void persistProgress(next);
+      return next;
+    });
+  };
+
+  const toggleLessonComplete = (title: string) => {
+    if (!enrolled) return;
+    setCompletedLessons((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      void persistProgress(next);
+      return next;
+    });
+  };
+
+  const selectLessonVideo = (url: string, lessonTitle?: string) => {
     setActiveVideo(url);
+    if (lessonTitle && enrolled) {
+      markLessonComplete(lessonTitle);
+    }
     window.setTimeout(() => {
       playerSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
   };
+
+  useEffect(() => {
+    if (!course?.id || !appUser?.id) return;
+    void api.getSkillsAssessments({ courseId: course.id }).then((res) => {
+      if (res.success && Array.isArray(res.data)) {
+        setCourseAssessments(res.data.map((a: { id: string; title?: string }) => ({ id: a.id, title: a.title })));
+      }
+    });
+  }, [course?.id, appUser?.id]);
 
   useEffect(() => {
     if (canAccessLessons && !activeVideo && course?.curriculum?.length > 0) {
@@ -363,7 +414,7 @@ export default function CourseDetailPage() {
                          <button
                            key={idx}
                            onClick={() => {
-                             if (lesson.url) selectLessonVideo(lesson.url);
+                             if (lesson.url) selectLessonVideo(lesson.url, lesson.title);
                              else toast.info("No video for this lesson yet.");
                            }}
                            className={cn(
@@ -569,18 +620,33 @@ export default function CourseDetailPage() {
                               key={j}
                               onClick={() => {
                                 if (!canAccessLessons) { toast.error("Please enrol to watch lessons."); return; }
-                                if (url) selectLessonVideo(url);
+                                if (url) selectLessonVideo(url, title);
                                 else toast.info("No video URL provided for this lesson.");
                               }}
                               className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 text-sm transition-colors ${isActive ? "bg-primary/5 border-l-2 border-primary" : "hover:bg-muted/30 border-l-2 border-transparent"}`}
                             >
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                {enrolled && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleLessonComplete(title);
+                                    }}
+                                    className={cn(
+                                      "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0",
+                                      completedLessons.has(title) ? "bg-primary border-primary" : "border-border",
+                                    )}
+                                  >
+                                    {completedLessons.has(title) ? <Check className="w-3 h-3 text-white" /> : null}
+                                  </button>
+                                )}
                                 {isActive ? (
                                     <Video className="w-4 h-4 shrink-0 text-primary" />
                                 ) : (
                                     <Play className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
                                 )}
-                                <span className={isActive ? "text-primary font-semibold" : "text-muted-foreground"}>
+                                <span className={cn("truncate", isActive ? "text-primary font-semibold" : "text-muted-foreground", completedLessons.has(title) && "line-through")}>
                                   {title}
                                 </span>
                               </div>

@@ -8,7 +8,7 @@ import {
   PlusCircle, FileText, DollarSign, UserCheck,
   MessageSquare, TrendingUp, Folder, Building2,
   Megaphone, ChevronDown, Home, Target,
-  ClipboardList, ListChecks,
+  ClipboardList, ListChecks, Briefcase, Video,
 } from "lucide-react";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,7 @@ const navByRole: Record<UserRole, NavGroup[]> = {
         { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
         { label: "Notifications", icon: Bell, href: "/dashboard/notifications" },
         { label: "Calendar", icon: Calendar, href: "/dashboard/calendar" },
+        { label: "Webinars", icon: Video, href: "/dashboard/webinars" },
       ],
     },
     {
@@ -39,6 +40,7 @@ const navByRole: Record<UserRole, NavGroup[]> = {
       group: "Profile & tools",
       items: [
         { label: "Portfolio", icon: Folder, href: "/dashboard/portfolio" },
+        { label: "Job Board", icon: Briefcase, href: "/dashboard/jobs" },
         { label: "Resume Builder", icon: FileText, href: "/dashboard/resume" },
         { label: "Skills Assessment", icon: Target, href: "/dashboard/skills" },
         { label: "Income Tracker", icon: TrendingUp, href: "/dashboard/income" },
@@ -113,6 +115,8 @@ const navByRole: Record<UserRole, NavGroup[]> = {
       group: "Engage",
       items: [
         { label: "Forums", icon: MessageSquare, href: "/dashboard/forums" },
+        { label: "Job Board", icon: Briefcase, href: "/dashboard/jobs" },
+        { label: "Webinars", icon: Video, href: "/dashboard/webinars" },
         { label: "Interviews", icon: Building2, href: "/dashboard/interviews" },
       ],
     },
@@ -160,6 +164,8 @@ const navByRole: Record<UserRole, NavGroup[]> = {
       items: [
         { label: "Forums", icon: MessageSquare, href: "/dashboard/forums" },
         { label: "Placements", icon: Target, href: "/dashboard/placements" },
+        { label: "Job Board", icon: Briefcase, href: "/dashboard/jobs" },
+        { label: "Webinars", icon: Video, href: "/dashboard/webinars" },
         { label: "Interviews", icon: Building2, href: "/dashboard/interviews" },
       ],
     },
@@ -167,6 +173,7 @@ const navByRole: Record<UserRole, NavGroup[]> = {
       group: "Business",
       items: [
         { label: "Analytics & Reports", icon: BarChart3, href: "/dashboard/analytics" },
+        { label: "Reports", icon: FileText, href: "/dashboard/reports" },
         { label: "Leads & Campaigns", icon: Megaphone, href: "/dashboard/leads" },
         { label: "Payments & Revenue", icon: DollarSign, href: "/dashboard/payments" },
         { label: "Certificates", icon: Award, href: "/dashboard/certificates" },

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
-import { FileText, Plus, Trash2, Download, Eye, GripVertical, Briefcase, GraduationCap, Award, Star, Mail, Phone, MapPin, Linkedin, Loader2 } from "lucide-react";
+import { FileText, Plus, Trash2, Download, Eye, GripVertical, Briefcase, GraduationCap, Award, Star, Mail, Phone, MapPin, Linkedin, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -135,6 +135,8 @@ export default function ResumeBuilderPage() {
   };
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [importingResume, setImportingResume] = useState(false);
+  const resumeFileRef = useRef<HTMLInputElement>(null);
 
   const quality = useMemo(() => {
     const filledExperience = experience.filter((e) => e.role.trim() && e.company.trim() && e.description.trim());
@@ -222,6 +224,65 @@ export default function ResumeBuilderPage() {
     }
   };
 
+  const applyParsedDraft = (draft: Record<string, unknown>) => {
+    const p = draft.personal as Record<string, string> | undefined;
+    if (p) {
+      setPersonal((prev) => ({
+        ...prev,
+        fullName: p.fullName || prev.fullName,
+        headline: p.headline || prev.headline,
+        email: p.email || prev.email,
+        phone: p.phone || prev.phone,
+        location: p.location || prev.location,
+        linkedin: p.linkedin || prev.linkedin,
+        website: p.website || prev.website,
+        summary: p.summary || prev.summary,
+      }));
+    }
+    if (Array.isArray(draft.skills)) setSkills(draft.skills as string[]);
+    if (Array.isArray(draft.experience)) {
+      setExperience((draft.experience as Experience[]).map((e) => ({ ...e, id: e.id || crypto.randomUUID() })));
+    }
+    if (Array.isArray(draft.education)) {
+      setEducation((draft.education as Education[]).map((e) => ({ ...e, id: e.id || crypto.randomUUID() })));
+    }
+    if (Array.isArray(draft.certifications)) setCertifications(draft.certifications as string[]);
+  };
+
+  const handleResumeUpload = async (file: File) => {
+    if (!appUser?.id) {
+      toast.error("Sign in to import a resume.");
+      return;
+    }
+    setImportingResume(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result ?? "");
+          const comma = result.indexOf(",");
+          resolve(comma >= 0 ? result.slice(comma + 1) : result);
+        };
+        reader.onerror = () => reject(new Error("Could not read file"));
+        reader.readAsDataURL(file);
+      });
+      const res = await api.parseResumeWithAI({
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        base64,
+      });
+      if (!res.success) throw new Error(res.error || "Resume parsing failed");
+      const draft = (res.data as { draft?: Record<string, unknown> })?.draft;
+      if (!draft) throw new Error("No structured data returned");
+      applyParsedDraft(draft);
+      toast.success("Resume imported. Review and edit the fields before downloading.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not parse resume");
+    } finally {
+      setImportingResume(false);
+    }
+  };
+
   const handlePreview = () => {
     const el = document.getElementById("resume-preview-content");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -259,7 +320,27 @@ export default function ResumeBuilderPage() {
             <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">Sign in to save your resume to your account.</p>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <input
+            ref={resumeFileRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.txt"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleResumeUpload(file);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            variant="outline"
+            className="rounded-xl gap-2 h-11 px-5"
+            disabled={importingResume}
+            onClick={() => resumeFileRef.current?.click()}
+          >
+            {importingResume ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            Import resume (AI)
+          </Button>
           <Button variant="outline" className="rounded-xl gap-2 h-11 px-5 shadow-sm border-border/80 text-foreground" onClick={handlePreview}>
             <Eye className="w-4 h-4" /> Live Preview
           </Button>

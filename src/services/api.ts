@@ -801,12 +801,24 @@ export const api = {
 
       const byProgramUser = new Map<string, { progress: number; lastActive: Date | null }>();
 
+      const phoneByUser = new Map<string, string>();
+      const [{ data: progApps }, { data: courseApps }] = await Promise.all([
+        supabase.from("program_applications").select("user_id, phone, created_at").order("created_at", { ascending: false }),
+        supabase.from("course_applications").select("user_id, phone, created_at").order("created_at", { ascending: false }),
+      ]);
+      for (const row of [...(progApps ?? []), ...(courseApps ?? [])]) {
+        const uid = String((row as { user_id?: string }).user_id ?? "");
+        const phone = String((row as { phone?: string }).phone ?? "").trim();
+        if (uid && phone && !phoneByUser.has(uid)) phoneByUser.set(uid, phone);
+      }
+
       // A) Direct program enrollments (program_id on enrollments row)
       if (programIds.length > 0) {
         const { data: progEnrolls, error: peErr } = await supabase
           .from("enrollments")
-          .select("user_id, program_id, progress, last_accessed, enrolled_at")
-          .in("program_id", programIds);
+          .select("user_id, program_id, progress, last_accessed, enrolled_at, status")
+          .in("program_id", programIds)
+          .neq("status", "dropped");
 
         if (peErr) {
           console.error("Supabase getProgramParticipants program enrollments error:", peErr.message);
@@ -821,7 +833,7 @@ export const api = {
             };
             if (!row.user_id || row.program_id == null) continue;
             const key = `${row.program_id}:${row.user_id}`;
-            const progress = typeof row.progress === "number" ? row.progress : 0;
+            const progress = Number(row.progress ?? 0);
             const lastActive = toDate(row.last_accessed ?? row.enrolled_at);
             merge(byProgramUser, key, progress, lastActive);
           }
@@ -860,8 +872,9 @@ export const api = {
           if (courseIds.length > 0) {
             const { data: enrollments, error: enrollmentsErr } = await supabase
               .from("enrollments")
-              .select("user_id, progress, last_accessed, enrolled_at, course_id")
-              .in("course_id", courseIds);
+              .select("user_id, progress, last_accessed, enrolled_at, course_id, status")
+              .in("course_id", courseIds)
+              .neq("status", "dropped");
 
             if (enrollmentsErr) {
               console.error("Supabase getProgramParticipants course enrollments error:", enrollmentsErr.message);
@@ -877,7 +890,7 @@ export const api = {
           for (const e of enrollArr) {
             const title = courseIdToTitle.get(e.course_id);
             if (!title || !programCourseTitles.has(title)) continue;
-            const progress = typeof e.progress === "number" ? e.progress : 0;
+            const progress = Number(e.progress ?? 0);
             const lastActive = toDate(e.last_accessed ?? e.enrolled_at);
             const key = `${program.id as number}:${e.user_id}`;
             merge(byProgramUser, key, progress, lastActive);
@@ -885,13 +898,41 @@ export const api = {
         }
       }
 
+      // C) Standalone course enrollments (not tied to a program bundle)
+      const byCourseUser = new Map<string, { progress: number; lastActive: Date | null; courseId: number; courseTitle: string }>();
+      const { data: allCourseEnrolls } = await supabase
+        .from("enrollments")
+        .select("user_id, progress, last_accessed, enrolled_at, course_id, courses(title)")
+        .not("course_id", "is", null)
+        .neq("status", "dropped");
+      for (const e of allCourseEnrolls ?? []) {
+        const row = e as {
+          user_id?: string;
+          progress?: number | null;
+          last_accessed?: string | null;
+          enrolled_at?: string | null;
+          course_id?: number;
+          courses?: { title?: string } | null;
+        };
+        if (!row.user_id || row.course_id == null) continue;
+        const key = `${row.user_id}:${row.course_id}`;
+        const progress = Number(row.progress ?? 0);
+        const lastActive = toDate(row.last_accessed ?? row.enrolled_at);
+        const courseTitle = row.courses?.title ?? `Course #${row.course_id}`;
+        const prev = byCourseUser.get(key);
+        if (!prev || progress > prev.progress) {
+          byCourseUser.set(key, { progress, lastActive, courseId: row.course_id, courseTitle });
+        }
+      }
+
       const userIds = Array.from(
-        new Set(
-          [...byProgramUser.keys()].map((k) => {
+        new Set([
+          ...[...byProgramUser.keys()].map((k) => {
             const i = k.indexOf(":");
             return i === -1 ? k : k.slice(i + 1);
           }),
-        ),
+          ...[...byCourseUser.keys()].map((k) => k.slice(0, k.indexOf(":"))),
+        ]),
       );
 
       const profileById = new Map<string, any>();
@@ -936,10 +977,44 @@ export const api = {
           user_id: userId,
           name,
           email,
+          phone: phoneByUser.get(userId) ?? "",
           program: programName,
           program_id: programId,
+          course: "",
           progress: agg.progress,
           status,
+          enrolled: true,
+          lastActive: agg.lastActive
+            ? agg.lastActive.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+            : "",
+        });
+        participantUserIds.add(userId);
+      }
+
+      for (const [key, agg] of byCourseUser.entries()) {
+        const colon = key.indexOf(":");
+        const userId = key.slice(0, colon);
+        const courseId = Number(key.slice(colon + 1));
+        const programKey = [...byProgramUser.keys()].find((k) => k.endsWith(`:${userId}`));
+        if (programKey) continue;
+        const profile = profileById.get(userId);
+        const name = profile?.name ?? "";
+        const email = profile?.email ?? "";
+        const progress = agg.progress;
+        const status =
+          progress >= 100 ? "completed" : progress >= 30 ? "on-track" : progress > 0 ? "at-risk" : "not-started";
+        participants.push({
+          id: `${userId}:course:${courseId}`,
+          user_id: userId,
+          name,
+          email,
+          phone: phoneByUser.get(userId) ?? "",
+          program: "Course enrollment",
+          program_id: null,
+          course: agg.courseTitle,
+          progress,
+          status,
+          enrolled: true,
           lastActive: agg.lastActive
             ? agg.lastActive.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
             : "",
@@ -970,10 +1045,13 @@ export const api = {
             user_id: userId,
             name,
             email,
+            phone: phoneByUser.get(userId) ?? "",
             program: "Not assigned",
             program_id: null,
+            course: "",
             progress: 0,
             status: "not-started",
+            enrolled: false,
             lastActive: "",
           });
         }
@@ -1414,16 +1492,44 @@ export const api = {
     return { data: data ?? [], error: null, success: true };
   },
 
-  issueCertificate: async (userId: string, courseId: number, courseTitle: string, instructor: string, duration: string) => {
-    if (USE_SUPABASE) {
-      const { data, error } = await supabase
-        .from("certificates")
-        .insert({ user_id: userId, course_id: courseId, course_title: courseTitle, instructor, duration })
-        .select().single();
-      if (error) { console.error("Supabase issueCertificate error:", error.message); return null; }
-      return data;
+  issueCertificate: async (
+    userId: string,
+    courseId: number,
+    courseTitle: string,
+    instructor: string,
+    duration: string,
+  ): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
     }
-    return null;
+    const { data: existing } = await supabase
+      .from("certificates")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("course_id", courseId)
+      .maybeSingle();
+    if (existing) {
+      return { data: existing, error: null, success: true };
+    }
+    const credentialId = `SLA-${courseId}-${userId.slice(0, 8)}-${Date.now().toString(36).toUpperCase()}`;
+    const { data, error } = await supabase
+      .from("certificates")
+      .insert({
+        user_id: userId,
+        course_id: courseId,
+        course_title: courseTitle,
+        instructor,
+        duration,
+        credential_id: credentialId,
+        completed_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+    if (error) {
+      console.error("Supabase issueCertificate error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+    return { data, error: null, success: true };
   },
 
   // -------------------------
@@ -2222,9 +2328,9 @@ export const api = {
   // -------------------------
   // RESUME BUILDER (draft JSON)
   // -------------------------
-  getResumeDraft: async (userId: string) => {
-    if (!USE_SUPABASE) return null;
-    if (!userId) return null;
+  getResumeDraft: async (userId: string): Promise<ApiResponse<Record<string, unknown> | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    if (!userId) return { data: null, error: null, success: true };
     const { data, error } = await supabase
       .from("user_resume_drafts")
       .select("draft")
@@ -2232,13 +2338,13 @@ export const api = {
       .maybeSingle();
     if (error) {
       console.error("Supabase getResumeDraft error:", error.message);
-      return null;
+      return { data: null, error: error.message, success: false };
     }
-    return (data?.draft ?? null) as Record<string, unknown> | null;
+    return { data: (data?.draft ?? null) as Record<string, unknown> | null, error: null, success: true };
   },
 
-  upsertResumeDraft: async (userId: string, draft: Record<string, unknown>) => {
-    if (!USE_SUPABASE) return null;
+  upsertResumeDraft: async (userId: string, draft: Record<string, unknown>): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
     const { data, error } = await supabase
       .from("user_resume_drafts")
       .upsert(
@@ -2247,15 +2353,42 @@ export const api = {
           draft,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "user_id" }
+        { onConflict: "user_id" },
       )
       .select()
       .single();
     if (error) {
       console.error("Supabase upsertResumeDraft error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+    return { data, error: null, success: true };
+  },
+
+  parseResumeWithAI: async (payload: { fileName: string; mimeType: string; base64: string }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("parse-resume", { body: payload });
+      if (error) throw error;
+      return { success: true, data, error: null };
+    } catch (err: any) {
+      console.error("parseResumeWithAI error:", err?.message ?? err);
+      return { success: false, data: null, error: err?.message ?? "Resume parsing failed" };
+    }
+  },
+
+  uploadUserDocument: async (userId: string, file: File, folder = "documents") => {
+    if (!USE_SUPABASE || !userId) return null;
+    const ext = file.name.split(".").pop() ?? "bin";
+    const path = `${userId}/${folder}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("documents").upload(path, file, {
+      upsert: true,
+      contentType: file.type,
+    });
+    if (error) {
+      console.error("uploadUserDocument error:", error.message);
       return null;
     }
-    return data;
+    const { data } = supabase.storage.from("documents").getPublicUrl(path);
+    return data.publicUrl;
   },
 
   // -------------------------
@@ -2930,6 +3063,110 @@ export const api = {
       console.error("Supabase removeUserFromGroup error:", error.message);
       return { data: false, error: error.message, success: false };
     }
+  },
+
+  // -------------------------
+  // JOBS
+  // -------------------------
+  getJobs: async (): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) return { data: [], error: null, success: true };
+    const { data, error } = await supabase.from("jobs").select("*").order("created_at", { ascending: false });
+    if (error) return { data: [], error: error.message, success: false };
+    return { data: data ?? [], error: null, success: true };
+  },
+
+  createJob: async (payload: Record<string, unknown>): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    const { data, error } = await supabase.from("jobs").insert(payload).select().single();
+    if (error) return { data: null, error: error.message, success: false };
+    return { data, error: null, success: true };
+  },
+
+  updateJob: async (id: number, updates: Record<string, unknown>): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    const { data, error } = await supabase.from("jobs").update(updates).eq("id", id).select().single();
+    if (error) return { data: null, error: error.message, success: false };
+    return { data, error: null, success: true };
+  },
+
+  deleteJob: async (id: number): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) return { data: true, error: null, success: true };
+    const { error } = await supabase.from("jobs").delete().eq("id", id);
+    if (error) return { data: false, error: error.message, success: false };
+    return { data: true, error: null, success: true };
+  },
+
+  // -------------------------
+  // LIVE SESSIONS / WEBINARS
+  // -------------------------
+  getLiveSessions: async (): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) return { data: [], error: null, success: true };
+    const { data, error } = await supabase
+      .from("live_sessions")
+      .select("*")
+      .order("starts_at", { ascending: true });
+    if (error) return { data: [], error: error.message, success: false };
+    return { data: data ?? [], error: null, success: true };
+  },
+
+  createLiveSession: async (payload: Record<string, unknown>): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    const { data, error } = await supabase.from("live_sessions").insert(payload).select().single();
+    if (error) return { data: null, error: error.message, success: false };
+    return { data, error: null, success: true };
+  },
+
+  updateLiveSession: async (id: string, updates: Record<string, unknown>): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    const { data, error } = await supabase.from("live_sessions").update(updates).eq("id", id).select().single();
+    if (error) return { data: null, error: error.message, success: false };
+    return { data, error: null, success: true };
+  },
+
+  deleteLiveSession: async (id: string): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) return { data: true, error: null, success: true };
+    const { error } = await supabase.from("live_sessions").delete().eq("id", id);
+    if (error) return { data: false, error: error.message, success: false };
+    return { data: true, error: null, success: true };
+  },
+
+  getForumReplies: async (threadId: string): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) return { data: [], error: null, success: true };
+    const { data, error } = await supabase
+      .from("forum_replies")
+      .select("*")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true });
+    if (error) return { data: [], error: error.message, success: false };
+    return { data: data ?? [], error: null, success: true };
+  },
+
+  createForumReply: async (payload: {
+    threadId: string;
+    userId: string;
+    body: string;
+    authorName?: string;
+  }): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    const { data, error } = await supabase
+      .from("forum_replies")
+      .insert({
+        thread_id: payload.threadId,
+        user_id: payload.userId,
+        body: payload.body,
+        author_name: payload.authorName ?? "User",
+      })
+      .select()
+      .single();
+    if (error) return { data: null, error: error.message, success: false };
+    const { data: thread } = await supabase.from("forum_threads").select("replies_count").eq("id", payload.threadId).maybeSingle();
+    if (thread) {
+      await supabase
+        .from("forum_threads")
+        .update({ replies_count: Number((thread as { replies_count?: number }).replies_count ?? 0) + 1 })
+        .eq("id", payload.threadId);
+    }
+    return { data, error: null, success: true };
   },
 
   getGroupMembers: async (groupId: string): Promise<ApiResponse<any[]>> => {

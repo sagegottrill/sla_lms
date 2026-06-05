@@ -1,10 +1,11 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageSquare, ThumbsUp, Pin, Search, Plus, ChevronDown, ChevronUp, Loader2, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useForumThreads, useCreateForumThreadMutation } from "@/hooks/useQueries";
+import { api } from "@/services/api";
 
 const categories = ["All", "General", "Career Advice", "Technical Help", "Programs", "Networking"];
 
@@ -18,6 +19,9 @@ export default function ForumsPage() {
   const [openThread, setOpenThread] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [newThread, setNewThread] = useState({ title: "", body: "", category: "General" });
+  const [repliesByThread, setRepliesByThread] = useState<Record<string, any[]>>({});
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [loadingReplies, setLoadingReplies] = useState<string | null>(null);
 
   const filtered = (threads as any[]).filter(t => {
     const matchCat = category === "All" || t.category === category;
@@ -26,6 +30,39 @@ export default function ForumsPage() {
   });
 
   const toggleThread = (id: string) => setOpenThread(prev => prev === id ? null : id);
+
+  useEffect(() => {
+    if (!openThread) return;
+    if (repliesByThread[openThread]) return;
+    setLoadingReplies(openThread);
+    void api.getForumReplies(openThread).then((res) => {
+      if (res.success) {
+        setRepliesByThread((prev) => ({ ...prev, [openThread]: res.data ?? [] }));
+      }
+      setLoadingReplies(null);
+    });
+  }, [openThread, repliesByThread]);
+
+  const submitReply = async (threadId: string) => {
+    const body = (replyDrafts[threadId] ?? "").trim();
+    if (!body || !appUser?.id) return;
+    const res = await api.createForumReply({
+      threadId,
+      userId: appUser.id,
+      body,
+      authorName: appUser.name ?? "User",
+    });
+    if (!res.success) {
+      toast.error(res.error || "Could not post reply");
+      return;
+    }
+    setRepliesByThread((prev) => ({
+      ...prev,
+      [threadId]: [...(prev[threadId] ?? []), res.data],
+    }));
+    setReplyDrafts((prev) => ({ ...prev, [threadId]: "" }));
+    toast.success("Reply posted");
+  };
 
   const submitThread = () => {
     if (!appUser?.id) { toast.error("Please log in to post a thread."); return; }
@@ -156,6 +193,30 @@ export default function ForumsPage() {
                     </div>
                   </div>
                 </button>
+                {openThread === thread.id && (
+                  <div className="px-6 pb-5 bg-muted/10 border-t border-border/40">
+                    {thread.body ? <p className="text-sm text-foreground py-4 whitespace-pre-wrap">{thread.body}</p> : null}
+                    <div className="space-y-3">
+                      {loadingReplies === thread.id ? (
+                        <p className="text-xs text-muted-foreground">Loading replies…</p>
+                      ) : (repliesByThread[thread.id] ?? []).map((reply: any) => (
+                        <div key={reply.id} className="bg-card rounded-xl p-3 text-sm">
+                          <p className="text-xs text-muted-foreground mb-1">{reply.author_name ?? "User"}</p>
+                          <p className="text-foreground whitespace-pre-wrap">{reply.body}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 flex gap-2">
+                      <input
+                        value={replyDrafts[thread.id] ?? ""}
+                        onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [thread.id]: e.target.value }))}
+                        placeholder="Write a reply..."
+                        className="flex-1 px-3 py-2 rounded-xl border bg-background text-sm"
+                      />
+                      <Button size="sm" className="rounded-full" onClick={() => void submitReply(thread.id)}>Reply</Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

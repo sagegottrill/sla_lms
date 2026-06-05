@@ -39,6 +39,7 @@ export default function ParticipantsPage() {
   const { data: participants = [], isLoading } = useProgramParticipants();
   const { data: courses = [], isLoading: loadingCourses } = useCourses({ publishedOnly: false });
   const [search, setSearch] = useState("");
+  const [enrollmentFilter, setEnrollmentFilter] = useState<"all" | "enrolled" | "registered">("enrolled");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [removing, setRemoving] = useState(false);
@@ -121,7 +122,11 @@ export default function ParticipantsPage() {
     { label: "On Track", value: "on-track" },
     { label: "At Risk", value: "at-risk" },
     { label: "Completed", value: "completed" },
+    { label: "Not Started", value: "not-started" },
   ];
+
+  const enrolledCount = participants.filter((p) => p.enrolled !== false).length;
+  const registeredOnlyCount = participants.length - enrolledCount;
 
   const normalizeStatus = (value: unknown) => {
     if (typeof value !== "string") return "";
@@ -132,10 +137,17 @@ export default function ParticipantsPage() {
     const q = search.toLowerCase();
     const matchSearch =
       (p.name ?? "").toLowerCase().includes(q) ||
-      (p.program ?? "").toLowerCase().includes(q);
+      (p.email ?? "").toLowerCase().includes(q) ||
+      (p.program ?? "").toLowerCase().includes(q) ||
+      (p.course ?? "").toLowerCase().includes(q);
     const participantStatus = normalizeStatus(p.status);
     const matchFilter = selectedStatuses.length === 0 || selectedStatuses.includes(participantStatus);
-    return matchSearch && matchFilter;
+    const isEnrolled = p.enrolled !== false;
+    const matchEnrollment =
+      enrollmentFilter === "all" ||
+      (enrollmentFilter === "enrolled" && isEnrolled) ||
+      (enrollmentFilter === "registered" && !isEnrolled);
+    return matchSearch && matchFilter && matchEnrollment;
   });
 
   const handleToggleStatus = (value: string) => {
@@ -183,11 +195,14 @@ export default function ParticipantsPage() {
 
   const exportRoster = () => {
     const roster = selected.size > 0 ? filtered.filter((p) => selected.has(p.id)) : filtered;
-    const headers = ["name", "email", "program", "status", "progress", "last_active"];
+    const headers = ["name", "email", "phone", "program", "course", "enrolled", "status", "progress", "last_active"];
     const rows = roster.map((p) => [
       p.name ?? "",
       p.email ?? "",
+      p.phone ?? "",
       p.program ?? "",
+      p.course ?? "",
+      p.enrolled === false ? "no" : "yes",
       p.status ?? "",
       Number(p.progress ?? 0),
       p.lastActive ?? "",
@@ -208,7 +223,7 @@ export default function ParticipantsPage() {
     a.download = `participants-roster-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Roster exported as CSV.");
+    toast.success(`Exported ${roster.length} row${roster.length === 1 ? "" : "s"} as CSV.`);
   };
 
   const messageCohort = async () => {
@@ -259,7 +274,7 @@ export default function ParticipantsPage() {
 
   const openSmsModal = (participant: any) => {
     setSelectedParticipant(participant);
-    setPhoneNumber(""); // Will need to be entered by admin
+    setPhoneNumber(typeof participant?.phone === "string" ? participant.phone : "");
     setSmsMessage("");
     setSmsChannel("sms");
     setSmsModalOpen(true);
@@ -329,7 +344,7 @@ export default function ParticipantsPage() {
     <PageContainer>
       <PageHeader
         title="Participants"
-        subtitle={isLoading ? "Syncing participants…" : `Tracking ${participants.length} learners across active cohorts.`}
+        subtitle={isLoading ? "Syncing participants…" : `${enrolledCount} enrolled · ${registeredOnlyCount} registered only · ${filtered.length} shown`}
         actions={
           <>
             {selected.size > 0 && (
@@ -354,7 +369,28 @@ export default function ParticipantsPage() {
 
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="pb-2 md:pb-0 w-full">
+        <div className="flex flex-col gap-3 pb-2 md:pb-0 w-full">
+          <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
+            {([
+              ["enrolled", "Enrolled"],
+              ["registered", "Registered only"],
+              ["all", "All learners"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setEnrollmentFilter(value)}
+                className={cn(
+                  "px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors",
+                  enrollmentFilter === value
+                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <FilterChips
             options={STATUS_OPTIONS}
             selectedValues={selectedStatuses}
@@ -384,7 +420,8 @@ export default function ParticipantsPage() {
                   <input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onChange={toggleAll} className="rounded border-border/50 text-primary focus:ring-primary/30" />
                 </th>
                 <th className={DESIGN_TOKENS.tableHeader}>Learner</th>
-                <th className={DESIGN_TOKENS.tableHeader}>Program</th>
+                <th className={DESIGN_TOKENS.tableHeader}>Program / Course</th>
+                <th className={DESIGN_TOKENS.tableHeader}>Status</th>
                 <th className={DESIGN_TOKENS.tableHeader}>Progress</th>
                 <th className={DESIGN_TOKENS.tableHeader}>Last Active</th>
                 <th className={cn(DESIGN_TOKENS.tableHeader, "text-right")}>Action</th>
@@ -393,13 +430,13 @@ export default function ParticipantsPage() {
             <tbody className="divide-y divide-border/40">
                   {isLoading ? (
                 <tr>
-                  <td colSpan={6} className={cn(DESIGN_TOKENS.tableCell, "py-20 text-center bg-card/20 text-muted-foreground")}>
+                  <td colSpan={7} className={cn(DESIGN_TOKENS.tableCell, "py-20 text-center bg-card/20 text-muted-foreground")}>
                     Syncing participants…
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className={cn(DESIGN_TOKENS.tableCell, "py-20 text-center bg-card/20")}>
+                  <td colSpan={7} className={cn(DESIGN_TOKENS.tableCell, "py-20 text-center bg-card/20")}>
                     <Users className={cn(DESIGN_TOKENS.iconEmpty, "text-muted-foreground/30 mx-auto mb-3")} />
                     <p className="text-foreground font-medium mb-1">No participants found</p>
                     <p className={DESIGN_TOKENS.pageSubtitle}>Adjust your filters or wait for enrollments to sync.</p>
@@ -428,7 +465,19 @@ export default function ParticipantsPage() {
                       </div>
                     </td>
                     <td className={cn(DESIGN_TOKENS.tableCell, "text-xs font-semibold text-muted-foreground")}>
-                      {p.program ?? "—"}
+                      <div>{p.program ?? "—"}</div>
+                      {p.course ? <div className="text-[10px] text-muted-foreground mt-0.5">{p.course}</div> : null}
+                    </td>
+                    <td className={cn(DESIGN_TOKENS.tableCell, "text-xs capitalize")}>
+                      <span className={cn(
+                        "px-2 py-0.5 rounded-md font-semibold",
+                        normalizeStatus(p.status) === "completed" ? "bg-emerald-50 text-emerald-700" :
+                        normalizeStatus(p.status) === "on-track" ? "bg-primary/10 text-primary" :
+                        normalizeStatus(p.status) === "at-risk" ? "bg-amber-50 text-amber-700" :
+                        "bg-muted text-muted-foreground",
+                      )}>
+                        {(p.status ?? "not-started").replace(/-/g, " ")}
+                      </span>
                     </td>
                     <td className={DESIGN_TOKENS.tableCell}>
                       <div className="flex items-center gap-3">

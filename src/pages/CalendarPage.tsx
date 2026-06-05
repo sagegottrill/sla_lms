@@ -1,8 +1,10 @@
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Clock, Video, FileText, Zap, BookOpen, Loader2 } from "lucide-react";
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserEnrollments, useCourses } from "@/hooks/useQueries";
+import { api } from "@/services/api";
 
 const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -48,6 +50,13 @@ export default function CalendarPage() {
   const { appUser } = useAuth();
   const { data: rawEnrollments = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
   const { data: catalog = [], isLoading: loadingCatalog } = useCourses({ publishedOnly: true });
+  const { data: liveSessions = [] } = useQuery({
+    queryKey: ["live-sessions"],
+    queryFn: async () => {
+      const res = await api.getLiveSessions();
+      return res.success ? res.data ?? [] : [];
+    },
+  });
 
   const today = useMemo(() => new Date(), []);
   const todayStr = useMemo(() => formatDate(today), [today]);
@@ -121,8 +130,22 @@ export default function CalendarPage() {
       });
     });
 
+    liveSessions.forEach((session: any) => {
+      const starts = session.starts_at ? new Date(session.starts_at) : null;
+      if (!starts || isNaN(starts.getTime())) return;
+      const dateStr = formatDate(starts);
+      if (!map[dateStr]) map[dateStr] = [];
+      map[dateStr].push({
+        title: session.title ?? "Live session",
+        time: starts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        type: "live",
+        course: "Webinar",
+        color: typeColor.live,
+      });
+    });
+
     return map;
-  }, [rawEnrollments, catalog, today]);
+  }, [rawEnrollments, catalog, today, liveSessions]);
 
   const selectedEvents = allEvents[selectedDate] ?? [];
 
