@@ -47,7 +47,6 @@ export default function SettingsPage() {
   const [twilioAccountSid, setTwilioAccountSid] = useState("");
   const [twilioAuthToken, setTwilioAuthToken] = useState("");
   const [twilioPhoneNumber, setTwilioPhoneNumber] = useState("");
-  const [twilioWhatsappNumber, setTwilioWhatsappNumber] = useState("");
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -55,7 +54,6 @@ export default function SettingsPage() {
     setTwilioAccountSid(typeof cfg.accountSid === "string" ? cfg.accountSid : "");
     setTwilioAuthToken(typeof cfg.authToken === "string" ? cfg.authToken : "");
     setTwilioPhoneNumber(typeof cfg.phoneNumber === "string" ? cfg.phoneNumber : "");
-    setTwilioWhatsappNumber(typeof cfg.whatsappNumber === "string" ? cfg.whatsappNumber : "");
   }, [isAdmin, twilioConfig]);
 
   const saveTwilioConfig = async () => {
@@ -71,7 +69,6 @@ export default function SettingsPage() {
           accountSid: twilioAccountSid.trim(),
           authToken: twilioAuthToken.trim(),
           phoneNumber: twilioPhoneNumber.trim(),
-          whatsappNumber: twilioWhatsappNumber.trim(),
         },
       });
       toast.success("Twilio settings saved.");
@@ -454,16 +451,6 @@ export default function SettingsPage() {
                       value={twilioPhoneNumber}
                       onChange={(e) => setTwilioPhoneNumber(e.target.value)}
                       placeholder="+18444481077"
-                      className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1.5 block">TWILIO_WHATSAPP_NUMBER (optional)</label>
-                    <input
-                      value={twilioWhatsappNumber}
-                      onChange={(e) => setTwilioWhatsappNumber(e.target.value)}
-                      placeholder="whatsapp:+18444481077"
                       className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                     />
                   </div>

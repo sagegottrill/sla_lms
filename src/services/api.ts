@@ -2490,12 +2490,11 @@ export const api = {
   },
 
   // -------------------------
-  // TWILIO SMS/WHATSAPP NOTIFICATIONS
+  // TWILIO SMS NOTIFICATIONS
   // -------------------------
   sendTwilioMessage: async (payload: {
     to: string;
     message: string;
-    channel?: "sms" | "whatsapp";
   }): Promise<ApiResponse<any>> => {
     if (!USE_SUPABASE) {
       console.warn("Supabase not configured. Cannot send Twilio message.");

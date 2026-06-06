@@ -53,11 +53,10 @@ export default function ParticipantsPage() {
   const sendButtonRef = useRef<HTMLButtonElement>(null);
   const triggerButtonRef = useRef<HTMLButtonElement>(null);
 
-  // SMS/WhatsApp modal state
+  // SMS modal state
   const [smsModalOpen, setSmsModalOpen] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<any>(null);
   const [smsMessage, setSmsMessage] = useState("");
-  const [smsChannel, setSmsChannel] = useState<"sms" | "whatsapp">("sms");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -326,15 +325,14 @@ export default function ParticipantsPage() {
       await api.sendTwilioMessage({
         to: phoneNumber,
         message: smsMessage,
-        channel: smsChannel,
       });
 
-      toast.success(`${smsChannel === "whatsapp" ? "WhatsApp" : "SMS"} sent successfully!`);
+      toast.success("SMS sent successfully!");
       setSmsModalOpen(false);
       setSmsMessage("");
       setPhoneNumber("");
     } catch (e: any) {
-      toast.error(e?.message || `Failed to send ${smsChannel === "whatsapp" ? "WhatsApp" : "SMS"} message.`);
+      toast.error(e?.message || "Failed to send SMS message.");
     } finally {
       setSending(false);
     }
@@ -543,7 +541,7 @@ export default function ParticipantsPage() {
                             className="cursor-pointer font-medium text-xs py-2"
                           >
                             <MessageSquare className={cn(DESIGN_TOKENS.iconSmall, "mr-2")} />
-                            Send SMS / WhatsApp
+                            Send SMS
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => openEnrollModal(p)}
@@ -570,30 +568,17 @@ export default function ParticipantsPage() {
         </div>
       </div>
 
-      {/* SMS/WhatsApp Modal */}
+      {/* SMS Modal */}
       <Dialog open={smsModalOpen} onOpenChange={setSmsModalOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Send {smsChannel === "whatsapp" ? "WhatsApp" : "SMS"} Message</DialogTitle>
+            <DialogTitle>Send SMS Message</DialogTitle>
             <DialogDescription>
-              Send a message to {selectedParticipant?.name || "participant"} via {smsChannel === "whatsapp" ? "WhatsApp" : "SMS"}.
+              Send a text message to {selectedParticipant?.name || "participant"}.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="channel">Channel</Label>
-              <Select value={smsChannel} onValueChange={(val: "sms" | "whatsapp") => setSmsChannel(val)}>
-                <SelectTrigger id="channel">
-                  <SelectValue placeholder="Select channel" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sms">SMS</SelectItem>
-                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
               <Input
@@ -648,7 +633,7 @@ export default function ParticipantsPage() {
                disabled={sending || !phoneNumber || !smsMessage}
                className="bg-primary hover:bg-primary/90"
              >
-               {sending ? "Sending..." : `Send ${smsChannel === "whatsapp" ? "WhatsApp" : "SMS"}`}
+               {sending ? "Sending..." : "Send SMS"}
              </Button>
            </DialogFooter>
         </DialogContent>

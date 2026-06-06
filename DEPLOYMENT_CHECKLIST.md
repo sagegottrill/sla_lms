@@ -9,7 +9,6 @@
 - [ ] Note your Account SID (starts with "AC...")
 - [ ] Note your Auth Token (from Twilio Console)
 - [ ] Purchase a phone number with SMS capabilities
-- [ ] (Optional) Enable WhatsApp sandbox or get WhatsApp Business approval
 
 ### 2. Supabase Project Setup
 - [ ] Ensure Supabase project is created
@@ -31,7 +30,6 @@
    TWILIO_ACCOUNT_SID = AC...your_sid_here
    TWILIO_AUTH_TOKEN = your_auth_token_here
    TWILIO_PHONE_NUMBER = +1234567890
-   TWILIO_WHATSAPP_NUMBER = whatsapp:+1234567890
    ```
 
 **Option B: Using Supabase CLI**
@@ -39,7 +37,6 @@
 supabase secrets set TWILIO_ACCOUNT_SID=AC...your_sid_here
 supabase secrets set TWILIO_AUTH_TOKEN=your_auth_token_here
 supabase secrets set TWILIO_PHONE_NUMBER=+1234567890
-supabase secrets set TWILIO_WHATSAPP_NUMBER=whatsapp:+1234567890
 ```
 
 ### Step 2: Deploy Edge Function
@@ -77,8 +74,7 @@ curl -X POST http://localhost:54321/functions/v1/twilio-notify \
   -H "Authorization: Bearer YOUR_ANON_KEY" \
   -d '{
     "to": "+1234567890",
-    "message": "Test message from She Leads Africa",
-    "channel": "sms"
+    "message": "Test message from She Leads Africa"
   }'
 ```
 
@@ -89,8 +85,7 @@ curl -X POST https://YOUR_PROJECT_REF.supabase.co/functions/v1/twilio-notify \
   -H "Authorization: Bearer YOUR_ANON_KEY" \
   -d '{
     "to": "+1234567890",
-    "message": "Test message from She Leads Africa",
-    "channel": "sms"
+    "message": "Test message from She Leads Africa"
   }'
 ```
 
@@ -122,7 +117,7 @@ vercel --prod
 1. [ ] Open your production app
 2. [ ] Navigate to Participants page
 3. [ ] Click "⋮" on any participant
-4. [ ] Click "Send SMS / WhatsApp"
+4. [ ] Click "Send SMS"
 5. [ ] Fill in phone number and message
 6. [ ] Click "Send SMS"
 7. [ ] Verify success toast appears
@@ -137,24 +132,12 @@ vercel --prod
 #### Test 1: SMS Sending
 - [ ] Open Participants page
 - [ ] Select a participant
-- [ ] Choose "Send SMS / WhatsApp"
-- [ ] Select "SMS" channel
+- [ ] Choose "Send SMS"
 - [ ] Enter valid phone number
 - [ ] Type test message
 - [ ] Click "Send SMS"
 - [ ] Verify success toast
 - [ ] Confirm SMS received on phone
-
-#### Test 2: WhatsApp Sending
-- [ ] Open Participants page
-- [ ] Select a participant
-- [ ] Choose "Send SMS / WhatsApp"
-- [ ] Select "WhatsApp" channel
-- [ ] Enter valid WhatsApp number
-- [ ] Type test message
-- [ ] Click "Send WhatsApp"
-- [ ] Verify success toast
-- [ ] Confirm WhatsApp message received
 
 #### Test 3: Error Handling
 - [ ] Try sending with empty phone number
@@ -166,7 +149,6 @@ vercel --prod
 
 #### Test 4: UI/UX
 - [ ] Modal opens smoothly
-- [ ] Channel selector works
 - [ ] Character counter updates
 - [ ] Buttons disable during send
 - [ ] Modal closes on success
@@ -221,7 +203,7 @@ npm run build && vercel --prod
   className="cursor-pointer font-medium text-xs py-2"
 >
   <MessageSquare className="w-3.5 h-3.5 mr-2" />
-  Send SMS / WhatsApp
+  Send SMS
 </DropdownMenuItem>
 */
 ```
@@ -310,12 +292,11 @@ supabase functions deploy twilio-notify
 2. Environment variables are set correctly
 3. Frontend builds without errors
 4. SMS messages are delivered successfully
-5. WhatsApp messages are delivered successfully
-6. Error handling works as expected
-7. No credentials exposed in frontend
-8. Toast notifications appear correctly
-9. Modal UI works smoothly
-10. Twilio Console shows message logs
+5. Error handling works as expected
+6. No credentials exposed in frontend
+7. Toast notifications appear correctly
+8. Modal UI works smoothly
+9. Twilio Console shows message logs
 
 ---
 

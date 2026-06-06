@@ -40,7 +40,7 @@
 **Implemented.** Phone joined from applications into participant roster/export; enrollment/status filters; portfolio **document upload** to Supabase `documents` bucket.
 
 ## Community / chat with participants
-**Improved.** Forums: thread body + replies. Direct 1:1 learner chat not built; staff can email/SMS/WhatsApp from Participants.
+**Improved.** Forums: thread body + replies. Direct 1:1 learner chat not built; staff can email and SMS from Participants.
 
 ## Email automation
 **Partially implemented.** Templates + Campaigns exist; Participants uses mailto; SendGrid edge function ready — configure `SENDGRID_*` secrets and cron for full automation.
@@ -52,7 +52,7 @@
 **Existing + clarified.** Remove selected = drop enrollments; row menu **Delete participant** = profile delete. Ensure RLS delete policy applied in production.
 
 ## Can we send message / email
-**Yes (MVP).** Message Cohort (mailto), per-row email, SMS/WhatsApp via Twilio when secrets configured.
+**Yes (MVP).** Message Cohort (mailto), per-row email, and SMS via Twilio when secrets are configured.
 
 ## Can student upload
 **Yes.** Portfolio document upload; resume AI import.

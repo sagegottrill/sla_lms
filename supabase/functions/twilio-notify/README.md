@@ -1,6 +1,6 @@
-# Twilio SMS/WhatsApp Edge Function
+# Twilio SMS Edge Function
 
-This Supabase Edge Function provides a secure backend for sending SMS and WhatsApp messages via Twilio without exposing credentials in the frontend.
+This Supabase Edge Function provides a secure backend for sending SMS messages via Twilio without exposing credentials in the frontend.
 
 ## Setup Instructions
 
@@ -13,7 +13,6 @@ Add the following environment variables to your Supabase project:
 TWILIO_ACCOUNT_SID=your_account_sid_here
 TWILIO_AUTH_TOKEN=your_auth_token_here
 TWILIO_PHONE_NUMBER=+1234567890
-TWILIO_WHATSAPP_NUMBER=whatsapp:+1234567890  # Optional, for WhatsApp
 ```
 
 Or using Supabase CLI:
@@ -22,7 +21,6 @@ Or using Supabase CLI:
 supabase secrets set TWILIO_ACCOUNT_SID=your_account_sid_here
 supabase secrets set TWILIO_AUTH_TOKEN=your_auth_token_here
 supabase secrets set TWILIO_PHONE_NUMBER=+1234567890
-supabase secrets set TWILIO_WHATSAPP_NUMBER=whatsapp:+1234567890
 ```
 
 ### 2. Deploy the Edge Function
@@ -47,8 +45,7 @@ curl -X POST http://localhost:54321/functions/v1/twilio-notify \
   -H "Authorization: Bearer YOUR_ANON_KEY" \
   -d '{
     "to": "+1234567890",
-    "message": "Hello from She Leads Africa!",
-    "channel": "sms"
+    "message": "Hello from She Leads Africa!"
   }'
 ```
 
@@ -66,8 +63,7 @@ curl -X POST http://localhost:54321/functions/v1/twilio-notify \
 ```json
 {
   "to": "+1234567890",
-  "message": "Your message here",
-  "channel": "sms"  // or "whatsapp"
+  "message": "Your message here"
 }
 ```
 
@@ -105,7 +101,6 @@ curl -X POST http://localhost:54321/functions/v1/twilio-notify \
 1. Sign up for a Twilio account at https://www.twilio.com
 2. Get your Account SID and Auth Token from the Twilio Console
 3. Purchase a phone number with SMS capabilities
-4. For WhatsApp: Enable WhatsApp sandbox or get WhatsApp Business approval
 
 ## Troubleshooting
 

@@ -3,7 +3,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
 const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER");
-const TWILIO_WHATSAPP_NUMBER = Deno.env.get("TWILIO_WHATSAPP_NUMBER");
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -12,7 +11,6 @@ async function getTwilioConfigFromDb(): Promise<{
   accountSid?: string;
   authToken?: string;
   phoneNumber?: string;
-  whatsappNumber?: string;
 } | null> {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
   try {
@@ -31,7 +29,6 @@ async function getTwilioConfigFromDb(): Promise<{
       accountSid: typeof data.accountSid === "string" ? data.accountSid : undefined,
       authToken: typeof data.authToken === "string" ? data.authToken : undefined,
       phoneNumber: typeof data.phoneNumber === "string" ? data.phoneNumber : undefined,
-      whatsappNumber: typeof data.whatsappNumber === "string" ? data.whatsappNumber : undefined,
     };
   } catch {
     return null;
@@ -41,7 +38,6 @@ async function getTwilioConfigFromDb(): Promise<{
 interface TwilioNotifyPayload {
   to: string;
   message: string;
-  channel?: "sms" | "whatsapp";
 }
 
 serve(async (req) => {
@@ -68,7 +64,6 @@ serve(async (req) => {
     const accountSid = TWILIO_ACCOUNT_SID || dbCfg?.accountSid;
     const authToken = TWILIO_AUTH_TOKEN || dbCfg?.authToken;
     const phoneNumber = TWILIO_PHONE_NUMBER || dbCfg?.phoneNumber;
-    const whatsappNumber = TWILIO_WHATSAPP_NUMBER || dbCfg?.whatsappNumber;
 
     // Validate configuration
     if (!accountSid || !authToken || !phoneNumber) {
@@ -89,7 +84,7 @@ serve(async (req) => {
 
     // Parse request body
     const payload: TwilioNotifyPayload = await req.json();
-    const { to, message, channel = "sms" } = payload;
+    const { to, message } = payload;
 
     // Validate payload
     if (!to || !message) {
@@ -105,23 +100,13 @@ serve(async (req) => {
       );
     }
 
-    // Determine the 'From' number based on channel
-    let fromNumber = phoneNumber;
-    let toNumber = to;
-
-    if (channel === "whatsapp") {
-      // WhatsApp requires 'whatsapp:' prefix
-      fromNumber = whatsappNumber || `whatsapp:${phoneNumber}`;
-      toNumber = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
-    }
-
     // Construct Twilio API request
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
     const auth = btoa(`${accountSid}:${authToken}`);
 
     const formData = new URLSearchParams();
-    formData.append("To", toNumber);
-    formData.append("From", fromNumber);
+    formData.append("To", to);
+    formData.append("From", phoneNumber);
     formData.append("Body", message);
 
     const twilioResponse = await fetch(twilioUrl, {
@@ -158,7 +143,7 @@ serve(async (req) => {
         success: true,
         messageSid: twilioData.sid,
         status: twilioData.status,
-        channel,
+        channel: "sms",
       }),
       {
         status: 200,

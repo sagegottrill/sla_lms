@@ -171,7 +171,6 @@ aria-label={label}        // Accessibility
 
 ### Support Channels (Unchanged):
 - Email: info@sheleadsafrica.org
-- WhatsApp: +234 800 SLA HELP (mentioned in chatbot)
 
 ---
 

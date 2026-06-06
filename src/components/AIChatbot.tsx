@@ -45,7 +45,7 @@ function matchAnswer(input: string, activeFaqs: { q: string; a: string }[]): str
     const keywords = faq.q.toLowerCase().split(" ").filter((w) => w.length > 3);
     if (keywords.some((kw) => lower.includes(kw))) return faq.a;
   }
-  return "I'm not sure about that yet — I'm still learning! For complex questions, please email **info@sheleadsafrica.org** or WhatsApp us at **+234 800 SLA HELP** (Mon–Fri, 8am–6pm WAT). Is there anything else I can help you with?";
+  return "I'm not sure about that yet — I'm still learning! For complex questions, please email **info@sheleadsafrica.org** (Mon–Fri, 8am–6pm WAT). Is there anything else I can help you with?";
 }
 
 export default function AIChatbot() {

@@ -197,7 +197,7 @@ export default function NotificationPrefsPage() {
         <Smartphone className="w-8 h-8 text-primary shrink-0" />
         <div>
           <p className="font-semibold text-foreground text-sm">SMS Notifications</p>
-          <p className="text-xs text-muted-foreground mt-0.5">SMS notifications are sent via WhatsApp Business or standard SMS to your registered phone number. Standard messaging rates may apply.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">SMS notifications are sent to your registered phone number. Standard messaging rates may apply.</p>
         </div>
       </div>
     </div>
