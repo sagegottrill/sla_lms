@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { initializePaystackPayment } from "@/lib/paystack";
 import { coursePathSegment, isCourseOrProgramRouteParam } from "@/lib/publicRoutes";
+import { getSiteUrl } from "@/lib/siteUrl";
 
 type PaymentMethod = "card" | "mobile_money" | "bank_transfer";
 
@@ -107,7 +108,7 @@ export default function CheckoutPage() {
       "",
       "═══════════════════════════════════════",
       "This is a computer-generated receipt.",
-      "She Leads Africa | lms.sheleadsafrica.org",
+      `She Leads Africa | ${getSiteUrl().replace(/^https?:\/\//, "")}`,
       "Support: info@sheleadsafrica.org",
       "═══════════════════════════════════════",
     ].filter(Boolean).join("\n");

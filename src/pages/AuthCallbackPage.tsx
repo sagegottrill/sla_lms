@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 
 /**
  * OAuth return URL (PKCE). Exchanges ?code=... for a session, then routes into the app.
- * Add this exact URL to Supabase Auth → Redirect URLs (and match VITE_SITE_URL in production).
+ * Add this exact URL to Supabase Auth → Redirect URLs (e.g. https://connecther.sheleadsafrica.org/auth/callback).
  */
 export default function AuthCallbackPage() {
   const navigate = useNavigate();

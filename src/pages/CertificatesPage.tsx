@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { api } from "@/services/api";
+import { getSiteUrl } from "@/lib/siteUrl";
 
 // ─── PDF generator (canvas-based, unchanged) ─────────────────────────────────
 function generateCertificatePDF(cert: {
@@ -192,7 +193,7 @@ export default function CertificatesPage() {
                     <Download className="w-3.5 h-3.5" /> Download
                   </Button>
                   <Button size="sm" variant="outline" className="rounded-xl text-xs"
-                    onClick={() => { navigator.clipboard.writeText(`https://lms.sheleadsafrica.org/certificates/${cert.id}`); toast.success("Link copied!"); }}>
+                    onClick={() => { navigator.clipboard.writeText(`${getSiteUrl()}/certificates/${cert.id}`); toast.success("Link copied!"); }}>
                     <Share2 className="w-3.5 h-3.5" />
                   </Button>
                   <Button size="sm" variant="outline" className="rounded-xl text-xs"
