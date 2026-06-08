@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -43,24 +43,22 @@ export default function HeroSection() {
     return () => window.clearInterval(id);
   }, []);
 
-  const activeSlide = HERO_SLIDES[index];
-
   return (
     <section className="relative overflow-hidden min-h-[72vh] sm:min-h-[78vh]">
       <div className="absolute inset-0">
-        <AnimatePresence mode="wait">
+        {HERO_SLIDES.map((slide, i) => (
           <motion.img
-            key={activeSlide.src}
-            src={activeSlide.src}
-            alt={activeSlide.alt}
-            initial={{ opacity: 0, scale: 1.04 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.9, ease: "easeOut" }}
+            key={slide.src}
+            src={slide.src}
+            alt={slide.alt}
+            initial={false}
+            animate={{ opacity: i === index ? 1 : 0, scale: i === index ? 1 : 1.04 }}
+            transition={{ opacity: { duration: 1.15, ease: "easeInOut" }, scale: { duration: 5.5, ease: "easeOut" } }}
             className="absolute inset-0 h-full w-full object-cover"
-            style={{ objectPosition: activeSlide.position }}
+            style={{ objectPosition: slide.position }}
+            aria-hidden={i !== index}
           />
-        </AnimatePresence>
+        ))}
       </div>
 
       <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/55 to-black/25" />
