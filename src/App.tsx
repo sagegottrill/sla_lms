@@ -73,6 +73,7 @@ const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const AuthCallbackPage = lazy(() => import("./pages/AuthCallbackPage"));
 const JobsBoardPage = lazy(() => import("./pages/JobsBoardPage"));
+const OpportunitiesPage = lazy(() => import("./pages/OpportunitiesPage"));
 const WebinarsPage = lazy(() => import("./pages/WebinarsPage"));
 
 function CoursesRoute() {
@@ -124,6 +125,7 @@ const App = () => (
               <Route path="/courses/:id" element={<CourseDetailPage />} />
               <Route path="/courses/:id/checkout" element={<CheckoutPage />} />
               <Route path="/programs" element={<ProgramsCatalogPage />} />
+              <Route path="/opportunities" element={<OpportunitiesPage />} />
               <Route path="/programs/:id/apply" element={<ProgramApplicationPage />} />
               <Route path="/about" element={<Navigate to="/programs" replace />} />
               <Route path="/for-teams" element={<ForTeamsPage />} />

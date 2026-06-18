@@ -2,6 +2,7 @@ import Navbar from "@/components/landing/Navbar";
 import HeroSection from "@/components/landing/HeroSection";
 import FeaturedCourses from "@/components/landing/FeaturedCourses";
 import ProgramsSection from "@/components/landing/ProgramsSection";
+import OpportunitiesSection from "@/components/landing/OpportunitiesSection";
 import FAQSection from "@/components/landing/FAQSection";
 import CtaSection from "@/components/landing/CtaSection";
 import Footer from "@/components/landing/Footer";
@@ -14,6 +15,7 @@ const Index = () => {
         <HeroSection />
         <FeaturedCourses />
         <ProgramsSection />
+        <OpportunitiesSection />
         <FAQSection />
         <CtaSection />
       </main>

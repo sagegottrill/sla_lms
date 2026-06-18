@@ -3076,7 +3076,13 @@ export const api = {
 
   createJob: async (payload: Record<string, unknown>): Promise<ApiResponse<any | null>> => {
     if (!USE_SUPABASE) return { data: null, error: null, success: true };
-    const { data, error } = await supabase.from("jobs").insert(payload).select().single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: "Sign in to post an opportunity.", success: false };
+    const { data, error } = await supabase
+      .from("jobs")
+      .insert({ ...payload, posted_by: user.id, status: payload.status ?? "open" })
+      .select()
+      .single();
     if (error) return { data: null, error: error.message, success: false };
     return { data, error: null, success: true };
   },

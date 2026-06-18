@@ -10,6 +10,7 @@ import { getLandingProfileMenuItems } from "@/constants/profileMenu";
 const navLinks = [
   { label: "Courses", href: "/courses", hasDropdown: true },
   { label: "Programs", href: "/programs" },
+  { label: "Opportunities", href: "/opportunities" },
 ];
 
 const categories = [

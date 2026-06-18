@@ -40,7 +40,7 @@ const navByRole: Record<UserRole, NavGroup[]> = {
       group: "Profile & tools",
       items: [
         { label: "Portfolio", icon: Folder, href: "/dashboard/portfolio" },
-        { label: "Job Board", icon: Briefcase, href: "/dashboard/jobs" },
+        { label: "Opportunities", icon: Briefcase, href: "/dashboard/jobs" },
         { label: "Resume Builder", icon: FileText, href: "/dashboard/resume" },
         { label: "Skills Assessment", icon: Target, href: "/dashboard/skills" },
         { label: "Income Tracker", icon: TrendingUp, href: "/dashboard/income" },
@@ -115,7 +115,7 @@ const navByRole: Record<UserRole, NavGroup[]> = {
       group: "Engage",
       items: [
         { label: "Forums", icon: MessageSquare, href: "/dashboard/forums" },
-        { label: "Job Board", icon: Briefcase, href: "/dashboard/jobs" },
+        { label: "Opportunities", icon: Briefcase, href: "/dashboard/jobs" },
         { label: "Webinars", icon: Video, href: "/dashboard/webinars" },
         { label: "Interviews", icon: Building2, href: "/dashboard/interviews" },
       ],
@@ -164,7 +164,7 @@ const navByRole: Record<UserRole, NavGroup[]> = {
       items: [
         { label: "Forums", icon: MessageSquare, href: "/dashboard/forums" },
         { label: "Placements", icon: Target, href: "/dashboard/placements" },
-        { label: "Job Board", icon: Briefcase, href: "/dashboard/jobs" },
+        { label: "Opportunities", icon: Briefcase, href: "/dashboard/jobs" },
         { label: "Webinars", icon: Video, href: "/dashboard/webinars" },
         { label: "Interviews", icon: Building2, href: "/dashboard/interviews" },
       ],
