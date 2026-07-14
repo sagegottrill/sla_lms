@@ -970,7 +970,9 @@ export const api = {
             ? "completed"
             : agg.progress >= 30
               ? "on-track"
-              : "at-risk";
+              : agg.progress > 0
+                ? "at-risk"
+                : "not-started";
 
         participants.push({
           id: `${userId}:${programId}`,

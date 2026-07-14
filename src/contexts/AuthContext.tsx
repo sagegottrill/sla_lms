@@ -318,15 +318,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ),
       };
     }
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error };
-    // Try to load profile, but never block a valid session on profile fetch/RLS issues.
-    if (data.user) {
-      setUser(data.user);
-      if (data.session) setSession(data.session);
-      await loadUserProfile(data.user.id, data.user);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        if (error.message.includes("Failed to fetch")) {
+          return { error: new Error("Network error. Please check your internet connection or verify VITE_SUPABASE_URL and CORS settings.") };
+        }
+        return { error };
+      }
+      // Try to load profile, but never block a valid session on profile fetch/RLS issues.
+      if (data.user) {
+        setUser(data.user);
+        if (data.session) setSession(data.session);
+        await loadUserProfile(data.user.id, data.user);
+      }
+      return { error: null };
+    } catch (err: any) {
+      if (err.message?.includes("Failed to fetch")) {
+        return { error: new Error("Network error. Please check your internet connection or verify VITE_SUPABASE_URL and CORS settings.") };
+      }
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
-    return { error: null };
   };
 
   const signup = async (name: string, email: string, password: string, role: UserRole) => {

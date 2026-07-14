@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Download, UserPlus, Trash2,
@@ -186,16 +186,17 @@ export default function AdminUsersPage() {
   }, [refetch]);
 
   const handleExport = () => {
+    // Change to export all users instead of just the filtered staff directory
     const csvRows = [
       ["Name", "Email", "Role", "Joined"],
-      ...filtered.map(u => [u.name, u.email, u.role, new Date(u.created_at).toLocaleDateString()]),
+      ...users.map(u => [u.name, u.email, u.role, new Date(u.created_at).toLocaleDateString()]),
     ];
     const csv = csvRows.map(r => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "users.csv"; a.click();
+    const a = document.createElement("a"); a.href = url; a.download = "all_users.csv"; a.click();
     URL.revokeObjectURL(url);
-    toast.success("Users exported");
+    toast.success(`Exported all ${users.length} users`);
   };
 
   return (
