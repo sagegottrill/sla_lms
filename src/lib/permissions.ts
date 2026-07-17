@@ -74,7 +74,7 @@ export interface Permission {
 export interface CustomRole {
   id: string;
   name: string;
-  base_role: "student" | "instructor" | "program_manager" | "admin";
+  base_role: "student" | "instructor" | "program_manager" | "admin" | "recruiter";
   description?: string;
   permissions: PermissionKey[];
   is_active: boolean;
@@ -108,6 +108,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.PARTICIPANTS.VIEW,
     PERMISSIONS.PARTICIPANTS.MESSAGE,
     PERMISSIONS.PARTICIPANTS.EXPORT,
+  ],
+  
+  recruiter: [
+    PERMISSIONS.USERS.VIEW_ALL,
+    PERMISSIONS.PARTICIPANTS.VIEW,
+    PERMISSIONS.ANALYTICS.VIEW,
   ],
   
   instructor: [

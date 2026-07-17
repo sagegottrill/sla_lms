@@ -1,14 +1,14 @@
-export type UserRole = "student" | "instructor" | "program_manager" | "admin";
+export type UserRole = "student" | "instructor" | "program_manager" | "admin" | "recruiter";
 
 /** Staff never use the learner onboarding wizard (students only). */
-const STAFF_ROLES: readonly UserRole[] = ["admin", "program_manager", "instructor"];
+const STAFF_ROLES: readonly UserRole[] = ["admin", "program_manager", "instructor", "recruiter"];
 
 /** Roles that are allowed to use the onboarding wizard (self-serve learners only). */
 const ONBOARDING_ROLES: readonly UserRole[] = ["student"];
 
 export function normalizeUserRole(raw: unknown): UserRole {
   const s = typeof raw === "string" ? raw.toLowerCase().trim() : "";
-  if (s === "admin" || s === "program_manager" || s === "instructor" || s === "student") return s;
+  if (s === "admin" || s === "program_manager" || s === "instructor" || s === "student" || s === "recruiter") return s;
   return "student";
 }
 

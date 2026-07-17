@@ -50,6 +50,7 @@ export default function CourseDetailPage() {
 
   const [openModule, setOpenModule] = useState<number | null>(0);
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
+  const [activeLesson, setActiveLesson] = useState<{ title: string; type: string; content?: string } | null>(null);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [navDimmed, setNavDimmed] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
@@ -71,12 +72,17 @@ export default function CourseDetailPage() {
   const allLessons = useMemo(() => {
     if (!course?.curriculum) return [];
     return course.curriculum.flatMap((mod: any) =>
-      (mod.items || []).map((item: any) => ({
-        title: typeof item === "string" ? item : item.title,
-        url: typeof item === "object" ? item.vimeo_url : "",
-        duration: typeof item === "object" ? item.duration : "",
-        module: mod.module,
-      }))
+      (mod.items || [])
+        .map((item: any) => ({
+          title: typeof item === "string" ? item : (item.title || ""),
+          url: typeof item === "object" ? (item.vimeo_url || "") : "",
+          type: typeof item === "object" ? (item.type || "video") : "video",
+          content: typeof item === "object" ? (item.content || "") : "",
+          duration: typeof item === "object" ? (item.duration || "") : "",
+          module: mod.module,
+        }))
+        // Filter out lessons with empty titles to avoid counting invalid/placeholder items
+        .filter((lesson: any) => lesson.title && lesson.title.trim() !== "")
     );
   }, [course]);
 
@@ -125,6 +131,20 @@ export default function CourseDetailPage() {
         );
         if (certRes.success) {
           toast.success("Course complete! Your certificate is ready.");
+          
+          // Send certificate email notification
+          try {
+            await api.sendCertificateEmail(
+              appUser.email,
+              appUser.name,
+              course.title,
+              certRes.data?.credential_id || "N/A",
+              certRes.data?.completed_at || new Date().toISOString()
+            );
+          } catch (emailErr) {
+            console.error("Failed to send certificate email:", emailErr);
+            // Don't show error to user - certificate is still created
+          }
         }
       }
     } catch (err) {
@@ -158,8 +178,20 @@ export default function CourseDetailPage() {
 
   const selectLessonVideo = (url: string, lessonTitle?: string) => {
     setActiveVideo(url);
+    setActiveLesson(null);
     if (lessonTitle && enrolled) {
       markLessonComplete(lessonTitle);
+    }
+    window.setTimeout(() => {
+      playerSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
+
+  const selectTextLesson = (lesson: { title: string; type: string; content?: string }) => {
+    setActiveVideo(null);
+    setActiveLesson(lesson);
+    if (lesson.title && enrolled) {
+      markLessonComplete(lesson.title);
     }
     window.setTimeout(() => {
       playerSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -336,7 +368,7 @@ export default function CourseDetailPage() {
       {/* Hero / Player Area */}
       <div ref={playerSectionRef} className="gradient-hero pb-8 scroll-mt-4">
         <div className={`max-w-7xl mx-auto px-6 pt-12 grid ${canAccessLessons && activeVideo && isTheaterMode ? "lg:grid-cols-1" : "lg:grid-cols-3"} gap-8 transition-all duration-300`}>
-          <div className={canAccessLessons && activeVideo && isTheaterMode ? "lg:col-span-1" : "lg:col-span-2 flex flex-col justify-center"}>
+          <div className={canAccessLessons && (activeVideo || activeLesson) && isTheaterMode ? "lg:col-span-1" : "lg:col-span-2 flex flex-col justify-center"}>
             {canAccessLessons && activeVideo ? (
               <div 
                 className="w-full bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 relative z-10 mb-6 group transition-all duration-300"
@@ -357,7 +389,24 @@ export default function CourseDetailPage() {
               </div>
             ) : null}
 
-            {!activeVideo && (
+            {canAccessLessons && activeLesson && activeLesson.type === "text" ? (
+              <div className="w-full bg-card rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 relative z-10 mb-6">
+                <div className="p-8">
+                  <div className="flex items-center gap-2 mb-6 pb-4 border-b border-border">
+                    <FileText className="w-5 h-5 text-primary" />
+                    <h2 className="text-2xl font-bold text-foreground">{activeLesson.title}</h2>
+                  </div>
+                  <div 
+                    className="prose prose-sm max-w-none text-foreground/90"
+                    style={{ whiteSpace: 'pre-wrap' }}
+                  >
+                    {activeLesson.content || <p className="text-muted-foreground italic">No content available for this lesson yet.</p>}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {!activeVideo && !activeLesson && (
               <>
                 <span className="inline-block px-3 py-1 rounded-full bg-primary-foreground/10 text-primary-foreground text-xs font-semibold mb-4 w-fit">{course.category}</span>
                 <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="font-display text-3xl md:text-4xl font-bold text-primary-foreground mb-4 leading-tight">
@@ -374,7 +423,7 @@ export default function CourseDetailPage() {
               </>
             )}
 
-            {canAccessLessons && activeVideo && (
+            {canAccessLessons && (activeVideo || activeLesson) && (
                <div>
                   <h1 className="font-display text-2xl font-bold text-primary-foreground mb-2 leading-tight">
                     {course.title}
@@ -387,7 +436,7 @@ export default function CourseDetailPage() {
           {/* Sticky context card or sidebar for inactive theater mode */}
           {!isTheaterMode && (
              <div className="hidden lg:block relative z-20 lg:col-span-1">
-               {canAccessLessons && activeVideo ? (
+               {canAccessLessons && (activeVideo || activeLesson) ? (
                  /* Checkmark Sidebar — shown next to active video */
                  <div className="sticky top-6 bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 shadow-sm overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 48px)' }}>
                    {/* Progress Header */}
@@ -407,15 +456,22 @@ export default function CourseDetailPage() {
                    </div>
                    {/* Lesson List */}
                    <div className="overflow-y-auto divide-y divide-border flex-1">
-                     {allLessons.map((lesson, idx) => {
-                       const isActive = lesson.url && activeVideo === lesson.url;
+                     {allLessons.map((lesson: any, idx) => {
+                       const isActiveVideo = lesson.url && activeVideo === lesson.url;
+                       const isActiveText = lesson.type === "text" && activeLesson?.title === lesson.title;
+                       const isActive = isActiveVideo || isActiveText;
                        const isDone = completedLessons.has(lesson.title);
                        return (
                          <button
                            key={idx}
                            onClick={() => {
-                             if (lesson.url) selectLessonVideo(lesson.url, lesson.title);
-                             else toast.info("No video for this lesson yet.");
+                             if (lesson.type === "text") {
+                               selectTextLesson({ title: lesson.title, type: lesson.type, content: lesson.content });
+                             } else if (lesson.url) {
+                               selectLessonVideo(lesson.url, lesson.title);
+                             } else {
+                               toast.info("No content for this lesson yet.");
+                             }
                            }}
                            className={cn(
                              "w-full text-left px-4 py-3 flex items-center gap-3 text-sm transition-colors",
@@ -611,17 +667,25 @@ export default function CourseDetailPage() {
                           const isObj = typeof item === 'object';
                           const title = isObj ? item.title : item;
                           const url = isObj ? item.vimeo_url : "";
-                          // const type = isObj ? item.type : "video";
+                          const lessonType = isObj ? (item.type || "video") : "video";
+                          const content = isObj ? item.content : "";
                           const duration = isObj ? item.duration : "";
-                          const isActive = url && activeVideo === url;
+                          const isActiveVideo = url && activeVideo === url;
+                          const isActiveText = lessonType === "text" && activeLesson?.title === title;
+                          const isActive = isActiveVideo || isActiveText;
 
                           return (
                             <button
                               key={j}
                               onClick={() => {
-                                if (!canAccessLessons) { toast.error("Please enrol to watch lessons."); return; }
-                                if (url) selectLessonVideo(url, title);
-                                else toast.info("No video URL provided for this lesson.");
+                                if (!canAccessLessons) { toast.error("Please enrol to access lessons."); return; }
+                                if (lessonType === "text") {
+                                  selectTextLesson({ title, type: lessonType, content });
+                                } else if (url) {
+                                  selectLessonVideo(url, title);
+                                } else {
+                                  toast.info("No content available for this lesson.");
+                                }
                               }}
                               className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 text-sm transition-colors ${isActive ? "bg-primary/5 border-l-2 border-primary" : "hover:bg-muted/30 border-l-2 border-transparent"}`}
                             >

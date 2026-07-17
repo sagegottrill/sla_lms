@@ -1,13 +1,23 @@
 ﻿import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useInstructorCourses, useCourses } from "@/hooks/useQueries";
+import { useInstructorCourses, useCourses, useDeleteCourseMutation } from "@/hooks/useQueries";
 import { Link, useNavigate } from "react-router-dom";
-import { BookOpen, Users, DollarSign, Star, Plus, Search, Loader2, EyeOff, Eye } from "lucide-react";
+import { BookOpen, Users, DollarSign, Star, Plus, Search, Loader2, EyeOff, Eye, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/services/api";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { coursePathSegment } from "@/lib/publicRoutes";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function InstructorCoursesPage() {
   const { appUser } = useAuth();
@@ -15,6 +25,9 @@ export default function InstructorCoursesPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [updatingCourseId, setUpdatingCourseId] = useState<number | null>(null);
+  const [courseToDelete, setCourseToDelete] = useState<{ id: number; title: string } | null>(null);
+
+  const deleteMutation = useDeleteCourseMutation();
 
   const isStaffCatalog =
     appUser?.role === "admin" || appUser?.role === "program_manager";
@@ -64,6 +77,17 @@ export default function InstructorCoursesPage() {
       toast.error(`Error ${action.toLowerCase()} course: ${error.message}`);
     } finally {
       setUpdatingCourseId(null);
+    }
+  };
+
+  const handleDeleteCourse = async () => {
+    if (!courseToDelete) return;
+    
+    try {
+      await deleteMutation.mutateAsync(courseToDelete.id);
+      setCourseToDelete(null);
+    } catch (error) {
+      // Error handling is done in the mutation
     }
   };
 
@@ -218,6 +242,16 @@ export default function InstructorCoursesPage() {
                             Manage
                           </Button>
                         </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCourseToDelete({ id: course.id, title: course.title })}
+                          disabled={deleteMutation.isPending}
+                          className="h-8 px-3 text-xs font-semibold rounded-md border-destructive/20 bg-transparent hover:bg-destructive/10 hover:text-destructive text-destructive/80"
+                          title="Delete course"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -228,6 +262,37 @@ export default function InstructorCoursesPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!courseToDelete} onOpenChange={(open) => !open && setCourseToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Course?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete <strong className="text-foreground">"{courseToDelete?.title}"</strong>?
+              <br /><br />
+              This action cannot be undone. All course content, enrollments, and associated data will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCourse}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Course"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );

@@ -48,7 +48,7 @@
     name             text not null default '',
     email            text,
     role             text not null default 'student'
-                    check (role in ('student', 'instructor', 'program_manager', 'admin')),
+                    check (role in ('student', 'instructor', 'program_manager', 'admin', 'recruiter')),
     avatar_url       text,
     bio              text,
     headline         text,
@@ -298,12 +298,13 @@
   create policy "Jobs are viewable by everyone"
     on public.jobs for select using (true);
 
-  create policy "Admins can manage jobs"
+  create policy "Staff can manage jobs"
     on public.jobs for all
     using (
       exists (
         select 1 from public.profiles
-        where id = auth.uid() and role = 'admin'
+        where id = auth.uid() 
+        and role in ('admin', 'program_manager', 'recruiter')
       )
     );
 

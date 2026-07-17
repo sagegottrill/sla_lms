@@ -19,7 +19,15 @@ const LEVELS = ["Beginner", "Intermediate", "Advanced", "All Levels"];
 const BADGES = ["New", "Bestseller", "Hot", "Popular", "Top Rated", "Free"];
 
 type LessonType = "video" | "text" | "quiz";
-type Lesson = { id: number; title: string; type: LessonType; vimeo_url?: string; duration?: string; transcript_url?: string };
+type Lesson = { 
+  id: number; 
+  title: string; 
+  type: LessonType; 
+  vimeo_url?: string; 
+  duration?: string; 
+  transcript_url?: string;
+  content?: string; // Text content for text-based lessons
+};
 type Module = { id: number; title: string; lessons: Lesson[]; open: boolean };
 
 const lessonIcons: Record<LessonType, React.ElementType> = { video: Video, text: FileText, quiz: HelpCircle };
@@ -113,6 +121,7 @@ export default function CourseBuilderPage() {
           vimeo_url: typeof it?.vimeo_url === "string" ? it.vimeo_url : "",
           duration: typeof it?.duration === "string" ? it.duration : "",
           transcript_url: typeof it?.transcript_url === "string" ? it.transcript_url : "",
+          content: typeof it?.content === "string" ? it.content : "",
         }));
         return {
           id: Date.now() + idx,
@@ -130,7 +139,7 @@ export default function CourseBuilderPage() {
   const addModule = () => setModules(m => [...m, { id: Date.now(), title: `Module ${m.length + 1}: Untitled`, open: true, lessons: [] }]);
   const removeModule = (id: number) => setModules(m => m.filter(mod => mod.id !== id));
   const updateModuleTitle = (id: number, t: string) => setModules(m => m.map(mod => mod.id === id ? { ...mod, title: t } : mod));
-  const addLesson = (moduleId: number) => setModules(m => m.map(mod => mod.id === moduleId ? { ...mod, lessons: [...mod.lessons, { id: Date.now(), title: "New Lesson", type: "video", vimeo_url: "" }] } : mod));
+  const addLesson = (moduleId: number) => setModules(m => m.map(mod => mod.id === moduleId ? { ...mod, lessons: [...mod.lessons, { id: Date.now(), title: "New Lesson", type: "video", vimeo_url: "", content: "" }] } : mod));
   const removeLesson = (moduleId: number, lessonId: number) => setModules(m => m.map(mod => mod.id === moduleId ? { ...mod, lessons: mod.lessons.filter(l => l.id !== lessonId) } : mod));
   const updateLesson = (moduleId: number, lessonId: number, key: keyof Lesson, val: string) =>
     setModules(m => m.map(mod => mod.id === moduleId ? { ...mod, lessons: mod.lessons.map(l => l.id === lessonId ? { ...l, [key]: val } : l) } : mod));
@@ -717,6 +726,32 @@ export default function CourseBuilderPage() {
                                                       className="flex-1 text-xs text-muted-foreground bg-transparent border-b border-transparent hover:border-border focus:outline-none focus:border-primary pb-0.5 transition-colors"
                                                     />
                                                   </div>
+                                                </div>
+                                              )}
+
+                                              {lesson.type === "text" && (
+                                                <div className="flex flex-col gap-2 pl-2 border-l-2 border-emerald-500/20 ml-2 w-full mt-2">
+                                                  <div className="flex items-start gap-2">
+                                                    <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-2" />
+                                                    <textarea
+                                                      value={lesson.content || ""}
+                                                      onChange={(e) => updateLesson(mod.id, lesson.id, "content", e.target.value)}
+                                                      placeholder="Enter lesson content here... Supports markdown formatting for rich text display."
+                                                      rows={6}
+                                                      className="flex-1 text-xs text-foreground bg-muted/30 rounded-lg p-3 border border-border/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-y"
+                                                    />
+                                                  </div>
+                                                  <p className="text-[10px] text-muted-foreground pl-6">
+                                                    💡 Tip: Use markdown for **bold**, *italic*, lists, links, etc.
+                                                  </p>
+                                                </div>
+                                              )}
+
+                                              {lesson.type === "quiz" && (
+                                                <div className="flex flex-col gap-2 pl-2 border-l-2 border-amber-500/20 ml-2 w-full mt-2">
+                                                  <p className="text-xs text-muted-foreground pl-6">
+                                                    Quiz lessons are linked to Skills Assessments. Configure assessments in Dashboard → Assessments Setup.
+                                                  </p>
                                                 </div>
                                               )}
                                             </div>

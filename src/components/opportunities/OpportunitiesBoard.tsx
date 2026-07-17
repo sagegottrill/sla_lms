@@ -64,6 +64,7 @@ export default function OpportunitiesBoard() {
   const { appUser, isAuthenticated, openAuthModal } = useAuth();
   const queryClient = useQueryClient();
   const isStaff = appUser?.role === "admin" || appUser?.role === "program_manager";
+  const canPostJobs = appUser?.role === "admin" || appUser?.role === "program_manager" || appUser?.role === "recruiter";
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [showForm, setShowForm] = useState(false);
@@ -100,7 +101,7 @@ export default function OpportunitiesBoard() {
   const selectedJob = filtered.find((j) => j.id === selectedId) ?? filtered[0] ?? null;
 
   const canManage = (job: JobRecord) =>
-    isStaff || (isAuthenticated && job.posted_by && job.posted_by === appUser?.id);
+    canPostJobs || (isAuthenticated && job.posted_by && job.posted_by === appUser?.id);
 
   const resetForm = () => {
     setForm(emptyJob);
@@ -111,6 +112,10 @@ export default function OpportunitiesBoard() {
   const openCreate = () => {
     if (!isAuthenticated) {
       openAuthModal("signup");
+      return;
+    }
+    if (!canPostJobs) {
+      toast.error("Only admins, program managers, and recruiters can post job opportunities.");
       return;
     }
     setEditingId(null);
@@ -182,9 +187,11 @@ export default function OpportunitiesBoard() {
             Browse job openings like a job search platform. Recruiters and partners can post openings; learners apply on the company site or by email.
           </p>
         </div>
-        <Button onClick={openCreate} className="rounded-full px-6 h-10 text-xs font-bold shrink-0">
-          <Plus className="w-3.5 h-3.5 mr-2" /> Post opportunity
-        </Button>
+        {canPostJobs && (
+          <Button onClick={openCreate} className="rounded-full px-6 h-10 text-xs font-bold shrink-0">
+            <Plus className="w-3.5 h-3.5 mr-2" /> Post opportunity
+          </Button>
+        )}
       </div>
 
       {showForm && (
@@ -289,8 +296,14 @@ export default function OpportunitiesBoard() {
         <div className="py-20 text-center bg-card rounded-2xl ring-1 ring-black/5">
           <Briefcase className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
           <p className="font-medium text-foreground">No opportunities yet</p>
-          <p className="text-sm text-muted-foreground mt-1">Be the first to post an opening for SLA learners.</p>
-          <Button onClick={openCreate} className="mt-4 rounded-full">Post opportunity</Button>
+          <p className="text-sm text-muted-foreground mt-1">
+            {canPostJobs 
+              ? "Be the first to post an opening for SLA learners." 
+              : "Check back soon for new career opportunities."}
+          </p>
+          {canPostJobs && (
+            <Button onClick={openCreate} className="mt-4 rounded-full">Post opportunity</Button>
+          )}
         </div>
       ) : (
         <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-4 min-h-[520px]">

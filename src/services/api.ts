@@ -265,6 +265,29 @@ export const api = {
     }
   },
 
+  deleteCourse: async (id: number): Promise<ApiResponse<null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    
+    try {
+      const { error } = await supabase
+        .from("courses")
+        .delete()
+        .eq("id", id);
+      
+      if (error) {
+        console.error("Supabase deleteCourse error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      
+      return { data: null, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase deleteCourse error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+  },
+
   getCourseById: async (id: number): Promise<ApiResponse<Course | undefined>> => {
     if (!USE_SUPABASE) {
       return { data: undefined, error: null, success: true };
@@ -1532,6 +1555,91 @@ export const api = {
       return { data: null, error: error.message, success: false };
     }
     return { data, error: null, success: true };
+  },
+
+  sendCertificateEmail: async (
+    recipientEmail: string,
+    recipientName: string,
+    courseTitle: string,
+    credentialId: string,
+    completedAt: string
+  ): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+
+    const appUrl = window.location.origin;
+    const completedDate = new Date(completedAt).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 28px;">Congratulations, ${recipientName}! 🎓</h1>
+        </div>
+        <div style="background: white; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <p style="font-size: 16px; color: #333; line-height: 1.6;">
+            You've successfully completed <strong>${courseTitle}</strong>!
+          </p>
+          <p style="font-size: 16px; color: #333; line-height: 1.6;">
+            Your certificate is now available in your dashboard. You can view and download it anytime.
+          </p>
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #666; font-size: 14px;"><strong>Certificate ID:</strong> ${credentialId}</p>
+            <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;"><strong>Issued:</strong> ${completedDate}</p>
+          </div>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${appUrl}/dashboard/certificates" 
+               style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">
+              View Certificate
+            </a>
+          </div>
+          <p style="font-size: 14px; color: #666; line-height: 1.6; margin-top: 30px;">
+            Share your achievement on LinkedIn and inspire others in the She Leads Africa community!
+          </p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+          <p style="font-size: 12px; color: #999; text-align: center; margin: 0;">
+            She Leads Africa | Empowering African Women Through Education
+          </p>
+        </div>
+      </div>
+    `;
+
+    const textContent = `Congratulations, ${recipientName}!
+
+You've successfully completed ${courseTitle}!
+
+Your certificate is now available in your dashboard.
+
+Certificate ID: ${credentialId}
+Issued: ${completedDate}
+
+View your certificate: ${appUrl}/dashboard/certificates
+
+Share your achievement on LinkedIn and inspire others!
+
+---
+She Leads Africa | Empowering African Women Through Education`;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('send-email', {
+        body: {
+          to: recipientEmail,
+          subject: '🎉 Your Certificate is Ready!',
+          html: htmlContent,
+          text: textContent,
+        },
+      });
+
+      if (error) throw error;
+      return { data, error: null, success: true };
+    } catch (err: any) {
+      console.error("Failed to send certificate email:", err);
+      return { data: null, error: err.message || "Email failed", success: false };
+    }
   },
 
   // -------------------------
@@ -3080,6 +3188,23 @@ export const api = {
     if (!USE_SUPABASE) return { data: null, error: null, success: true };
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { data: null, error: "Sign in to post an opportunity.", success: false };
+    
+    // Check user role - only admin, program_manager, and recruiter can post jobs
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    
+    const allowedRoles = ["admin", "program_manager", "recruiter"];
+    if (!profile || !allowedRoles.includes(profile.role)) {
+      return { 
+        data: null, 
+        error: "Only admins, program managers, and recruiters can post job opportunities.", 
+        success: false 
+      };
+    }
+    
     const { data, error } = await supabase
       .from("jobs")
       .insert({ ...payload, posted_by: user.id, status: payload.status ?? "open" })
@@ -3091,6 +3216,34 @@ export const api = {
 
   updateJob: async (id: number, updates: Record<string, unknown>): Promise<ApiResponse<any | null>> => {
     if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    
+    // Check user role - only admin, program_manager, recruiter, or job owner can update
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: "Sign in to update this opportunity.", success: false };
+    
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    
+    const { data: job } = await supabase
+      .from("jobs")
+      .select("posted_by")
+      .eq("id", id)
+      .single();
+    
+    const allowedRoles = ["admin", "program_manager", "recruiter"];
+    const isOwner = job?.posted_by === user.id;
+    
+    if (!profile || (!allowedRoles.includes(profile.role) && !isOwner)) {
+      return { 
+        data: null, 
+        error: "You don't have permission to update this opportunity.", 
+        success: false 
+      };
+    }
+    
     const { data, error } = await supabase.from("jobs").update(updates).eq("id", id).select().single();
     if (error) return { data: null, error: error.message, success: false };
     return { data, error: null, success: true };
@@ -3098,6 +3251,34 @@ export const api = {
 
   deleteJob: async (id: number): Promise<ApiResponse<boolean>> => {
     if (!USE_SUPABASE) return { data: true, error: null, success: true };
+    
+    // Check user role - only admin, program_manager, recruiter, or job owner can delete
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: false, error: "Sign in to delete this opportunity.", success: false };
+    
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    
+    const { data: job } = await supabase
+      .from("jobs")
+      .select("posted_by")
+      .eq("id", id)
+      .single();
+    
+    const allowedRoles = ["admin", "program_manager", "recruiter"];
+    const isOwner = job?.posted_by === user.id;
+    
+    if (!profile || (!allowedRoles.includes(profile.role) && !isOwner)) {
+      return { 
+        data: false, 
+        error: "You don't have permission to delete this opportunity.", 
+        success: false 
+      };
+    }
+    
     const { error } = await supabase.from("jobs").delete().eq("id", id);
     if (error) return { data: false, error: error.message, success: false };
     return { data: true, error: null, success: true };

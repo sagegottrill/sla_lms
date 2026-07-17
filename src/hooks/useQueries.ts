@@ -100,6 +100,30 @@ export const useCourse = (routeOrNumericId: string | number | undefined) => {
    });
  };
 
+ export const useDeleteCourseMutation = () => {
+   const queryClient = useQueryClient();
+   return useMutation({
+     mutationFn: async (courseId: number) => {
+       const response = await api.deleteCourse(courseId);
+       if (!response.success) {
+         throw new Error(response.error || "Failed to delete course");
+       }
+       return response;
+     },
+     onSuccess: () => {
+       toast.success("Course deleted successfully");
+     },
+     onError: (error: Error) => {
+       toast.error(error.message || "Could not delete course");
+     },
+     onSettled: () => {
+       queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
+       queryClient.invalidateQueries({ queryKey: ["instructorCourses"] });
+       queryClient.invalidateQueries({ queryKey: ["site-config"] });
+     }
+   });
+ };
+
 // --- PROGRAMS ---
 /** @param options.activeCatalog — true = landing / programs catalog (hide completed cohorts). false = admin builder lists all. */
 export const usePrograms = (options?: { activeCatalog?: boolean }) => {
