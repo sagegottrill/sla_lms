@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Calendar, Clock, Link as LinkIcon, Plus, Trash2, Loader2, Video } from "lucide-react";
+import { Calendar, Clock, Link as LinkIcon, Plus, Trash2, Loader2, Video, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/services/api";
@@ -25,7 +25,7 @@ const emptyForm = {
   audience: "all",
 };
 
-function SessionCard({ session, isStaff, onDelete }: { session: any; isStaff: boolean; onDelete: (id: string) => void }) {
+function SessionCard({ session, isStaff, onDelete, onEdit }: { session: any; isStaff: boolean; onDelete: (id: string) => void; onEdit: (session: any) => void }) {
   const countdown = useCountdown(session.starts_at);
   return (
     <div className="bg-card rounded-2xl ring-1 ring-black/5 p-5">
@@ -38,9 +38,14 @@ function SessionCard({ session, isStaff, onDelete }: { session: any; isStaff: bo
           </p>
         </div>
         {isStaff && (
-          <button type="button" onClick={() => onDelete(session.id)} className="text-destructive">
-            <Trash2 className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => onEdit(session)} className="text-primary hover:text-primary/80 transition-colors">
+              <Edit className="w-4 h-4" />
+            </button>
+            <button type="button" onClick={() => onDelete(session.id)} className="text-destructive hover:text-destructive/80 transition-colors">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
         )}
       </div>
       {session.description ? <p className="text-sm text-muted-foreground mt-3">{session.description}</p> : null}
@@ -62,6 +67,7 @@ export default function WebinarsPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ["live-sessions"],
@@ -76,6 +82,30 @@ export default function WebinarsPage() {
     [sessions],
   );
 
+  const handleEdit = (session: any) => {
+    // Convert ISO date to datetime-local format
+    const startsAt = new Date(session.starts_at);
+    const localDateTime = new Date(startsAt.getTime() - startsAt.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+    
+    setForm({
+      title: session.title,
+      description: session.description || "",
+      meeting_url: session.meeting_url,
+      starts_at: localDateTime,
+      audience: session.audience || "all",
+    });
+    setEditingId(session.id);
+    setShowForm(true);
+  };
+
+  const handleCancelEdit = () => {
+    setForm(emptyForm);
+    setEditingId(null);
+    setShowForm(false);
+  };
+
   const handleCreate = async () => {
     if (!form.title.trim() || !form.meeting_url.trim() || !form.starts_at) {
       toast.error("Title, meeting link, and start time are required.");
@@ -83,17 +113,37 @@ export default function WebinarsPage() {
     }
     setSaving(true);
     try {
-      const res = await api.createLiveSession({
+      // Convert datetime-local string to ISO string (preserving local timezone)
+      // datetime-local gives us "2024-01-15T18:00" which is in user's local time
+      // We need to convert this to a proper ISO string for database storage
+      const localDate = new Date(form.starts_at);
+      const isoString = localDate.toISOString();
+      
+      const payload = {
         ...form,
-        created_by: appUser?.id ?? null,
-      });
-      if (!res.success) throw new Error(res.error || "Could not schedule session");
-      toast.success("Webinar scheduled.");
+        starts_at: isoString,
+      };
+      
+      if (editingId) {
+        // Update existing session
+        const res = await api.updateLiveSession(editingId, payload);
+        if (!res.success) throw new Error(res.error || "Could not update session");
+        toast.success("Webinar updated successfully.");
+      } else {
+        // Create new session
+        const res = await api.createLiveSession({
+          ...payload,
+          created_by: appUser?.id ?? null,
+        });
+        if (!res.success) throw new Error(res.error || "Could not schedule session");
+        toast.success("Webinar scheduled.");
+      }
       setForm(emptyForm);
+      setEditingId(null);
       setShowForm(false);
       queryClient.invalidateQueries({ queryKey: ["live-sessions"] });
     } catch (e: any) {
-      toast.error(e?.message ?? "Could not schedule session");
+      toast.error(e?.message ?? (editingId ? "Could not update session" : "Could not schedule session"));
     } finally {
       setSaving(false);
     }
@@ -106,6 +156,7 @@ export default function WebinarsPage() {
       toast.error(res.error || "Could not delete session");
       return;
     }
+    toast.success("Webinar deleted.");
     queryClient.invalidateQueries({ queryKey: ["live-sessions"] });
   };
 
@@ -125,15 +176,32 @@ export default function WebinarsPage() {
 
       {showForm && isStaff && (
         <div className="bg-card rounded-2xl ring-1 ring-black/5 p-6 space-y-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-foreground">
+              {editingId ? "Edit Webinar" : "Schedule New Webinar"}
+            </h3>
+            {editingId && (
+              <Button variant="ghost" size="sm" onClick={handleCancelEdit} className="text-muted-foreground">
+                Cancel
+              </Button>
+            )}
+          </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <input placeholder="Session title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} className="px-3 py-2 rounded-xl border bg-background text-sm" />
             <input type="datetime-local" value={form.starts_at} onChange={(e) => setForm((f) => ({ ...f, starts_at: e.target.value }))} className="px-3 py-2 rounded-xl border bg-background text-sm" />
             <input placeholder="Meeting URL" value={form.meeting_url} onChange={(e) => setForm((f) => ({ ...f, meeting_url: e.target.value }))} className="sm:col-span-2 px-3 py-2 rounded-xl border bg-background text-sm" />
             <textarea placeholder="Description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="sm:col-span-2 px-3 py-2 rounded-xl border bg-background text-sm resize-none" />
           </div>
-          <Button onClick={() => void handleCreate()} disabled={saving} className="rounded-full">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save session"}
-          </Button>
+          <div className="flex gap-3">
+            <Button onClick={() => void handleCreate()} disabled={saving} className="rounded-full">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editingId ? "Update session" : "Save session"}
+            </Button>
+            {editingId && (
+              <Button variant="outline" onClick={handleCancelEdit} className="rounded-full">
+                Cancel
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
@@ -147,7 +215,7 @@ export default function WebinarsPage() {
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
           {upcoming.map((session: any) => (
-            <SessionCard key={session.id} session={session} isStaff={isStaff} onDelete={(id) => void handleDelete(id)} />
+            <SessionCard key={session.id} session={session} isStaff={isStaff} onDelete={(id) => void handleDelete(id)} onEdit={handleEdit} />
           ))}
         </div>
       )}

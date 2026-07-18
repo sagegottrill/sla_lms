@@ -298,7 +298,8 @@ export default function CourseBuilderPage() {
         type: l.type,
         duration: l.duration || "",
         vimeo_url: l.vimeo_url || "",
-        transcript_url: l.transcript_url || ""
+        transcript_url: l.transcript_url || "",
+        content: l.content || ""
       })),
     }));
 
