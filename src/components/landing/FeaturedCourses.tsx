@@ -33,9 +33,11 @@ function CourseCard({ course, index }: { course: Course; index: number }) {
       <div className="relative overflow-hidden aspect-video">
         <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
         <div className="absolute inset-0 bg-foreground/8 group-hover:bg-foreground/0 transition-colors" />
-        <span className={`absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-bold ${badgeStyles[course.badge] ?? "bg-primary text-primary-foreground"}`}>
-          {course.badge}
-        </span>
+        {!isFree && course.badge && course.badge !== "Free" && (
+          <span className={`absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-bold ${badgeStyles[course.badge] ?? "bg-primary text-primary-foreground"}`}>
+            {course.badge}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-col flex-1 p-4 sm:p-6 gap-2">
