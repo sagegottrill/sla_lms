@@ -1,7 +1,7 @@
 import { useCourses, useSiteConfig } from "@/hooks/useQueries";
 import type { Course } from "@/types";
 import { motion } from "framer-motion";
-import { Star, Clock, Users, Zap } from "lucide-react";
+import { Star, Clock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { coursePathSegment } from "@/lib/publicRoutes";
@@ -36,11 +36,6 @@ function CourseCard({ course, index }: { course: Course; index: number }) {
         <span className={`absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-bold ${badgeStyles[course.badge] ?? "bg-primary text-primary-foreground"}`}>
           {course.badge}
         </span>
-        {isFree && (
-          <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-card/90 flex items-center justify-center">
-            <Zap className="w-4 h-4 text-primary" />
-          </div>
-        )}
       </div>
 
       <div className="flex flex-col flex-1 p-4 sm:p-6 gap-2">
