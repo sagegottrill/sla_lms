@@ -1,7 +1,15 @@
 import { supabase } from "@/lib/supabase";
 import { UUID_ROUTE } from "@/lib/publicRoutes";
-import type { Course, Program } from "@/types";
+import type { Course, Program, ApiResponse } from "@/types";
 import { apiResponse, isApiSuccess, handleApiError } from "@/lib/utils/api";
+import {
+  computeCourseDurationFromCurriculum,
+  mapCourseRow,
+  mapCourseRows,
+  mapProgramRow,
+  mapProgramRows,
+  type CourseReview,
+} from "@/lib/courseStats";
 
 // Feature flag: if real Supabase URL is configured, use live data
 const USE_SUPABASE = Boolean(
@@ -24,7 +32,7 @@ async function fetchCourseRowById(id: number): Promise<Course | undefined> {
     console.error("Supabase getCourseById error:", error.message);
     return undefined;
   }
-  return data as Course;
+  return mapCourseRow(data as Record<string, unknown>);
 }
 
 async function fetchCourseRowByPublicId(publicId: string): Promise<Course | undefined> {
@@ -34,7 +42,16 @@ async function fetchCourseRowByPublicId(publicId: string): Promise<Course | unde
     console.error("Supabase getCourseByPublicId error:", error.message);
     return undefined;
   }
-  return (data ?? undefined) as Course | undefined;
+  return mapCourseRow((data ?? undefined) as Record<string, unknown> | undefined);
+}
+
+function withComputedDuration<T extends Record<string, unknown>>(payload: T): T {
+  const curriculum = payload.curriculum;
+  const existing = typeof payload.duration === "string" ? payload.duration.trim() : "";
+  if (existing) return payload;
+  const computed = computeCourseDurationFromCurriculum(curriculum);
+  if (!computed) return payload;
+  return { ...payload, duration: computed };
 }
 
 async function fetchProgramRowById(id: number): Promise<Program | undefined> {
@@ -44,7 +61,7 @@ async function fetchProgramRowById(id: number): Promise<Program | undefined> {
     console.error("Supabase getProgramById error:", error.message);
     return undefined;
   }
-  return data as Program;
+  return mapProgramRow(data as Record<string, unknown>);
 }
 
 async function fetchProgramRowByPublicId(publicId: string): Promise<Program | undefined> {
@@ -54,7 +71,7 @@ async function fetchProgramRowByPublicId(publicId: string): Promise<Program | un
     console.error("Supabase getProgramByPublicId error:", error.message);
     return undefined;
   }
-  return (data ?? undefined) as Program | undefined;
+  return mapProgramRow((data ?? undefined) as Record<string, unknown> | undefined);
 }
 
 const PROFILE_COLUMNS =
@@ -189,7 +206,7 @@ export const api = {
         return { data: [], error: error.message, success: false };
       }
       
-      return { data: (data ?? []) as Course[], error: null, success: true };
+      return { data: mapCourseRows(data ?? []), error: null, success: true };
     } catch (error: any) {
       console.error("Supabase getCourses error:", error.message);
       return { data: [], error: error.message, success: false };
@@ -213,7 +230,7 @@ export const api = {
         console.error("Supabase searchCourses error:", error.message);
         return { data: [], error: error.message, success: false };
       }
-      return { data: (data ?? []) as Course[], error: null, success: true };
+      return { data: mapCourseRows(data ?? []), error: null, success: true };
     } catch (error: any) {
       console.error("Supabase searchCourses error:", error.message);
       return { data: [], error: error.message, success: false };
@@ -226,14 +243,15 @@ export const api = {
     }
     
     try {
-      const { data, error } = await supabase.from("courses").insert(courseData).select().single();
+      const payload = withComputedDuration(courseData as Record<string, unknown>);
+      const { data, error } = await supabase.from("courses").insert(payload).select(COURSE_COLUMNS).single();
       
       if (error) {
         console.error("Supabase createCourse error:", error.message);
         return { data: null, error: error.message, success: false };
       }
       
-      return { data: data, error: null, success: true };
+      return { data: mapCourseRow(data as Record<string, unknown>) ?? null, error: null, success: true };
     } catch (error: any) {
       console.error("Supabase createCourse error:", error.message);
       return { data: null, error: error.message, success: false };
@@ -246,11 +264,12 @@ export const api = {
     }
     
     try {
+      const payload = withComputedDuration(updates as Record<string, unknown>);
       const { data, error } = await supabase
         .from("courses")
-        .update(updates)
+        .update(payload)
         .eq("id", id)
-        .select()
+        .select(COURSE_COLUMNS)
         .single();
       
       if (error) {
@@ -258,7 +277,7 @@ export const api = {
         return { data: null, error: error.message, success: false };
       }
       
-      return { data: data, error: null, success: true };
+      return { data: mapCourseRow(data as Record<string, unknown>) ?? null, error: null, success: true };
     } catch (error: any) {
       console.error("Supabase updateCourse error:", error.message);
       return { data: null, error: error.message, success: false };
@@ -301,7 +320,7 @@ export const api = {
         return { data: undefined, error: error.message, success: false };
       }
       
-      return { data: data as Course | undefined, error: null, success: true };
+      return { data: mapCourseRow(data as Record<string, unknown>), error: null, success: true };
     } catch (error: any) {
       console.error("Supabase getCourseById error:", error.message);
       return { data: undefined, error: error.message, success: false };
@@ -357,7 +376,7 @@ export const api = {
         return { data: [], error: error.message, success: false };
       }
       
-      return { data: (data ?? []) as Program[], error: null, success: true };
+      return { data: mapProgramRows(data ?? []), error: null, success: true };
     } catch (error: any) {
       console.error("Supabase getPrograms error:", error.message);
       return { data: [], error: error.message, success: false };
@@ -520,7 +539,7 @@ export const api = {
         return { data: undefined, error: error.message, success: false };
       }
       
-      return { data: data as Program | undefined, error: null, success: true };
+      return { data: mapProgramRow(data as Record<string, unknown>), error: null, success: true };
     } catch (error: any) {
       console.error("Supabase getProgramById error:", error.message);
       return { data: undefined, error: error.message, success: false };
@@ -1894,7 +1913,158 @@ She Leads Africa | Empowering African Women Through Education`;
       console.error("Supabase getInstructorCourses error:", error.message);
       return { data: [], error: error.message, success: false };
     }
-    return { data: data, error: null, success: true };
+    return { data: mapCourseRows(data ?? []), error: null, success: true };
+  },
+
+  // -------------------------
+  // COURSE REVIEWS
+  // -------------------------
+  getCourseReviews: async (courseId: number): Promise<ApiResponse<CourseReview[]>> => {
+    if (!USE_SUPABASE || !courseId) return { data: [], error: null, success: true };
+    try {
+      const { data, error } = await supabase
+        .from("course_reviews")
+        .select("id, course_id, user_id, rating, comment, display_name, created_at")
+        .eq("course_id", courseId)
+        .order("created_at", { ascending: false });
+      if (error) {
+        // Fallback to denormalized jsonb on courses if table not migrated yet
+        console.error("Supabase getCourseReviews error:", error.message);
+        const course = await fetchCourseRowById(courseId);
+        return { data: course?.reviews ?? [], error: null, success: true };
+      }
+      const reviews: CourseReview[] = (data ?? []).map((row: any) => ({
+        id: row.id,
+        user_id: row.user_id,
+        name: String(row.display_name || "").trim() || "Student",
+        rating: Number(row.rating) || 0,
+        comment: String(row.comment ?? ""),
+        date: row.created_at
+          ? new Date(row.created_at).toISOString().slice(0, 10)
+          : "",
+      }));
+      return { data: reviews, error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getCourseReviews error:", error.message);
+      return { data: [], error: error.message, success: false };
+    }
+  },
+
+  getMyCourseReview: async (
+    courseId: number,
+    userId: string
+  ): Promise<ApiResponse<CourseReview | null>> => {
+    if (!USE_SUPABASE || !courseId || !userId) {
+      return { data: null, error: null, success: true };
+    }
+    try {
+      const { data, error } = await supabase
+        .from("course_reviews")
+        .select("id, course_id, user_id, rating, comment, created_at")
+        .eq("course_id", courseId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) {
+        console.error("Supabase getMyCourseReview error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      if (!data) return { data: null, error: null, success: true };
+      return {
+        data: {
+          id: data.id,
+          user_id: data.user_id,
+          name: "You",
+          rating: Number(data.rating) || 0,
+          comment: String(data.comment ?? ""),
+          date: data.created_at
+            ? new Date(data.created_at).toISOString().slice(0, 10)
+            : "",
+        },
+        error: null,
+        success: true,
+      };
+    } catch (error: any) {
+      return { data: null, error: error.message, success: false };
+    }
+  },
+
+  upsertCourseReview: async (payload: {
+    courseId: number;
+    userId: string;
+    rating: number;
+    comment: string;
+    displayName?: string;
+  }): Promise<ApiResponse<CourseReview | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    const rating = Math.min(5, Math.max(1, Math.round(Number(payload.rating) || 0)));
+    if (!payload.courseId || !payload.userId || rating < 1) {
+      return { data: null, error: "A star rating between 1 and 5 is required.", success: false };
+    }
+    const comment = String(payload.comment ?? "").trim().slice(0, 2000);
+    const displayName = String(payload.displayName ?? "").trim().slice(0, 120) || "Student";
+    try {
+      const { data, error } = await supabase
+        .from("course_reviews")
+        .upsert(
+          {
+            course_id: payload.courseId,
+            user_id: payload.userId,
+            rating,
+            comment,
+            display_name: displayName,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "course_id,user_id" }
+        )
+        .select("id, course_id, user_id, rating, comment, display_name, created_at")
+        .single();
+      if (error) {
+        console.error("Supabase upsertCourseReview error:", error.message);
+        const msg = error.message.toLowerCase();
+        if (msg.includes("policy") || msg.includes("row-level")) {
+          return {
+            data: null,
+            error: "You can only review courses you are enrolled in.",
+            success: false,
+          };
+        }
+        return { data: null, error: "We couldn't save your review. Please try again.", success: false };
+      }
+      return {
+        data: {
+          id: data.id,
+          user_id: data.user_id,
+          name: String(data.display_name || displayName),
+          rating: Number(data.rating) || rating,
+          comment: String(data.comment ?? ""),
+          date: data.created_at
+            ? new Date(data.created_at).toISOString().slice(0, 10)
+            : "",
+        },
+        error: null,
+        success: true,
+      };
+    } catch (error: any) {
+      return { data: null, error: error.message, success: false };
+    }
+  },
+
+  deleteCourseReview: async (courseId: number, userId: string): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) return { data: true, error: null, success: true };
+    try {
+      const { error } = await supabase
+        .from("course_reviews")
+        .delete()
+        .eq("course_id", courseId)
+        .eq("user_id", userId);
+      if (error) {
+        console.error("Supabase deleteCourseReview error:", error.message);
+        return { data: false, error: "We couldn't delete your review.", success: false };
+      }
+      return { data: true, error: null, success: true };
+    } catch (error: any) {
+      return { data: false, error: error.message, success: false };
+    }
   },
 
   // -------------------------

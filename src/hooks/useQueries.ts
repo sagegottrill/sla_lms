@@ -287,7 +287,60 @@ type EnrollMutationMeta = { silentToast?: boolean };
       const role = context?.role ?? appUser?.role ?? "student";
       queryClient.invalidateQueries({ queryKey: queryKeys.enrollments.user(role, variables.userId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.enrollments.base });
+      queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
     }
+  });
+};
+
+export const useCourseReviews = (courseId: number | undefined) => {
+  const { appUser } = useAuth();
+  return useQuery({
+    queryKey: queryKeys.courses.reviews(appUser?.role, courseId || 0),
+    queryFn: () => api.getCourseReviews(courseId!),
+    select: (data) => (data.success ? data.data : []),
+    enabled: !!courseId && courseId > 0,
+  });
+};
+
+export const useMyCourseReview = (courseId: number | undefined, userId: string | undefined) => {
+  const { appUser } = useAuth();
+  return useQuery({
+    queryKey: queryKeys.courses.myReview(appUser?.role, courseId || 0, userId || ""),
+    queryFn: () => api.getMyCourseReview(courseId!, userId!),
+    select: (data) => (data.success ? data.data : null),
+    enabled: !!courseId && courseId > 0 && !!userId,
+  });
+};
+
+export const useUpsertCourseReviewMutation = () => {
+  const queryClient = useQueryClient();
+  const { appUser } = useAuth();
+  return useMutation({
+    mutationFn: async (payload: {
+      courseId: number;
+      userId: string;
+      rating: number;
+      comment: string;
+      displayName?: string;
+    }) => {
+      const response = await api.upsertCourseReview(payload);
+      if (!response.success) {
+        throw new Error(response.error || "We couldn't save your review.");
+      }
+      return response.data;
+    },
+    onSuccess: (_data, variables) => {
+      const role = appUser?.role ?? "student";
+      queryClient.invalidateQueries({ queryKey: queryKeys.courses.reviews(role, variables.courseId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.courses.myReview(role, variables.courseId, variables.userId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.courses.base });
+      toast.success("Thanks for your review!");
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "We couldn't save your review.");
+    },
   });
 };
 

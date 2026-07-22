@@ -14,12 +14,14 @@ const navLinks = [
 ];
 
 const categories = [
-  "Data Science & Analytics",
-  "Technology & Engineering",
-  "Business & Entrepreneurship",
-  "Leadership & Management",
-  "Finance & Investing",
+  "Data Science",
+  "Technology",
+  "Business",
   "Career Development",
+  "Finance",
+  "Leadership",
+  "Digital Marketing",
+  "Entrepreneurship",
 ];
 
 export default function Navbar() {
@@ -90,9 +92,14 @@ export default function Navbar() {
                         className="absolute top-full left-0 mt-1 w-60 bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] ring-1 ring-black/5 dark:ring-white/10 border-0 py-2 z-50"
                       >
                         {categories.map((cat) => (
-                          <a key={cat} href="/courses" className="block px-5 py-2.5 text-sm font-normal text-foreground/80 hover:text-primary hover:bg-muted/50 transition-colors">
+                          <Link
+                            key={cat}
+                            to={`/courses?category=${encodeURIComponent(cat)}`}
+                            onClick={() => setExploreOpen(false)}
+                            className="block px-5 py-2.5 text-sm font-normal text-foreground/80 hover:text-primary hover:bg-muted/50 transition-colors"
+                          >
                             {cat}
-                          </a>
+                          </Link>
                         ))}
                       </motion.div>
                     )}

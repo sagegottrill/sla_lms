@@ -5,36 +5,11 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { usePrograms } from "@/hooks/useQueries";
 import { programPathSegment } from "@/lib/publicRoutes";
+import type { Program } from "@/types";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 
-interface Program {
-  id: number;
-  public_id?: string | null;
-  title: string;
-  tagline?: string | null;
-  description: string;
-  category: string;
-  duration: string;
-  start_date: string;
-  deadline: string;
-  application_deadline?: string | null;
-  capacity: number;
-  enrolled?: number;
-  price: number;
-  image: string;
-  highlights: string[];
-  courses: string[];
-  course_count: number;
-  status: string;
-  level?: string | null;
-  cohort?: string;
-  tag?: string;
-  featured?: boolean;
-  partners?: string[];
-}
-
-const categories = ["All", "Technology", "Business", "Leadership", "Finance", "Health"];
+const categories = ["All", "Technology", "Business", "Leadership", "Finance", "Health", "Career Development"];
 
 function useCountdown(deadline: string | null) {
   const [timeLeft, setTimeLeft] = useState("");
@@ -54,7 +29,7 @@ function useCountdown(deadline: string | null) {
 }
 
 function ProgramCard({ prog }: { prog: Program }) {
-  const chosenDeadline = prog.application_deadline ?? prog.deadline ?? null;
+  const chosenDeadline = prog.deadline ?? null;
   const countdown = useCountdown(chosenDeadline);
   const enrolled = prog.enrolled || 0;
   const pct = prog.capacity > 0 ? Math.round((enrolled / prog.capacity) * 100) : 0;
@@ -71,7 +46,7 @@ function ProgramCard({ prog }: { prog: Program }) {
           </div>
         )}
         <div className="absolute inset-0 bg-foreground/40" />
-        {prog.featured && (
+        {prog.tag === "Most Popular" && (
           <span className="absolute top-3 left-3 bg-gold text-gold-foreground text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
             <Award className="w-3 h-3" /> FEATURED
           </span>
@@ -82,9 +57,9 @@ function ProgramCard({ prog }: { prog: Program }) {
           </div>
         )}
         <div className="absolute bottom-0 left-0 right-0 p-4">
-          {(prog.tag || prog.cohort) && (
+          {prog.tag && (
             <span className="text-[10px] font-semibold text-primary-foreground/70 uppercase tracking-wider">
-              {(prog as { tag?: string }).tag ?? prog.cohort}
+              {prog.tag}
             </span>
           )}
           <h3 className="font-display text-base font-bold text-primary-foreground line-clamp-1">{prog.title}</h3>
@@ -113,9 +88,9 @@ function ProgramCard({ prog }: { prog: Program }) {
         </div>
         <p className="text-sm text-muted-foreground line-clamp-2">{prog.description}</p>
         <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-          {prog.start_date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Starts {new Date(prog.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+          {prog.startDate && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Starts {new Date(prog.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
           {prog.duration && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{prog.duration}</span>}
-          <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" />{prog.course_count || 0} courses</span>
+          <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" />{prog.courseCount || 0} courses</span>
           <span className="flex items-center gap-1"><Users className="w-3 h-3" />{spotsLeft > 0 ? `${spotsLeft} spots left` : "Full"}</span>
         </div>
         {/* Capacity bar */}
@@ -128,15 +103,6 @@ function ProgramCard({ prog }: { prog: Program }) {
             <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div className={`h-full rounded-full transition-all ${pct >= 80 ? "bg-destructive" : pct >= 60 ? "bg-gold" : "bg-secondary"}`} style={{ width: `${pct}%` }} />
             </div>
-          </div>
-        )}
-        {/* Partners */}
-        {prog.partners && prog.partners.length > 0 && (
-          <div className="flex items-center gap-1 flex-wrap">
-            <span className="text-xs text-muted-foreground">Partners:</span>
-            {prog.partners.map((p: string) => (
-              <span key={p} className="text-[10px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{p}</span>
-            ))}
           </div>
         )}
         <Link to={`/programs/${programPathSegment(prog)}/apply`}>

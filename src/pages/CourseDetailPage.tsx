@@ -4,7 +4,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { Star, Clock, Users, Play, CheckCircle, ChevronDown, Globe, BookOpen, ArrowLeft, Loader2, Video, Check, Maximize, Minimize, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCourse, useUserEnrollments, useEnrollUserMutation } from "@/hooks/useQueries";
+import { useCourse, useUserEnrollments, useEnrollUserMutation, useCourseReviews, useMyCourseReview, useUpsertCourseReviewMutation } from "@/hooks/useQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/react-query";
 import { toast } from "sonner";
@@ -47,6 +47,18 @@ export default function CourseDetailPage() {
   const { data: enrollments = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
   const enrollMutation = useEnrollUserMutation();
   const queryClient = useQueryClient();
+  const { data: liveReviews = [] } = useCourseReviews(course?.id);
+  const { data: myReview } = useMyCourseReview(course?.id, appUser?.id);
+  const upsertReview = useUpsertCourseReviewMutation();
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+
+  useEffect(() => {
+    if (myReview) {
+      setReviewRating(myReview.rating || 5);
+      setReviewComment(myReview.comment || "");
+    }
+  }, [myReview]);
 
   const [openModule, setOpenModule] = useState<number | null>(0);
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
@@ -58,10 +70,44 @@ export default function CourseDetailPage() {
   const [savingProgress, setSavingProgress] = useState(false);
 
   // Calculate enrolled status FIRST before using it
-  const enrolled = useMemo(() => 
+  const enrolled = useMemo(() =>
     !!course && enrollments.some((e: { course_id?: number }) => e.course_id === course.id),
     [course, enrollments]
   );
+
+  const displayReviews = liveReviews.length > 0 ? liveReviews : (course?.reviews ?? []);
+  const reviewCount = course?.reviewCount ?? displayReviews.length;
+  const ratingValue = Number(course?.rating ?? 0);
+  const ratingBuckets = useMemo(() => {
+    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    for (const r of displayReviews) {
+      const star = Math.min(5, Math.max(1, Math.round(Number(r.rating) || 0))) as 1 | 2 | 3 | 4 | 5;
+      counts[star] += 1;
+    }
+    const total = displayReviews.length || 1;
+    return [5, 4, 3, 2, 1].map((s) => ({
+      star: s,
+      pct: Math.round((counts[s as 1 | 2 | 3 | 4 | 5] / total) * 100),
+    }));
+  }, [displayReviews]);
+
+  const handleSubmitReview = () => {
+    if (!appUser?.id || !course?.id) {
+      openAuthModal("login");
+      return;
+    }
+    if (!enrolled) {
+      toast.error("Enroll in this course before leaving a review.");
+      return;
+    }
+    upsertReview.mutate({
+      courseId: course.id,
+      userId: appUser.id,
+      rating: reviewRating,
+      comment: reviewComment,
+      displayName: appUser.name || appUser.email?.split("@")[0] || "Student",
+    });
+  };
   const canPreviewCourse =
     appUser?.role === "admin" ||
     appUser?.role === "program_manager" ||
@@ -414,9 +460,11 @@ export default function CourseDetailPage() {
                 </motion.h1>
                 <p className="text-primary-foreground/70 text-lg mb-6">{course.subtitle}</p>
                 <div className="flex flex-wrap items-center gap-4 text-sm text-primary-foreground/70">
-                  <span className="flex items-center gap-1"><Star className="w-4 h-4 text-gold fill-gold" /> <strong className="text-primary-foreground">{course.rating}</strong> ({(course.reviewCount ?? 0).toLocaleString()} reviews)</span>
+                  <span className="flex items-center gap-1"><Star className="w-4 h-4 text-gold fill-gold" /> <strong className="text-primary-foreground">{ratingValue.toFixed(1)}</strong> ({reviewCount.toLocaleString()} reviews)</span>
                   <span className="flex items-center gap-1"><Users className="w-4 h-4" />{(course.students ?? 0).toLocaleString()} students</span>
-                  <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{course.duration}</span>
+                  {course.duration ? (
+                    <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{course.duration}</span>
+                  ) : null}
                   <span className="flex items-center gap-1"><Globe className="w-4 h-4" />{course.language}</span>
                 </div>
                 <p className="text-primary-foreground/70 text-sm mt-4">Created by <strong className="text-primary-foreground">{course.instructor}</strong> · Updated {course.lastUpdated}</p>
@@ -557,7 +605,12 @@ export default function CourseDetailPage() {
                      
                      {!enrolled && (
                        <div className="space-y-2 text-sm text-foreground pt-2 border-t border-border">
-                         {[["Level", course.level], ["Duration", course.duration], ["Certificate", "Yes, upon completion"], ["Access", "Lifetime + mobile"]].map(([k, v]) => (
+                         {[
+                           ["Level", course.level],
+                           ...(course.duration ? [["Duration", course.duration] as [string, string]] : []),
+                           ["Certificate", "Yes, upon completion"],
+                           ["Access", "Lifetime + mobile"],
+                         ].map(([k, v]) => (
                            <div key={k} className="flex justify-between">
                              <span className="text-muted-foreground">{k}</span>
                              <span className="font-medium">{v}</span>
@@ -777,45 +830,114 @@ export default function CourseDetailPage() {
           )}
 
           {/* Reviews */}
-          {course.reviews?.length > 0 && !activeVideo && (
+          {!activeVideo && !activeLesson && (
             <section>
               <h2 className="font-display text-2xl font-bold text-foreground mb-6">Student Reviews</h2>
-              <div className="flex items-center gap-4 mb-6 p-6 bg-card shadow-sm border-0 rounded-2xl">
-                <div className="text-center">
-                  <div className="text-5xl font-bold font-display text-foreground">{course.rating}</div>
-                  <div className="flex justify-center mt-1 gap-0.5">
-                    {[1, 2, 3, 4, 5].map(s => <Star key={s} className="w-4 h-4 text-gold fill-gold" />)}
+
+              {enrolled && appUser && (
+                <div className="mb-6 p-5 bg-card rounded-2xl shadow-sm border-0 space-y-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    {myReview ? "Update your review" : "Leave a review"}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setReviewRating(s)}
+                        className="p-0.5"
+                        aria-label={`${s} stars`}
+                      >
+                        <Star
+                          className={cn(
+                            "w-6 h-6",
+                            s <= reviewRating ? "text-gold fill-gold" : "text-muted-foreground"
+                          )}
+                        />
+                      </button>
+                    ))}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">Course Rating</div>
+                  <textarea
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    rows={3}
+                    maxLength={2000}
+                    placeholder="What did you think of this course?"
+                    className="w-full px-3 py-2 rounded-xl border bg-background text-sm resize-none"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleSubmitReview}
+                    disabled={upsertReview.isPending}
+                    className="rounded-xl"
+                  >
+                    {upsertReview.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : myReview ? "Update review" : "Submit review"}
+                  </Button>
                 </div>
-                <div className="flex-1 space-y-1.5">
-                  {[5, 4, 3, 2, 1].map(s => (
-                    <div key={s} className="flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-gold rounded-full" style={{ width: s === 5 ? "78%" : s === 4 ? "16%" : s === 3 ? "4%" : "1%" }} />
+              )}
+
+              {displayReviews.length > 0 ? (
+                <>
+                  <div className="flex items-center gap-4 mb-6 p-6 bg-card shadow-sm border-0 rounded-2xl">
+                    <div className="text-center">
+                      <div className="text-5xl font-bold font-display text-foreground">{ratingValue.toFixed(1)}</div>
+                      <div className="flex justify-center mt-1 gap-0.5">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            className={cn(
+                              "w-4 h-4",
+                              s <= Math.round(ratingValue) ? "text-gold fill-gold" : "text-muted-foreground"
+                            )}
+                          />
+                        ))}
                       </div>
-                      <span className="text-xs text-muted-foreground w-3">{s}</span>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {reviewCount.toLocaleString()} review{reviewCount === 1 ? "" : "s"}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-4">
-                {course.reviews.map((review: any, i) => (
-                  <div key={i} className="p-4 bg-card rounded-2xl shadow-sm border-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-9 h-9 rounded-full gradient-card flex items-center justify-center text-sm font-bold text-primary-foreground">{(review.name ?? "").charAt(0)}</div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">{review.name}</p>
-                        <div className="flex items-center gap-1">
-                          {[...Array(review.rating)].map((_, j) => <Star key={j} className="w-3 h-3 text-gold fill-gold" />)}
-                          <span className="text-xs text-muted-foreground ml-1">{review.date}</span>
+                    <div className="flex-1 space-y-1.5">
+                      {ratingBuckets.map(({ star, pct }) => (
+                        <div key={star} className="flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-gold rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-xs text-muted-foreground w-3">{star}</span>
                         </div>
-                      </div>
+                      ))}
                     </div>
-                    <p className="text-sm text-muted-foreground">{review.comment}</p>
                   </div>
-                ))}
-              </div>
+                  <div className="space-y-4">
+                    {displayReviews.map((review, i) => (
+                      <div key={review.id || i} className="p-4 bg-card rounded-2xl shadow-sm border-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-9 h-9 rounded-full gradient-card flex items-center justify-center text-sm font-bold text-primary-foreground">
+                            {(review.name ?? "S").charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{review.name}</p>
+                            <div className="flex items-center gap-1">
+                              {[...Array(Math.max(0, Math.min(5, Number(review.rating) || 0)))].map((_, j) => (
+                                <Star key={j} className="w-3 h-3 text-gold fill-gold" />
+                              ))}
+                              <span className="text-xs text-muted-foreground ml-1">{review.date}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {review.comment ? (
+                          <p className="text-sm text-muted-foreground">{review.comment}</p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {enrolled
+                    ? "No reviews yet — be the first to share your experience."
+                    : "No reviews yet for this course."}
+                </p>
+              )}
             </section>
           )}
         </div>

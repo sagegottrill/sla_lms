@@ -13,17 +13,20 @@ import { coursePathSegment } from "@/lib/publicRoutes";
 import { FilterChips } from "@/components/dashboard/FilterChips";
 import { api } from "@/services/api";
 
-const categoryData = [
-  { name: "All", icon: BookOpen, count: 9 },
-  { name: "Data Science", icon: Database, count: 1 },
-  { name: "Marketing", icon: Megaphone, count: 1 },
-  { name: "Leadership", icon: Crown, count: 1 },
-  { name: "Finance", icon: TrendingUp, count: 1 },
-  { name: "Technology", icon: Code, count: 1 },
-  { name: "Business", icon: Briefcase, count: 2 },
-  { name: "Health", icon: Heart, count: 1 },
-  { name: "Design", icon: Palette, count: 1 },
-];
+const categoryIcons: Record<string, typeof BookOpen> = {
+  "Data Science": Database,
+  Marketing: Megaphone,
+  "Digital Marketing": Megaphone,
+  Leadership: Crown,
+  Finance: TrendingUp,
+  Technology: Code,
+  Business: Briefcase,
+  Health: Heart,
+  Design: Palette,
+  "Career Development": TrendingUp,
+  Entrepreneurship: Briefcase,
+  "Administrative and Business Support": Briefcase,
+};
 
 const levels = ["All Levels", "Beginner", "Intermediate", "Advanced"];
 const sortOptions = ["Most Popular", "Highest Rated", "Newest", "Price: Low to High", "Price: High to Low"];
@@ -37,6 +40,7 @@ const normalizedCoursePrice = (price: unknown) => {
 export default function CourseCatalogPage() {
   const [searchParams] = useSearchParams();
   const qFromUrl = searchParams.get("q") || "";
+  const categoryFromUrl = searchParams.get("category") || "";
   const [search, setSearch] = useState(qFromUrl);
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -57,11 +61,19 @@ export default function CourseCatalogPage() {
      return () => clearTimeout(timer);
    }, [search]);
 
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(() =>
+    categoryFromUrl ? [categoryFromUrl] : []
+  );
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
   const [sort, setSort] = useState("Most Popular");
   const [selectedPrices, setSelectedPrices] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    if (categoryFromUrl) {
+      setSelectedCategories([categoryFromUrl]);
+    }
+  }, [categoryFromUrl]);
 
   const { data: allCourses = [] } = useCourses({ publishedOnly: true });
 
@@ -73,9 +85,26 @@ export default function CourseCatalogPage() {
     ? allCourses 
     : [];
 
+  const categoryData = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of allCourses) {
+      const cat = String(c.category || "").trim();
+      if (!cat) continue;
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    }
+    const entries = [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({
+        name,
+        icon: categoryIcons[name] || BookOpen,
+        count,
+      }));
+    return [{ name: "All", icon: BookOpen, count: allCourses.length }, ...entries];
+  }, [allCourses]);
+
   const categoryOptions = useMemo(
-    () => categoryData.filter((c) => c.name !== "All").map((c) => ({ label: c.name, value: c.name })),
-    [],
+    () => categoryData.filter((c) => c.name !== "All").map((c) => ({ label: `${c.name} (${c.count})`, value: c.name })),
+    [categoryData],
   );
   const levelOptions = useMemo(() => levels.filter((l) => l !== "All Levels").map((l) => ({ label: l, value: l })), []);
   const priceOptions = useMemo(() => {
@@ -316,15 +345,22 @@ export default function CourseCatalogPage() {
                     <p className="text-xs text-muted-foreground mb-1 md:mb-2 line-clamp-1">{course.instructor}</p>
                     <div className="hidden md:flex items-center gap-1 mb-3">
                       <Star className="w-3.5 h-3.5 text-secondary fill-secondary" />
-                      <span className="text-xs font-bold text-foreground">{course.rating}</span>
-                      <span className="text-xs text-muted-foreground">({course.students.toLocaleString()} students)</span>
+                      <span className="text-xs font-bold text-foreground">{Number(course.rating || 0).toFixed(1)}</span>
+                      <span className="text-xs text-muted-foreground">({(course.reviewCount ?? 0).toLocaleString()} reviews)</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-muted-foreground mb-2 md:mb-3">
-                      <Clock className="w-3 h-3 hidden md:block" />
-                      <span>{course.duration}</span>
-                      <span className="mx-1">·</span>
+                      {course.duration ? (
+                        <>
+                          <Clock className="w-3 h-3 hidden md:block" />
+                          <span>{course.duration}</span>
+                          <span className="mx-1">·</span>
+                        </>
+                      ) : null}
                       <Users className="w-3 h-3 hidden md:block" />
-                      <span>{(course.students / 1000).toFixed(1)}k <span className="hidden md:inline">students</span></span>
+                      <span>
+                        {(course.students ?? 0).toLocaleString()}
+                        <span className="hidden md:inline"> students</span>
+                      </span>
                     </div>
                     {/* Pill tags — hidden on mobile to save space */}
                     <div className="hidden md:flex flex-wrap gap-1.5 mb-3">

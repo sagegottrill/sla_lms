@@ -50,17 +50,19 @@ function CourseCard({ course, index }: { course: Course; index: number }) {
         </h3>
         <p className="text-xs text-muted-foreground">{course.instructor}</p>
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-bold text-primary">{course.rating}</span>
+          <span className="text-xs font-bold text-primary">{Number(course.rating || 0).toFixed(1)}</span>
           <div className="flex">
             {[...Array(5)].map((_, i) => (
-              <Star key={i} className="w-3 h-3 text-secondary" style={{ fill: i < Math.floor(course.rating) ? "hsl(var(--secondary))" : "none" }} />
+              <Star key={i} className="w-3 h-3 text-secondary" style={{ fill: i < Math.floor(course.rating || 0) ? "hsl(var(--secondary))" : "none" }} />
             ))}
           </div>
-          <span className="text-xs text-muted-foreground">({course.reviews?.toLocaleString() || 0})</span>
+          <span className="text-xs text-muted-foreground">({(course.reviewCount ?? 0).toLocaleString()})</span>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-auto pt-2 border-t border-border">
-          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{course.duration}</span>
-          <span className="flex items-center gap-1"><Users className="w-3 h-3" />{course.students.toLocaleString()}</span>
+          {course.duration ? (
+            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{course.duration}</span>
+          ) : null}
+          <span className="flex items-center gap-1"><Users className="w-3 h-3" />{(course.students ?? 0).toLocaleString()}</span>
         </div>
         <div className="flex items-center justify-between mt-1">
           <div className="flex items-baseline gap-2">

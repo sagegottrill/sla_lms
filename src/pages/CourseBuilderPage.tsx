@@ -13,6 +13,7 @@ import { useCourse, useCreateCourseMutation, useUpdateCourseMutation } from "@/h
 import { useUIStore } from "@/store/useUIStore";
 import imageCompression from "browser-image-compression";
 import { supabase } from "@/lib/supabase";
+import { computeCourseDurationFromCurriculum } from "@/lib/courseStats";
 
 const CATEGORIES = ["Data Science", "Technology", "Business", "Leadership", "Finance", "Marketing", "Health", "Design", "Career Development", "Administrative and Business Support"];
 const LEVELS = ["Beginner", "Intermediate", "Advanced", "All Levels"];
@@ -303,6 +304,8 @@ export default function CourseBuilderPage() {
       })),
     }));
 
+    const duration = computeCourseDurationFromCurriculum(curriculum);
+
     const payload = {
       title: title.trim(),
       subtitle: subtitle.trim(),
@@ -319,6 +322,7 @@ export default function CourseBuilderPage() {
       badge: isFree ? "Free" : badge,
       bestseller: badge === "Bestseller",
       language,
+      duration,
       last_updated: new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
       status,
       what_youll_learn: whatYoullLearn.filter(Boolean),

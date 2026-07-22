@@ -43,6 +43,10 @@ export const queryKeys = {
     list: (role: string = 'public', filters: Record<string, any>) => ['courses', role, 'list', filters] as const,
     detail: (role: string = 'public', routeKey: string | number) =>
       ['courses', role, 'detail', { key: routeKey }] as const,
+    reviews: (role: string = 'public', courseId: number) =>
+      ['courses', role, 'reviews', { courseId }] as const,
+    myReview: (role: string = 'public', courseId: number, userId: string) =>
+      ['courses', role, 'myReview', { courseId, userId }] as const,
   },
   
   // Programs

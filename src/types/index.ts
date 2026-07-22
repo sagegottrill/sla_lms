@@ -49,6 +49,7 @@ export interface Program {
   originalPrice?: number;
   level?: string;
   tag?: string;
+  status?: string;
 }
 
 // ============================================================================

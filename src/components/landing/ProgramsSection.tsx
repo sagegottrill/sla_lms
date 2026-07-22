@@ -106,7 +106,7 @@ export default function ProgramsSection() {
                   {program.tag || "Open"}
                 </span>
                 <div className="absolute bottom-3 left-3 right-3">
-                  <CountdownBadge deadline={program.deadline || program.start_date || ""} />
+                  <CountdownBadge deadline={program.deadline || program.startDate || ""} />
                 </div>
               </div>
 
@@ -128,7 +128,7 @@ export default function ProgramsSection() {
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-muted-foreground pt-2 border-t border-border">
-                  <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" />{program.course_count || 0} modules</span>
+                  <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" />{program.courseCount || 0} modules</span>
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{program.duration}</span>
                   <span className="flex items-center gap-1"><Users className="w-3 h-3" />{program.enrolled || 0}</span>
                 </div>
@@ -138,11 +138,13 @@ export default function ProgramsSection() {
                     {Number(program.price ?? 0) === 0 ? (
                       <>
                         <span className="text-xl font-display font-bold text-foreground">Free</span>
-                        {program.original_price && <span className="text-sm text-muted-foreground line-through">₦{program.original_price}</span>}
+                        {program.originalPrice != null && (
+                          <span className="text-sm text-muted-foreground line-through">₦{program.originalPrice}</span>
+                        )}
                       </>
                     ) : (
                       <>
-                        <span className="text-xl font-display font-bold text-foreground">₦{program.price}</span>
+                        <span className="text-xl font-display font-bold text-foreground">₦{Number(program.price).toLocaleString()}</span>
                         <span className="text-xs text-muted-foreground ml-1">one-time</span>
                       </>
                     )}

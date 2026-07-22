@@ -15,6 +15,7 @@ import {
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/react-query";
+import { computeCourseDurationFromCurriculum } from "@/lib/courseStats";
 
 /* ─── Types ───────────────────────────────────────────────────────── */
 type LessonType = "video" | "reading" | "quiz";
@@ -682,6 +683,7 @@ export default function CourseAuthoringWizard() {
       badge: "New",
       bestseller: false,
       language: "English",
+      duration: computeCourseDurationFromCurriculum(curriculum),
       last_updated: new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
       status: "published",
       what_youll_learn: String(identity.objectives ?? "")

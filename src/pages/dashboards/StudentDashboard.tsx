@@ -19,6 +19,10 @@ export default function StudentDashboard() {
   const { appUser } = useAuth();
   const [activeTab, setActiveTab] = useState<"in_progress" | "completed">("in_progress");
   const navigate = useNavigate();
+  const [dismissOnboardingBanner, setDismissOnboardingBanner] = useState(() => {
+    if (typeof window === "undefined" || !appUser?.id) return false;
+    return localStorage.getItem(`dismiss_onboarding_banner:${appUser.id}`) === "1";
+  });
   
   // Get user's dashboard preferences
   const { data: preferences } = useDashboardPreferences(appUser?.id);
@@ -30,6 +34,11 @@ export default function StudentDashboard() {
       setDashboardView(preferences.dashboard_view);
     }
   }, [preferences?.dashboard_view]);
+
+  useEffect(() => {
+    if (!appUser?.id) return;
+    setDismissOnboardingBanner(localStorage.getItem(`dismiss_onboarding_banner:${appUser.id}`) === "1");
+  }, [appUser?.id]);
 
   const { data: enrollmentsRaw = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
   const { data: allCourses = [], isLoading: loadingCourses } = useCourses({ publishedOnly: true });
@@ -136,7 +145,7 @@ export default function StudentDashboard() {
           </div>
 
           {/* Simplified onboarding banner - dismissible */}
-          {appUser?.role === "student" && !onboardingDone && (
+          {appUser?.role === "student" && !onboardingDone && !dismissOnboardingBanner && (
             <div className="bg-primary/5 dark:bg-muted/30 border border-border/20 rounded-xl p-3 flex items-center gap-3 mb-4">
               <GraduationCap className="w-4 h-4 text-primary shrink-0" />
               <span className="text-sm text-foreground flex-1">
@@ -151,7 +160,12 @@ export default function StudentDashboard() {
               </button>
               <button
                 type="button"
-                onClick={() => {/* TODO: Implement dismiss */}}
+                onClick={() => {
+                  if (appUser?.id) {
+                    localStorage.setItem(`dismiss_onboarding_banner:${appUser.id}`, "1");
+                  }
+                  setDismissOnboardingBanner(true);
+                }}
                 className="text-muted-foreground hover:text-foreground transition-colors p-1"
                 aria-label="Dismiss"
               >

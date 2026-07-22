@@ -5,7 +5,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { EnrollmentProvider } from "@/contexts/EnrollmentContext";
 import AIChatbot from "./components/AIChatbot";
 import SmoothScroll from "./components/SmoothScroll";
 import ErrorBoundary from "./components/common/ErrorBoundary";
@@ -106,7 +105,6 @@ function RouteLoadingFallback() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <EnrollmentProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -325,7 +323,6 @@ const App = () => (
           </SmoothScroll>
         </BrowserRouter>
       </TooltipProvider>
-      </EnrollmentProvider>
     </AuthProvider>
     <ReactQueryDevtools initialIsOpen={false} />
   </QueryClientProvider>
