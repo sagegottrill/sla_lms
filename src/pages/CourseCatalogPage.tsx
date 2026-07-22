@@ -325,28 +325,33 @@ export default function CourseCatalogPage() {
 
             {/* Course grid */}
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filtered.map((course, i) => (
+              {filtered.map((course) => (
                 <div
                   key={course.id}
                   className="bg-card md:rounded-2xl shadow-sm border-0 md:overflow-hidden hover:shadow-lg transition-all duration-200 group flex flex-row md:flex-col p-4 md:p-0 rounded-xl"
                 >
                   <Link to={`/courses/${coursePathSegment(course)}`} className="block relative shrink-0 md:aspect-video overflow-hidden w-20 h-20 rounded-[4px] md:w-full md:h-auto md:rounded-none">
                     <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    {course.bestseller && (
-                      <span className="hidden md:inline-block absolute top-3 left-3 bg-secondary text-primary text-[10px] font-bold px-2.5 py-1 rounded-full">BESTSELLER</span>
-                    )}
-                    <span className="hidden md:inline-block absolute top-3 right-3 text-[10px] px-2 py-0.5 rounded-full bg-card/90 backdrop-blur text-muted-foreground font-medium">{course.level}</span>
                   </Link>
                   <div className="pl-4 md:p-4 flex flex-col flex-1 min-w-0">
-                    <span className="hidden md:block text-xs text-secondary font-semibold mb-1.5">{course.category}</span>
+                    <div className="hidden md:flex items-center gap-2 mb-1.5 text-xs">
+                      {course.category ? (
+                        <span className="text-secondary font-semibold">{course.category}</span>
+                      ) : null}
+                      {course.level ? (
+                        <span className="text-muted-foreground">· {course.level}</span>
+                      ) : null}
+                    </div>
                     <Link to={`/courses/${coursePathSegment(course)}`}>
                       <h3 className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors mb-1 leading-snug">{course.title}</h3>
                     </Link>
                     <p className="text-xs text-muted-foreground mb-1 md:mb-2 line-clamp-1">{course.instructor}</p>
-                    <div className="hidden md:flex items-center gap-1 mb-3">
+                    <div className="hidden md:flex items-center gap-1 mb-2">
                       <Star className="w-3.5 h-3.5 text-secondary fill-secondary" />
                       <span className="text-xs font-bold text-foreground">{Number(course.rating || 0).toFixed(1)}</span>
-                      <span className="text-xs text-muted-foreground">({(course.reviewCount ?? 0).toLocaleString()} reviews)</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({(course.reviewCount ?? 0).toLocaleString()} review{(course.reviewCount ?? 0) === 1 ? "" : "s"})
+                      </span>
                     </div>
                     <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-muted-foreground mb-2 md:mb-3">
                       {course.duration ? (
@@ -359,21 +364,8 @@ export default function CourseCatalogPage() {
                       <Users className="w-3 h-3 hidden md:block" />
                       <span>
                         {(course.students ?? 0).toLocaleString()}
-                        <span className="hidden md:inline"> students</span>
+                        <span className="hidden md:inline"> student{(course.students ?? 0) === 1 ? "" : "s"}</span>
                       </span>
-                    </div>
-                    {/* Pill tags — hidden on mobile to save space */}
-                    <div className="hidden md:flex flex-wrap gap-1.5 mb-3">
-                      {normalizedCoursePrice(course.price) === 0 && (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Free</span>
-                      )}
-                      <span className="text-[10px] font-bold text-primary bg-primary/8 px-2 py-0.5 rounded-full">Certificate</span>
-                      {course.bestseller && (
-                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Bestseller</span>
-                      )}
-                      {course.level && (
-                        <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{course.level}</span>
-                      )}
                     </div>
 
                     <div className="mt-auto flex items-center justify-between">

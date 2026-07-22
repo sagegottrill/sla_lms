@@ -6,15 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { coursePathSegment } from "@/lib/publicRoutes";
 
-const badgeStyles: Record<string, string> = {
-  Bestseller: "bg-secondary text-primary",
-  Hot: "bg-destructive text-destructive-foreground",
-  Free: "bg-primary text-primary-foreground",
-  New: "bg-primary text-primary-foreground",
-  Popular: "bg-primary text-primary-foreground",
-  "Top Rated": "bg-secondary text-primary",
-};
-
 function CourseCard({ course, index }: { course: Course; index: number }) {
   const rawPrice = Number(course.price ?? 0);
   const coursePrice = Number.isFinite(rawPrice) ? Math.max(0, rawPrice) : null;
@@ -33,17 +24,16 @@ function CourseCard({ course, index }: { course: Course; index: number }) {
       <div className="relative overflow-hidden aspect-video">
         <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
         <div className="absolute inset-0 bg-foreground/8 group-hover:bg-foreground/0 transition-colors" />
-        {!isFree && course.badge && course.badge !== "Free" && (
-          <span className={`absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-bold ${badgeStyles[course.badge] ?? "bg-primary text-primary-foreground"}`}>
-            {course.badge}
-          </span>
-        )}
       </div>
 
       <div className="flex flex-col flex-1 p-4 sm:p-6 gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-accent text-accent-foreground">{course.category}</span>
-          <span className="text-xs text-muted-foreground">{course.level}</span>
+        <div className="flex items-center gap-2 text-xs">
+          {course.category ? (
+            <span className="font-medium text-secondary">{course.category}</span>
+          ) : null}
+          {course.level ? (
+            <span className="text-muted-foreground">· {course.level}</span>
+          ) : null}
         </div>
         <h3 className="font-semibold text-foreground text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
           {course.title}
