@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Star, Clock, Users, Play, CheckCircle, ChevronDown, Globe, BookOpen, ArrowLeft, Loader2, Video, Check, Maximize, Minimize, ClipboardList } from "lucide-react";
+import { Star, Clock, Users, Play, CheckCircle, ChevronDown, Globe, BookOpen, ArrowLeft, Loader2, Video, Check, Maximize, Minimize, ClipboardList, FileText, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCourse, useUserEnrollments, useEnrollUserMutation, useCourseReviews, useMyCourseReview, useUpsertCourseReviewMutation } from "@/hooks/useQueries";
@@ -24,6 +24,41 @@ import {
 } from "@/components/ui/dialog";
 
 const VideoEmbedFrame = lazy(() => import("@/components/course/VideoEmbedFrame"));
+
+type ActiveTextLesson = {
+  title: string;
+  type: string;
+  content?: string;
+  documentUrl?: string;
+  loading?: boolean;
+};
+
+function isTextLessonType(type: string | undefined): boolean {
+  const t = (type || "").toLowerCase();
+  return t === "text" || t === "reading";
+}
+
+function isDocumentUrl(url: string): boolean {
+  const lower = url.split("?")[0].toLowerCase();
+  return (
+    lower.endsWith(".pdf") ||
+    lower.endsWith(".doc") ||
+    lower.endsWith(".docx") ||
+    lower.endsWith(".ppt") ||
+    lower.endsWith(".pptx")
+  );
+}
+
+function isFetchableTextUrl(url: string): boolean {
+  const lower = url.split("?")[0].toLowerCase();
+  return (
+    lower.endsWith(".txt") ||
+    lower.endsWith(".md") ||
+    lower.endsWith(".markdown") ||
+    lower.endsWith(".html") ||
+    lower.endsWith(".htm")
+  );
+}
 
 export default function CourseDetailPage() {
   const { id } = useParams();
@@ -62,7 +97,7 @@ export default function CourseDetailPage() {
 
   const [openModule, setOpenModule] = useState<number | null>(0);
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
-  const [activeLesson, setActiveLesson] = useState<{ title: string; type: string; content?: string } | null>(null);
+  const [activeLesson, setActiveLesson] = useState<ActiveTextLesson | null>(null);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [navDimmed, setNavDimmed] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
@@ -119,14 +154,21 @@ export default function CourseDetailPage() {
     if (!course?.curriculum) return [];
     return course.curriculum.flatMap((mod: any) =>
       (mod.items || [])
-        .map((item: any) => ({
-          title: typeof item === "string" ? item : (item.title || ""),
-          url: typeof item === "object" ? (item.vimeo_url || "") : "",
-          type: typeof item === "object" ? (item.type || "video") : "video",
-          content: typeof item === "object" ? (item.content || "") : "",
-          duration: typeof item === "object" ? (item.duration || "") : "",
-          module: mod.module,
-        }))
+        .map((item: any) => {
+          const contentUrl =
+            typeof item === "object"
+              ? (item.content_url || item.transcript_url || "")
+              : "";
+          return {
+            title: typeof item === "string" ? item : (item.title || ""),
+            url: typeof item === "object" ? (item.vimeo_url || "") : "",
+            type: typeof item === "object" ? (item.type || "video") : "video",
+            content: typeof item === "object" ? (item.content || "") : "",
+            contentUrl,
+            duration: typeof item === "object" ? (item.duration || "") : "",
+            module: mod.module,
+          };
+        })
         // Filter out lessons with empty titles to avoid counting invalid/placeholder items
         .filter((lesson: any) => lesson.title && lesson.title.trim() !== "")
     );
@@ -174,22 +216,20 @@ export default function CourseDetailPage() {
           course.title,
           course.instructor ?? "SLA",
           course.duration ?? "",
+          course.program_id ?? null,
         );
-        if (certRes.success) {
+        if (certRes.success && certRes.data?.newly_issued) {
           toast.success("Course complete! Your certificate is ready.");
-          
-          // Send certificate email notification
           try {
             await api.sendCertificateEmail(
               appUser.email,
               appUser.name,
               course.title,
               certRes.data?.credential_id || "N/A",
-              certRes.data?.completed_at || new Date().toISOString()
+              certRes.data?.completed_at || new Date().toISOString(),
             );
           } catch (emailErr) {
             console.error("Failed to send certificate email:", emailErr);
-            // Don't show error to user - certificate is still created
           }
         }
       }
@@ -233,9 +273,43 @@ export default function CourseDetailPage() {
     }, 0);
   };
 
-  const selectTextLesson = (lesson: { title: string; type: string; content?: string }) => {
+  const selectTextLesson = async (lesson: {
+    title: string;
+    type: string;
+    content?: string;
+    contentUrl?: string;
+  }) => {
     setActiveVideo(null);
-    setActiveLesson(lesson);
+    const inline = (lesson.content || "").trim();
+    const url = (lesson.contentUrl || "").trim();
+
+    if (inline) {
+      setActiveLesson({ title: lesson.title, type: lesson.type, content: inline });
+    } else if (url && isDocumentUrl(url)) {
+      setActiveLesson({ title: lesson.title, type: lesson.type, documentUrl: url });
+    } else if (url && isFetchableTextUrl(url)) {
+      setActiveLesson({ title: lesson.title, type: lesson.type, loading: true });
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to load lesson content");
+        const text = await res.text();
+        setActiveLesson({ title: lesson.title, type: lesson.type, content: text });
+      } catch (err) {
+        console.error("Text lesson fetch failed:", err);
+        setActiveLesson({
+          title: lesson.title,
+          type: lesson.type,
+          documentUrl: url,
+          content: "",
+        });
+      }
+    } else if (url) {
+      // Unknown remote resource — offer open link
+      setActiveLesson({ title: lesson.title, type: lesson.type, documentUrl: url });
+    } else {
+      setActiveLesson({ title: lesson.title, type: lesson.type, content: "" });
+    }
+
     if (lesson.title && enrolled) {
       markLessonComplete(lesson.title);
     }
@@ -435,19 +509,40 @@ export default function CourseDetailPage() {
               </div>
             ) : null}
 
-            {canAccessLessons && activeLesson && activeLesson.type === "text" ? (
+            {canAccessLessons && activeLesson && isTextLessonType(activeLesson.type) ? (
               <div className="w-full bg-card rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 relative z-10 mb-6">
                 <div className="p-8">
                   <div className="flex items-center gap-2 mb-6 pb-4 border-b border-border">
                     <FileText className="w-5 h-5 text-primary" />
                     <h2 className="text-2xl font-bold text-foreground">{activeLesson.title}</h2>
                   </div>
-                  <div 
-                    className="prose prose-sm max-w-none text-foreground/90"
-                    style={{ whiteSpace: 'pre-wrap' }}
-                  >
-                    {activeLesson.content || <p className="text-muted-foreground italic">No content available for this lesson yet.</p>}
-                  </div>
+                  {activeLesson.loading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Loading lesson content…</span>
+                    </div>
+                  ) : activeLesson.documentUrl && !activeLesson.content ? (
+                    <div className="space-y-4">
+                      <p className="text-muted-foreground">
+                        This lesson is available as a document. Open it to continue reading.
+                      </p>
+                      <Button asChild>
+                        <a href={activeLesson.documentUrl} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          Open document
+                        </a>
+                      </Button>
+                    </div>
+                  ) : (
+                    <div
+                      className="prose prose-sm max-w-none text-foreground/90"
+                      style={{ whiteSpace: "pre-wrap" }}
+                    >
+                      {activeLesson.content || (
+                        <p className="text-muted-foreground italic">No content available for this lesson yet.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : null}
@@ -506,15 +601,20 @@ export default function CourseDetailPage() {
                    <div className="overflow-y-auto divide-y divide-border flex-1">
                      {allLessons.map((lesson: any, idx) => {
                        const isActiveVideo = lesson.url && activeVideo === lesson.url;
-                       const isActiveText = lesson.type === "text" && activeLesson?.title === lesson.title;
+                       const isActiveText = isTextLessonType(lesson.type) && activeLesson?.title === lesson.title;
                        const isActive = isActiveVideo || isActiveText;
                        const isDone = completedLessons.has(lesson.title);
                        return (
                          <button
                            key={idx}
                            onClick={() => {
-                             if (lesson.type === "text") {
-                               selectTextLesson({ title: lesson.title, type: lesson.type, content: lesson.content });
+                             if (isTextLessonType(lesson.type)) {
+                               void selectTextLesson({
+                                 title: lesson.title,
+                                 type: lesson.type,
+                                 content: lesson.content,
+                                 contentUrl: lesson.contentUrl,
+                               });
                              } else if (lesson.url) {
                                selectLessonVideo(lesson.url, lesson.title);
                              } else {
@@ -722,9 +822,10 @@ export default function CourseDetailPage() {
                           const url = isObj ? item.vimeo_url : "";
                           const lessonType = isObj ? (item.type || "video") : "video";
                           const content = isObj ? item.content : "";
+                          const contentUrl = isObj ? (item.content_url || item.transcript_url || "") : "";
                           const duration = isObj ? item.duration : "";
                           const isActiveVideo = url && activeVideo === url;
-                          const isActiveText = lessonType === "text" && activeLesson?.title === title;
+                          const isActiveText = isTextLessonType(lessonType) && activeLesson?.title === title;
                           const isActive = isActiveVideo || isActiveText;
 
                           return (
@@ -732,8 +833,13 @@ export default function CourseDetailPage() {
                               key={j}
                               onClick={() => {
                                 if (!canAccessLessons) { toast.error("Please enrol to access lessons."); return; }
-                                if (lessonType === "text") {
-                                  selectTextLesson({ title, type: lessonType, content });
+                                if (isTextLessonType(lessonType)) {
+                                  void selectTextLesson({
+                                    title,
+                                    type: lessonType,
+                                    content,
+                                    contentUrl,
+                                  });
                                 } else if (url) {
                                   selectLessonVideo(url, title);
                                 } else {
@@ -758,7 +864,9 @@ export default function CourseDetailPage() {
                                     {completedLessons.has(title) ? <Check className="w-3 h-3 text-white" /> : null}
                                   </button>
                                 )}
-                                {isActive ? (
+                                {isTextLessonType(lessonType) ? (
+                                  <FileText className={cn("w-4 h-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                                ) : isActive ? (
                                     <Video className="w-4 h-4 shrink-0 text-primary" />
                                 ) : (
                                     <Play className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />

@@ -73,6 +73,7 @@ type CourseRow = Record<string, unknown> & {
   id?: number;
   public_id?: string | null;
   instructor_id?: string | null;
+  program_id?: number | string | null;
   title?: string;
   subtitle?: string;
   description?: string;
@@ -97,6 +98,7 @@ type CourseRow = Record<string, unknown> & {
   curriculum?: unknown;
   reviews?: unknown;
   status?: string;
+  certificate_config?: unknown;
 };
 
 function asNumber(v: unknown, fallback = 0): number {
@@ -144,6 +146,10 @@ export function mapCourseRow(row: CourseRow | null | undefined): Course | undefi
     id: Number(row.id),
     public_id: row.public_id ?? null,
     instructor_id: row.instructor_id ?? undefined,
+    program_id:
+      row.program_id == null || row.program_id === ""
+        ? null
+        : asNumber(row.program_id),
     title: asString(row.title),
     subtitle: asString(row.subtitle),
     instructor: asString(row.instructor),
@@ -173,6 +179,10 @@ export function mapCourseRow(row: CourseRow | null | undefined): Course | undefi
         : [],
     curriculum: curriculum as Course["curriculum"],
     reviews,
+    certificateConfig:
+      row.certificate_config && typeof row.certificate_config === "object"
+        ? (row.certificate_config as Record<string, unknown>)
+        : (row as { certificateConfig?: Record<string, unknown> }).certificateConfig,
   };
 }
 
@@ -204,6 +214,9 @@ type ProgramRow = Record<string, unknown> & {
   highlights?: unknown;
   courses?: unknown;
   status?: string;
+  certificate_config?: unknown;
+  partners?: unknown;
+  application_deadline?: string | null;
 };
 
 /** Normalize Supabase program rows into the app Program shape. */
@@ -234,6 +247,19 @@ export function mapProgramRow(row: ProgramRow | null | undefined): Program | und
     level: asString(row.level) || undefined,
     tag: asString(row.tag) || undefined,
     status: asString(row.status) || undefined,
+    certificateConfig:
+      row.certificate_config && typeof row.certificate_config === "object"
+        ? (row.certificate_config as Record<string, unknown>)
+        : (row as { certificateConfig?: Record<string, unknown> }).certificateConfig,
+    partners: Array.isArray(row.partners)
+      ? row.partners
+      : Array.isArray((row as { partners?: unknown }).partners)
+        ? (row as { partners?: unknown[] }).partners
+        : [],
+    applicationDeadline:
+      row.application_deadline ??
+      (row as { applicationDeadline?: string | null }).applicationDeadline ??
+      null,
   };
 }
 

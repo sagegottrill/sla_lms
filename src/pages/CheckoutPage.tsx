@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { initializePaystackPayment } from "@/lib/paystack";
 import { coursePathSegment, isCourseOrProgramRouteParam } from "@/lib/publicRoutes";
 import { getSiteUrl } from "@/lib/siteUrl";
+import { api } from "@/services/api";
 
 type PaymentMethod = "card" | "mobile_money" | "bank_transfer";
 
@@ -39,7 +40,7 @@ export default function CheckoutPage() {
   const [method, setMethod] = useState<PaymentMethod>("card");
   const [processing, setProcessing] = useState(false);
   const [currency, setCurrency] = useState(currencies[0]);
-  const [receiptId] = useState(() => `SLA-${Date.now().toString().slice(-8)}`);
+  const [receiptId, setReceiptId] = useState(() => `SLA-${Date.now().toString().slice(-8)}`);
 
   const [form, setForm] = useState({
     fullName: "",
@@ -241,15 +242,36 @@ export default function CheckoutPage() {
       reference,
       channels,
       metadata: {
-        // Webhook reads `metadata.custom_fields?.[0]`
-        custom_fields: [{ user_id: appUser.id, course_id: course.id, program_id: null }],
+        user_id: appUser.id,
+        course_id: course.id,
+        program_id: null,
+        // Keep custom_fields for Paystack dashboard display + legacy webhook parsing
+        custom_fields: [
+          { display_name: "User ID", variable_name: "user_id", value: appUser.id },
+          { display_name: "Course ID", variable_name: "course_id", value: String(course.id) },
+        ],
       },
-      onSuccess: async () => {
+      onSuccess: async (response?: { reference?: string }) => {
+        const paidRef = response?.reference || reference;
         try {
+          const payRes = await api.recordPayment({
+            userId: appUser.id,
+            courseId: course.id,
+            amount: priceNgn,
+            currency: "NGN",
+            reference: paidRef,
+            method,
+            receiptId: paidRef,
+            status: "successful",
+          });
+          if (!payRes.success) {
+            console.error("Failed to record payment ledger entry:", payRes.error);
+          }
           await enrollMutation.mutateAsync(
             { userId: appUser.id, courseId: course.id },
             { meta: { silentToast: true } },
           );
+          setReceiptId(paidRef);
           setProcessing(false);
           setStep("success");
         } catch (err) {

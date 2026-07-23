@@ -4,6 +4,8 @@ export interface Course {
   public_id?: string | null;
   /** Set on create; links course to authoring user in Supabase */
   instructor_id?: string;
+  /** Optional parent program */
+  program_id?: number | null;
   title: string;
   subtitle: string;
   instructor: string;
@@ -26,6 +28,10 @@ export interface Course {
   whatYoullLearn: string[];
   curriculum: { module: string; lessons: number; duration: string; items: any[] }[];
   reviews: { name: string; rating: number; comment: string; date: string }[];
+  /** Live revenue from successful payments (attached for instructor course lists). */
+  revenue?: number;
+  /** Editable certificate template (logos, signers, body). */
+  certificateConfig?: Record<string, unknown>;
 }
 
 export interface Program {
@@ -50,6 +56,9 @@ export interface Program {
   level?: string;
   tag?: string;
   status?: string;
+  certificateConfig?: Record<string, unknown>;
+  partners?: unknown[];
+  applicationDeadline?: string | null;
 }
 
 // ============================================================================

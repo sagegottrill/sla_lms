@@ -6,6 +6,12 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useCourses, useCreateProgramMutation, useUpdateProgramMutation, useProgram } from "@/hooks/useQueries";
 import { supabase } from "@/lib/supabase";
+import CertificateDesignEditor from "@/components/admin/CertificateDesignEditor";
+import {
+  DEFAULT_CERTIFICATE_CONFIG,
+  mergeCertificateConfig,
+  type CertificateConfig,
+} from "@/lib/certificateConfig";
 
 const CATEGORIES = ["Data Science", "Technology", "Business", "Leadership", "Finance", "Marketing", "Health", "Design", "Administrative and Business Support"];
 const LEVELS = ["All Levels", "Beginner", "Intermediate", "Advanced"] as const;
@@ -48,6 +54,9 @@ export default function ProgramBuilderPage() {
   const [cohort, setCohort] = useState("");
   const [image, setImage] = useState("");
   const [highlights, setHighlights] = useState<string[]>(["Live mentoring sessions", "Certificate from SLA"]);
+  const [certificateConfig, setCertificateConfig] = useState<CertificateConfig>({
+    ...DEFAULT_CERTIFICATE_CONFIG,
+  });
 
   const [partners, setPartners] = useState<Partner[]>([]);
   const [newPartnerName, setNewPartnerName] = useState("");
@@ -81,7 +90,9 @@ export default function ProgramBuilderPage() {
     setDuration(String(p.duration ?? ""));
     setStartDate(String(p.start_date ?? "").slice(0, 10));
     setDeadline(String(p.deadline ?? "").slice(0, 10));
-    setApplicationDeadline(String((p as any).application_deadline ?? "").slice(0, 10));
+    setApplicationDeadline(
+      String((p as any).applicationDeadline ?? (p as any).application_deadline ?? "").slice(0, 10),
+    );
     setCapacity(String(p.capacity ?? ""));
     setPrice(p.price != null ? String(p.price) : "");
     setOriginalPrice(p.original_price != null ? String(p.original_price) : "");
@@ -89,6 +100,9 @@ export default function ProgramBuilderPage() {
     setImage(String(p.image ?? ""));
     const hl = p.highlights;
     if (Array.isArray(hl) && hl.length > 0) setHighlights(hl.map(String));
+    setCertificateConfig(
+      mergeCertificateConfig((p as any).certificateConfig ?? (p as any).certificate_config),
+    );
     const rawPartners = (p as any).partners;
     if (Array.isArray(rawPartners)) {
       const mapped = rawPartners
@@ -177,6 +191,7 @@ export default function ProgramBuilderPage() {
         .map((p) => ({ name: p.name.trim(), logo_url: p.logoUrl || null })),
       status,
       tag: cohort.trim() || null,
+      certificate_config: certificateConfig,
     };
   };
 
@@ -680,6 +695,14 @@ export default function ProgramBuilderPage() {
                 </div>
               )}
             </div>
+
+            <CertificateDesignEditor
+              value={certificateConfig}
+              onChange={setCertificateConfig}
+              assetOwnerId={programIdForAssets}
+              previewCourseTitle={title.trim() || "Sample Program"}
+            />
+
             <div className="flex flex-wrap gap-3">
               <Button variant="outline" onClick={() => setStep(3)} className="rounded-xl">
                 ← Back

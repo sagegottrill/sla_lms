@@ -14,6 +14,12 @@ import { useUIStore } from "@/store/useUIStore";
 import imageCompression from "browser-image-compression";
 import { supabase } from "@/lib/supabase";
 import { computeCourseDurationFromCurriculum } from "@/lib/courseStats";
+import CertificateDesignEditor from "@/components/admin/CertificateDesignEditor";
+import {
+  DEFAULT_CERTIFICATE_CONFIG,
+  mergeCertificateConfig,
+  type CertificateConfig,
+} from "@/lib/certificateConfig";
 
 const CATEGORIES = ["Data Science", "Technology", "Business", "Leadership", "Finance", "Marketing", "Health", "Design", "Career Development", "Administrative and Business Support"];
 const LEVELS = ["Beginner", "Intermediate", "Advanced", "All Levels"];
@@ -82,6 +88,9 @@ export default function CourseBuilderPage() {
     { id: 1, title: "Module 1: Introduction", open: true, lessons: [{ id: 1, title: "Welcome to the Course", type: "video", vimeo_url: "" }] },
   ]);
   const [whatYoullLearn, setWhatYoullLearn] = useState<string[]>(["", "", ""]);
+  const [certificateConfig, setCertificateConfig] = useState<CertificateConfig>({
+    ...DEFAULT_CERTIFICATE_CONFIG,
+  });
 
   // Hydrate builder in edit mode.
   useEffect(() => {
@@ -104,6 +113,9 @@ export default function CourseBuilderPage() {
     setInstructorTitle(String(c.instructor_title ?? ""));
     setInstructorBio(String(c.instructor_bio ?? ""));
     setInstructorAvatar(String(c.instructor_avatar ?? ""));
+    setCertificateConfig(
+      mergeCertificateConfig(c.certificateConfig ?? c.certificate_config),
+    );
 
     const wyl = c.what_youll_learn;
     if (Array.isArray(wyl)) {
@@ -118,10 +130,20 @@ export default function CourseBuilderPage() {
         const lessons: Lesson[] = items.map((it: any, li: number) => ({
           id: Date.now() + idx * 1000 + li,
           title: String(it?.title ?? ""),
-          type: (it?.type === "text" || it?.type === "quiz" || it?.type === "video") ? it.type : "video",
+          type: (() => {
+            const t = it?.type;
+            if (t === "reading" || t === "text") return "text";
+            if (t === "quiz" || t === "video") return t;
+            return "video";
+          })(),
           vimeo_url: typeof it?.vimeo_url === "string" ? it.vimeo_url : "",
           duration: typeof it?.duration === "string" ? it.duration : "",
-          transcript_url: typeof it?.transcript_url === "string" ? it.transcript_url : "",
+          transcript_url:
+            typeof it?.transcript_url === "string"
+              ? it.transcript_url
+              : typeof it?.content_url === "string"
+                ? it.content_url
+                : "",
           content: typeof it?.content === "string" ? it.content : "",
         }));
         return {
@@ -300,6 +322,7 @@ export default function CourseBuilderPage() {
         duration: l.duration || "",
         vimeo_url: l.vimeo_url || "",
         transcript_url: l.transcript_url || "",
+        content_url: l.type === "text" ? (l.transcript_url || "") : "",
         content: l.content || ""
       })),
     }));
@@ -328,6 +351,7 @@ export default function CourseBuilderPage() {
       what_youll_learn: whatYoullLearn.filter(Boolean),
       curriculum,
       reviews: [],
+      certificate_config: certificateConfig,
     };
 
     const mutate = isEdit
@@ -819,6 +843,13 @@ export default function CourseBuilderPage() {
               <img src={image} alt="Course thumbnail" className="w-full max-w-sm h-40 object-cover rounded-xl" />
             </div>
           )}
+
+          <CertificateDesignEditor
+            value={certificateConfig}
+            onChange={setCertificateConfig}
+            assetOwnerId={thumbnailCourseId}
+            previewCourseTitle={title.trim() || "Sample Course Title"}
+          />
 
           <div className="flex justify-between gap-3">
             <Button variant="outline" onClick={() => setStep(2)} className="rounded-xl">← Back</Button>

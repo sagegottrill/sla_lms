@@ -19,15 +19,86 @@ const USE_SUPABASE = Boolean(
 );
 
 /** Explicit row projections — avoids `select("*")` payload bloat on wide tables. */
-const COURSE_COLUMNS =
+const COURSE_COLUMNS_CORE =
   "id, public_id, program_id, instructor_id, title, subtitle, description, instructor, instructor_title, instructor_bio, instructor_avatar, category, level, rating, review_count, students, duration, language, last_updated, price, original_price, image, badge, bestseller, what_youll_learn, curriculum, reviews, status, created_at";
 
-const PROGRAM_COLUMNS =
+const COURSE_COLUMNS = COURSE_COLUMNS_CORE.replace(", created_at", ", certificate_config, created_at");
+
+const PROGRAM_COLUMNS_MINIMAL =
   "id, public_id, title, description, tagline, category, image, duration, start_date, deadline, price, original_price, enrolled, capacity, course_count, tag, level, highlights, courses, status, created_at";
+
+const PROGRAM_COLUMNS_CORE =
+  "id, public_id, title, description, tagline, category, image, duration, start_date, deadline, price, original_price, enrolled, capacity, course_count, tag, level, highlights, courses, status, partners, application_deadline, created_at";
+
+const PROGRAM_COLUMNS = PROGRAM_COLUMNS_CORE.replace(", created_at", ", certificate_config, created_at");
+
+function isMissingColumnError(message: string | undefined, column: string): boolean {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return m.includes(column.toLowerCase()) && (m.includes("does not exist") || m.includes("schema cache") || m.includes("could not find"));
+}
+
+async function selectCoursesWithFallback(
+  build: (columns: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+) {
+  const primary = await build(COURSE_COLUMNS);
+  if (!primary.error || !isMissingColumnError(primary.error.message, "certificate_config")) {
+    return primary;
+  }
+  console.warn("courses.certificate_config missing — falling back to core columns. Apply 20260723_certificate_templates.sql");
+  return build(COURSE_COLUMNS_CORE);
+}
+
+async function selectProgramsWithFallback(
+  build: (columns: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+) {
+  const primary = await build(PROGRAM_COLUMNS);
+  if (!primary.error) return primary;
+
+  if (isMissingColumnError(primary.error.message, "certificate_config")) {
+    console.warn("programs.certificate_config missing — falling back. Apply 20260723_certificate_templates.sql");
+    const secondary = await build(PROGRAM_COLUMNS_CORE);
+    if (!secondary.error) return secondary;
+    if (
+      isMissingColumnError(secondary.error.message, "partners") ||
+      isMissingColumnError(secondary.error.message, "application_deadline")
+    ) {
+      console.warn("programs.partners/application_deadline missing — falling back to minimal columns");
+      return build(PROGRAM_COLUMNS_MINIMAL);
+    }
+    return secondary;
+  }
+
+  if (
+    isMissingColumnError(primary.error.message, "partners") ||
+    isMissingColumnError(primary.error.message, "application_deadline")
+  ) {
+    console.warn("programs.partners/application_deadline missing — falling back");
+    return build(PROGRAM_COLUMNS_MINIMAL.replace(", created_at", ", certificate_config, created_at"));
+  }
+
+  return primary;
+}
+
+function stripCertificateConfig(payload: Record<string, unknown>) {
+  const next = { ...payload };
+  delete next.certificate_config;
+  delete next.certificateConfig;
+  return next;
+}
+
+function stripProgramOptionalColumns(payload: Record<string, unknown>) {
+  const next = stripCertificateConfig(payload);
+  delete next.partners;
+  delete next.application_deadline;
+  return next;
+}
 
 async function fetchCourseRowById(id: number): Promise<Course | undefined> {
   if (!USE_SUPABASE) return undefined;
-  const { data, error } = await supabase.from("courses").select(COURSE_COLUMNS).eq("id", id).single();
+  const { data, error } = await selectCoursesWithFallback((cols) =>
+    supabase.from("courses").select(cols).eq("id", id).single(),
+  );
   if (error) {
     console.error("Supabase getCourseById error:", error.message);
     return undefined;
@@ -37,7 +108,9 @@ async function fetchCourseRowById(id: number): Promise<Course | undefined> {
 
 async function fetchCourseRowByPublicId(publicId: string): Promise<Course | undefined> {
   if (!USE_SUPABASE) return undefined;
-  const { data, error } = await supabase.from("courses").select(COURSE_COLUMNS).eq("public_id", publicId).maybeSingle();
+  const { data, error } = await selectCoursesWithFallback((cols) =>
+    supabase.from("courses").select(cols).eq("public_id", publicId).maybeSingle(),
+  );
   if (error) {
     console.error("Supabase getCourseByPublicId error:", error.message);
     return undefined;
@@ -56,7 +129,9 @@ function withComputedDuration<T extends Record<string, unknown>>(payload: T): T 
 
 async function fetchProgramRowById(id: number): Promise<Program | undefined> {
   if (!USE_SUPABASE) return undefined;
-  const { data, error } = await supabase.from("programs").select(PROGRAM_COLUMNS).eq("id", id).single();
+  const { data, error } = await selectProgramsWithFallback((cols) =>
+    supabase.from("programs").select(cols).eq("id", id).single(),
+  );
   if (error) {
     console.error("Supabase getProgramById error:", error.message);
     return undefined;
@@ -66,7 +141,9 @@ async function fetchProgramRowById(id: number): Promise<Program | undefined> {
 
 async function fetchProgramRowByPublicId(publicId: string): Promise<Program | undefined> {
   if (!USE_SUPABASE) return undefined;
-  const { data, error } = await supabase.from("programs").select(PROGRAM_COLUMNS).eq("public_id", publicId).maybeSingle();
+  const { data, error } = await selectProgramsWithFallback((cols) =>
+    supabase.from("programs").select(cols).eq("public_id", publicId).maybeSingle(),
+  );
   if (error) {
     console.error("Supabase getProgramByPublicId error:", error.message);
     return undefined;
@@ -195,18 +272,20 @@ export const api = {
     }
     
     try {
-      let q = supabase.from("courses").select(COURSE_COLUMNS).order("created_at", { ascending: false });
-      if (options?.publishedOnly) {
-        q = q.eq("status", "published");
-      }
-      const { data, error } = await q;
+      const { data, error } = await selectCoursesWithFallback((cols) => {
+        let q = supabase.from("courses").select(cols).order("created_at", { ascending: false });
+        if (options?.publishedOnly) {
+          q = q.eq("status", "published");
+        }
+        return q;
+      });
       
       if (error) {
         console.error("Supabase getCourses error:", error.message);
         return { data: [], error: error.message, success: false };
       }
       
-      return { data: mapCourseRows(data ?? []), error: null, success: true };
+      return { data: mapCourseRows((data as unknown[]) ?? []), error: null, success: true };
     } catch (error: any) {
       console.error("Supabase getCourses error:", error.message);
       return { data: [], error: error.message, success: false };
@@ -217,20 +296,22 @@ export const api = {
   searchCourses: async (query: string): Promise<ApiResponse<Course[]>> => {
     if (!USE_SUPABASE || !query.trim()) return { data: [], error: null, success: true };
     try {
-      const { data, error } = await supabase
-        .from("courses")
-        .select(COURSE_COLUMNS)
-        .eq("status", "published")
-        .or(
-          `title.ilike.%${query}%,subtitle.ilike.%${query}%,description.ilike.%${query}%,instructor.ilike.%${query}%,category.ilike.%${query}%`
-        )
-        .order("students", { ascending: false })
-        .limit(50);
+      const { data, error } = await selectCoursesWithFallback((cols) =>
+        supabase
+          .from("courses")
+          .select(cols)
+          .eq("status", "published")
+          .or(
+            `title.ilike.%${query}%,subtitle.ilike.%${query}%,description.ilike.%${query}%,instructor.ilike.%${query}%,category.ilike.%${query}%`
+          )
+          .order("students", { ascending: false })
+          .limit(50),
+      );
       if (error) {
         console.error("Supabase searchCourses error:", error.message);
         return { data: [], error: error.message, success: false };
       }
-      return { data: mapCourseRows(data ?? []), error: null, success: true };
+      return { data: mapCourseRows((data as unknown[]) ?? []), error: null, success: true };
     } catch (error: any) {
       console.error("Supabase searchCourses error:", error.message);
       return { data: [], error: error.message, success: false };
@@ -244,7 +325,16 @@ export const api = {
     
     try {
       const payload = withComputedDuration(courseData as Record<string, unknown>);
-      const { data, error } = await supabase.from("courses").insert(payload).select(COURSE_COLUMNS).single();
+      let { data, error } = await supabase.from("courses").insert(payload).select(COURSE_COLUMNS).single();
+      if (error && isMissingColumnError(error.message, "certificate_config")) {
+        const retry = await supabase
+          .from("courses")
+          .insert(stripCertificateConfig(payload))
+          .select(COURSE_COLUMNS_CORE)
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
       
       if (error) {
         console.error("Supabase createCourse error:", error.message);
@@ -265,12 +355,22 @@ export const api = {
     
     try {
       const payload = withComputedDuration(updates as Record<string, unknown>);
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("courses")
         .update(payload)
         .eq("id", id)
         .select(COURSE_COLUMNS)
         .single();
+      if (error && isMissingColumnError(error.message, "certificate_config")) {
+        const retry = await supabase
+          .from("courses")
+          .update(stripCertificateConfig(payload))
+          .eq("id", id)
+          .select(COURSE_COLUMNS_CORE)
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
       
       if (error) {
         console.error("Supabase updateCourse error:", error.message);
@@ -313,14 +413,8 @@ export const api = {
     }
     
     try {
-      const { data, error } = await supabase.from("courses").select(COURSE_COLUMNS).eq("id", id).single();
-      
-      if (error) {
-        console.error("Supabase getCourseById error:", error.message);
-        return { data: undefined, error: error.message, success: false };
-      }
-      
-      return { data: mapCourseRow(data as Record<string, unknown>), error: null, success: true };
+      const course = await fetchCourseRowById(id);
+      return { data: course, error: null, success: true };
     } catch (error: any) {
       console.error("Supabase getCourseById error:", error.message);
       return { data: undefined, error: error.message, success: false };
@@ -365,18 +459,20 @@ export const api = {
     }
     
     try {
-      let q = supabase.from("programs").select(PROGRAM_COLUMNS).order("created_at", { ascending: false });
-      if (options?.activeCatalog) {
-        q = q.in("status", ["upcoming", "active"]);
-      }
-      const { data, error } = await q;
+      const { data, error } = await selectProgramsWithFallback((cols) => {
+        let q = supabase.from("programs").select(cols).order("created_at", { ascending: false });
+        if (options?.activeCatalog) {
+          q = q.in("status", ["upcoming", "active"]);
+        }
+        return q;
+      });
       
       if (error) {
         console.error("Supabase getPrograms error:", error.message);
         return { data: [], error: error.message, success: false };
       }
       
-      return { data: mapProgramRows(data ?? []), error: null, success: true };
+      return { data: mapProgramRows((data as unknown[]) ?? []), error: null, success: true };
     } catch (error: any) {
       console.error("Supabase getPrograms error:", error.message);
       return { data: [], error: error.message, success: false };
@@ -393,16 +489,16 @@ export const api = {
     }
 
     try {
-      const { data: programs, error: programsErr } = await supabase
-        .from("programs")
-        .select(PROGRAM_COLUMNS);
+      const { data: programs, error: programsErr } = await selectProgramsWithFallback((cols) =>
+        supabase.from("programs").select(cols),
+      );
 
       if (programsErr) {
         console.error("Supabase getUserPrograms programs error:", programsErr.message);
         return { data: [], error: programsErr.message, success: false };
       }
 
-      const programsArr = (programs ?? []).filter(
+      const programsArr = ((programs as any[]) ?? []).filter(
         (p: any) => Array.isArray(p?.courses) && p.courses.length > 0,
       );
       if (programsArr.length === 0) return { data: [], error: null, success: true };
@@ -486,20 +582,35 @@ export const api = {
     }
   },
 
-  createProgram: async (programData: Partial<Program>): Promise<ApiResponse<Program | null>> => {
+  createProgram: async (programData: Partial<Program> & Record<string, unknown>): Promise<ApiResponse<Program | null>> => {
     if (!USE_SUPABASE) {
       return { data: null, error: null, success: true };
     }
     
     try {
-      const { data, error } = await supabase.from("programs").insert(programData).select().single();
+      const payload = programData as Record<string, unknown>;
+      let { data, error } = await supabase.from("programs").insert(payload).select(PROGRAM_COLUMNS).single();
+      if (
+        error &&
+        (isMissingColumnError(error.message, "certificate_config") ||
+          isMissingColumnError(error.message, "partners") ||
+          isMissingColumnError(error.message, "application_deadline"))
+      ) {
+        const retry = await supabase
+          .from("programs")
+          .insert(stripProgramOptionalColumns(payload))
+          .select(PROGRAM_COLUMNS_MINIMAL)
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
       
       if (error) {
         console.error("Supabase createProgram error:", error.message);
         return { data: null, error: error.message, success: false };
       }
       
-      return { data: data, error: null, success: true };
+      return { data: mapProgramRow(data as Record<string, unknown>) ?? null, error: null, success: true };
     } catch (error: any) {
       console.error("Supabase createProgram error:", error.message);
       return { data: null, error: error.message, success: false };
@@ -512,14 +623,30 @@ export const api = {
     }
     
     try {
-      const { data, error } = await supabase.from("programs").update(updates).eq("id", id).select().single();
+      const payload = updates as Record<string, unknown>;
+      let { data, error } = await supabase.from("programs").update(payload).eq("id", id).select(PROGRAM_COLUMNS).single();
+      if (
+        error &&
+        (isMissingColumnError(error.message, "certificate_config") ||
+          isMissingColumnError(error.message, "partners") ||
+          isMissingColumnError(error.message, "application_deadline"))
+      ) {
+        const retry = await supabase
+          .from("programs")
+          .update(stripProgramOptionalColumns(payload))
+          .eq("id", id)
+          .select(PROGRAM_COLUMNS_MINIMAL)
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
       
       if (error) {
         console.error("Supabase updateProgram error:", error.message);
         return { data: null, error: error.message, success: false };
       }
       
-      return { data: data, error: null, success: true };
+      return { data: mapProgramRow(data as Record<string, unknown>) ?? null, error: null, success: true };
     } catch (error: any) {
       console.error("Supabase updateProgram error:", error.message);
       return { data: null, error: error.message, success: false };
@@ -532,14 +659,8 @@ export const api = {
     }
     
     try {
-      const { data, error } = await supabase.from("programs").select(PROGRAM_COLUMNS).eq("id", id).single();
-      
-      if (error) {
-        console.error("Supabase getProgramById error:", error.message);
-        return { data: undefined, error: error.message, success: false };
-      }
-      
-      return { data: mapProgramRow(data as Record<string, unknown>), error: null, success: true };
+      const program = await fetchProgramRowById(id);
+      return { data: program, error: null, success: true };
     } catch (error: any) {
       console.error("Supabase getProgramById error:", error.message);
       return { data: undefined, error: error.message, success: false };
@@ -1538,29 +1659,44 @@ export const api = {
 
   issueCertificate: async (
     userId: string,
-    courseId: number,
+    courseId: number | null,
     courseTitle: string,
     instructor: string,
     duration: string,
+    programId?: number | null,
   ): Promise<ApiResponse<any | null>> => {
     if (!USE_SUPABASE) {
       return { data: null, error: null, success: true };
     }
-    const { data: existing } = await supabase
-      .from("certificates")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("course_id", courseId)
-      .maybeSingle();
-    if (existing) {
-      return { data: existing, error: null, success: true };
+    if (!userId) {
+      return { data: null, error: "User is required.", success: false };
     }
-    const credentialId = `SLA-${courseId}-${userId.slice(0, 8)}-${Date.now().toString(36).toUpperCase()}`;
+    const resolvedCourseId =
+      typeof courseId === "number" && courseId > 0 ? courseId : null;
+    const resolvedProgramId =
+      typeof programId === "number" && programId > 0 ? programId : null;
+    if (!resolvedCourseId && !resolvedProgramId) {
+      return { data: null, error: "Course or program is required.", success: false };
+    }
+
+    let existingQuery = supabase.from("certificates").select("*").eq("user_id", userId);
+    if (resolvedCourseId) {
+      existingQuery = existingQuery.eq("course_id", resolvedCourseId);
+    } else {
+      existingQuery = existingQuery.eq("program_id", resolvedProgramId!).is("course_id", null);
+    }
+    const { data: existing } = await existingQuery.maybeSingle();
+    if (existing) {
+      return { data: { ...existing, newly_issued: false }, error: null, success: true };
+    }
+
+    const credentialId = `SLA-${resolvedCourseId ?? `P${resolvedProgramId}`}-${userId.slice(0, 8)}-${Date.now().toString(36).toUpperCase()}`;
     const { data, error } = await supabase
       .from("certificates")
       .insert({
         user_id: userId,
-        course_id: courseId,
+        course_id: resolvedCourseId,
+        program_id: resolvedProgramId,
         course_title: courseTitle,
         instructor,
         duration,
@@ -1573,7 +1709,7 @@ export const api = {
       console.error("Supabase issueCertificate error:", error.message);
       return { data: null, error: error.message, success: false };
     }
-    return { data, error: null, success: true };
+    return { data: { ...data, newly_issued: true }, error: null, success: true };
   },
 
   sendCertificateEmail: async (
@@ -1723,25 +1859,27 @@ She Leads Africa | Empowering African Women Through Education`;
     }
     
     try {
-      const [users, courses, programs, payments, enrollments] = await Promise.all([
+      const [users, courses, programs, payments, enrollments, ratings, certCount] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase.from("courses").select("id", { count: "exact", head: true }),
         supabase.from("programs").select("id", { count: "exact", head: true }),
-        supabase.from("payments").select("amount"),
-        supabase.from("enrollments").select("progress")
+        supabase.from("payments").select("amount").eq("status", "successful"),
+        supabase.from("enrollments").select("progress"),
+        supabase.from("courses").select("rating").eq("status", "published"),
+        supabase.from("certificates").select("id", { count: "exact", head: true }),
       ]);
-      const totalRevenue = payments.data?.reduce((acc, p) => acc + (p.amount || 0), 0) || 0;
+      const totalRevenue = payments.data?.reduce((acc, p) => acc + (Number(p.amount) || 0), 0) || 0;
       
       const enrolls = enrollments.data || [];
       const totalHours = Math.round(enrolls.reduce((acc, e) => acc + ((e.progress || 0) / 100 * 20), 0));
-      const totalCertificates = enrolls.filter(e => e.progress === 100).length;
+      const completedEnrollments = enrolls.filter(e => Number(e.progress) >= 100).length;
       const completionRate = enrolls.length > 0 
-        ? Math.round((totalCertificates / enrolls.length) * 100) 
+        ? Math.round((completedEnrollments / enrolls.length) * 100) 
         : 0;
       
-      const coursesData = courses.data || [];
+      const coursesData = ratings.data || [];
       const satisfactionScore = coursesData.length > 0 
-        ? (coursesData.reduce((acc, c) => acc + (c.rating || 0), 0) / coursesData.length).toFixed(1)
+        ? (coursesData.reduce((acc, c) => acc + (Number(c.rating) || 0), 0) / coursesData.length).toFixed(1)
         : "0.0";
       
       return {
@@ -1752,7 +1890,7 @@ She Leads Africa | Empowering African Women Through Education`;
           totalRevenue,
           totalHours,
           completionRate,
-          totalCertificates,
+          totalCertificates: certCount.count || completedEnrollments,
           satisfactionScore
         },
         error: null,
@@ -1771,6 +1909,73 @@ She Leads Africa | Empowering African Women Through Education`;
   // -------------------------
   // PAYMENTS LEDGER (Admin)
   // -------------------------
+  recordPayment: async (payload: {
+    userId: string;
+    courseId?: number | null;
+    programId?: number | null;
+    amount: number;
+    currency?: string;
+    reference: string;
+    method: string;
+    receiptId?: string;
+    status?: "pending" | "successful" | "failed";
+  }): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    if (!payload.userId || !payload.reference) {
+      return { data: null, error: "Missing payment details.", success: false };
+    }
+    if (!payload.courseId && !payload.programId) {
+      return { data: null, error: "Course or program is required.", success: false };
+    }
+    const row = {
+      user_id: payload.userId,
+      course_id: payload.courseId ?? null,
+      program_id: payload.programId ?? null,
+      amount: Number(payload.amount) || 0,
+      currency: payload.currency || "NGN",
+      status: payload.status || "successful",
+      reference: payload.reference,
+      method: payload.method,
+      receipt_id: payload.receiptId || payload.reference,
+    };
+    const { data: existing } = await supabase
+      .from("payments")
+      .select("id, status, amount, reference")
+      .eq("reference", payload.reference)
+      .maybeSingle();
+    if (existing) {
+      if (existing.status !== "successful" && row.status === "successful") {
+        const { data, error } = await supabase
+          .from("payments")
+          .update({ status: "successful", amount: row.amount, method: row.method })
+          .eq("id", existing.id)
+          .select()
+          .single();
+        if (error) {
+          console.error("Supabase recordPayment update error:", error.message);
+          return { data: null, error: error.message, success: false };
+        }
+        return { data, error: null, success: true };
+      }
+      return { data: existing, error: null, success: true };
+    }
+    const { data, error } = await supabase.from("payments").insert(row).select().single();
+    if (error) {
+      console.error("Supabase recordPayment insert error:", error.message);
+      // Unique race — treat as success if already present
+      if (error.code === "23505") {
+        const { data: again } = await supabase
+          .from("payments")
+          .select("*")
+          .eq("reference", payload.reference)
+          .maybeSingle();
+        return { data: again, error: null, success: true };
+      }
+      return { data: null, error: error.message, success: false };
+    }
+    return { data, error: null, success: true };
+  },
+
   getPayments: async (): Promise<ApiResponse<any[]>> => {
     if (!USE_SUPABASE) {
       return { data: [], error: null, success: true };
@@ -1866,7 +2071,7 @@ She Leads Africa | Empowering African Women Through Education`;
     }
     const { data: courses, error: courseError } = await supabase
       .from("courses")
-      .select("id, rating, revenue")
+      .select("id, rating")
       .eq("instructor_id", instructorId);
     if (courseError) {
       return { data: null, error: courseError.message, success: false };
@@ -1874,6 +2079,7 @@ She Leads Africa | Empowering African Women Through Education`;
 
     const courseIds = (courses ?? []).map((c: any) => c.id).filter((id: unknown) => typeof id === "number");
     let totalStudents = 0;
+    let totalRevenue = 0;
     if (courseIds.length > 0) {
       const { data: enrollments, error: enrollErr } = await supabase
         .from("enrollments")
@@ -1885,11 +2091,24 @@ She Leads Africa | Empowering African Women Through Education`;
         return { data: null, error: enrollErr.message, success: false };
       }
       totalStudents = (enrollments ?? []).length;
+
+      const { data: paymentRows, error: payErr } = await supabase
+        .from("payments")
+        .select("amount")
+        .in("course_id", courseIds)
+        .eq("status", "successful");
+      if (payErr) {
+        console.error("Supabase getInstructorStats payments error:", payErr.message);
+      } else {
+        totalRevenue = (paymentRows ?? []).reduce(
+          (acc, p) => acc + (Number(p.amount) || 0),
+          0,
+        );
+      }
     }
 
-    const totalRevenue = courses.reduce((acc, c) => acc + (c.revenue || 0), 0);
     const avgRating = courses.length > 0
-      ? courses.reduce((acc, c) => acc + (c.rating || 0), 0) / courses.length : 0;
+      ? courses.reduce((acc, c) => acc + (Number(c.rating) || 0), 0) / courses.length : 0;
     return { 
       data: { totalStudents, activeCourses: courses.length, avgRating: avgRating.toFixed(1), totalRevenue }, 
       error: null, 
@@ -1904,16 +2123,161 @@ She Leads Africa | Empowering African Women Through Education`;
     if (!instructorId) {
       return { data: [], error: null, success: true };
     }
-    const { data, error } = await supabase
-      .from("courses")
-      .select(COURSE_COLUMNS)
-      .eq("instructor_id", instructorId)
-      .order("created_at", { ascending: false });
+    const { data, error } = await selectCoursesWithFallback((cols) =>
+      supabase
+        .from("courses")
+        .select(cols)
+        .eq("instructor_id", instructorId)
+        .order("created_at", { ascending: false }),
+    );
     if (error) {
       console.error("Supabase getInstructorCourses error:", error.message);
       return { data: [], error: error.message, success: false };
     }
-    return { data: mapCourseRows(data ?? []), error: null, success: true };
+    const mapped = mapCourseRows((data as unknown[]) ?? []);
+    const courseIds = mapped.map((c) => c.id).filter((id) => typeof id === "number");
+    if (courseIds.length === 0) {
+      return { data: mapped, error: null, success: true };
+    }
+
+    // Attach live revenue from successful payments (courses.revenue column is unused)
+    const { data: paymentRows, error: payErr } = await supabase
+      .from("payments")
+      .select("course_id, amount")
+      .in("course_id", courseIds)
+      .eq("status", "successful");
+    if (payErr) {
+      console.error("Supabase getInstructorCourses payments error:", payErr.message);
+      return { data: mapped.map((c) => ({ ...c, revenue: 0 })), error: null, success: true };
+    }
+    const revenueByCourse = new Map<number, number>();
+    for (const row of paymentRows ?? []) {
+      const cid = Number((row as { course_id?: number }).course_id);
+      if (!Number.isFinite(cid)) continue;
+      revenueByCourse.set(
+        cid,
+        (revenueByCourse.get(cid) || 0) + (Number((row as { amount?: number }).amount) || 0),
+      );
+    }
+    return {
+      data: mapped.map((c) => ({ ...c, revenue: revenueByCourse.get(c.id) || 0 })),
+      error: null,
+      success: true,
+    };
+  },
+
+  // -------------------------
+  // CERTIFICATE TEMPLATES
+  // -------------------------
+  getCourseCertificateConfig: async (courseId: number): Promise<ApiResponse<Record<string, unknown>>> => {
+    if (!USE_SUPABASE || !courseId) {
+      return { data: {}, error: null, success: true };
+    }
+    const { data, error } = await supabase
+      .from("courses")
+      .select("certificate_config, program_id, title")
+      .eq("id", courseId)
+      .maybeSingle();
+    if (error && isMissingColumnError(error.message, "certificate_config")) {
+      return { data: {}, error: null, success: true };
+    }
+    if (error) {
+      console.error("Supabase getCourseCertificateConfig error:", error.message);
+      return { data: {}, error: error.message, success: false };
+    }
+    const courseCfg =
+      data?.certificate_config && typeof data.certificate_config === "object"
+        ? (data.certificate_config as Record<string, unknown>)
+        : {};
+    const hasCustom = Object.keys(courseCfg).length > 0;
+    if (hasCustom || !data?.program_id) {
+      return { data: courseCfg, error: null, success: true };
+    }
+    // Inherit program template when course has empty config
+    const { data: program } = await supabase
+      .from("programs")
+      .select("certificate_config")
+      .eq("id", data.program_id)
+      .maybeSingle();
+    const programCfg =
+      program?.certificate_config && typeof program.certificate_config === "object"
+        ? (program.certificate_config as Record<string, unknown>)
+        : {};
+    return { data: programCfg, error: null, success: true };
+  },
+
+  updateCourseCertificateConfig: async (
+    courseId: number,
+    config: Record<string, unknown>,
+  ): Promise<ApiResponse<Record<string, unknown> | null>> => {
+    if (!USE_SUPABASE || !courseId) {
+      return { data: null, error: null, success: true };
+    }
+    const { data, error } = await supabase
+      .from("courses")
+      .update({ certificate_config: config })
+      .eq("id", courseId)
+      .select("certificate_config")
+      .single();
+    if (error) {
+      console.error("Supabase updateCourseCertificateConfig error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+    return {
+      data: (data?.certificate_config as Record<string, unknown>) ?? config,
+      error: null,
+      success: true,
+    };
+  },
+
+  getProgramCertificateConfig: async (programId: number): Promise<ApiResponse<Record<string, unknown>>> => {
+    if (!USE_SUPABASE || !programId) {
+      return { data: {}, error: null, success: true };
+    }
+    const { data, error } = await supabase
+      .from("programs")
+      .select("certificate_config")
+      .eq("id", programId)
+      .maybeSingle();
+    if (error && isMissingColumnError(error.message, "certificate_config")) {
+      return { data: {}, error: null, success: true };
+    }
+    if (error) {
+      console.error("Supabase getProgramCertificateConfig error:", error.message);
+      return { data: {}, error: error.message, success: false };
+    }
+    return {
+      data:
+        data?.certificate_config && typeof data.certificate_config === "object"
+          ? (data.certificate_config as Record<string, unknown>)
+          : {},
+      error: null,
+      success: true,
+    };
+  },
+
+  updateProgramCertificateConfig: async (
+    programId: number,
+    config: Record<string, unknown>,
+  ): Promise<ApiResponse<Record<string, unknown> | null>> => {
+    if (!USE_SUPABASE || !programId) {
+      return { data: null, error: null, success: true };
+    }
+    const { data, error } = await supabase
+      .from("programs")
+      .update({ certificate_config: config })
+      .eq("id", programId)
+      .select("certificate_config")
+      .single();
+    if (error) {
+      console.error("Supabase updateProgramCertificateConfig error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+    return {
+      data: (data?.certificate_config as Record<string, unknown>) ?? config,
+      error: null,
+      success: true,
+    };
   },
 
   // -------------------------

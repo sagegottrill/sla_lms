@@ -662,9 +662,12 @@ export default function CourseAuthoringWizard() {
           type: l.type,
           duration: "",
           // Compatibility with existing course viewer patterns in this repo:
+          // CourseDetail treats both "text" and "reading" as text lessons.
+          type: l.type === "reading" ? "text" : l.type,
           vimeo_url: l.type === "video" ? url : "",
           transcript_url: l.type === "reading" ? url : "",
           content_url: url,
+          content: "",
         };
       }),
     }));

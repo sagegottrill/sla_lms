@@ -239,7 +239,7 @@ export default function ToDoListWidget({ userId, limit = 7 }: ToDoListWidgetProp
       {allItems.length > limit && (
         <div className="mt-4 pt-4 border-t border-border/40">
           <Link
-            to="/dashboard/todo"
+            to="/dashboard/courses"
             className="text-sm font-medium text-primary hover:text-primary/90 transition-colors"
           >
             View all {allItems.length} items →

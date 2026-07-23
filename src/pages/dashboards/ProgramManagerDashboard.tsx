@@ -119,22 +119,27 @@ export default function ProgramManagerDashboard() {
         toast.info(`Issuing ${eligible.length} certificate${eligible.length > 1 ? "s" : ""}…`);
 
         const results = await Promise.allSettled(
-          eligible.map((p: any) =>
-            api.issueCertificate(
+          eligible.map((p: any) => {
+            const programId = Number(p.program_id ?? p.programId);
+            const courseId = Number(p.course_id ?? p.courseId);
+            return api.issueCertificate(
               String(p.user_id ?? p.id),
-              0,
-              p.program ?? "Program Completion",
+              Number.isFinite(courseId) && courseId > 0 ? courseId : null,
+              p.program ?? p.course_title ?? "Program Completion",
               "She Leads Africa",
-              "Program"
-            )
-          )
+              "Program",
+              Number.isFinite(programId) && programId > 0 ? programId : null,
+            );
+          })
         );
 
-        const succeeded = results.filter(r => r.status === "fulfilled" && r.value).length;
-        const failed    = results.length - succeeded;
+        const succeeded = results.filter(
+          (r) => r.status === "fulfilled" && r.value?.success,
+        ).length;
+        const failed = results.length - succeeded;
 
         if (succeeded > 0) toast.success(`${succeeded} certificate${succeeded > 1 ? "s" : ""} issued!`);
-        if (failed > 0)    toast.error(`${failed} failed — check Supabase/RLS.`);
+        if (failed > 0) toast.error(`${failed} failed — check course/program IDs and permissions.`);
 
         setSelectedParticipantIds(new Set());
       },
