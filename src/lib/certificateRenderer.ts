@@ -303,18 +303,18 @@ export async function generateCertificateImage(
     if (bg) {
       ctx.drawImage(bg, 0, 0, 1400, 990);
     } else {
-      ctx.fillStyle = "#F7F3EC";
+      ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, 1400, 990);
     }
   } else {
-    ctx.fillStyle = "#F7F3EC";
+    ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, 1400, 990);
   }
 
   const watermark = await loadImage(config.watermark_url);
   if (watermark) {
     ctx.save();
-    ctx.globalAlpha = layoutIsLuxury ? 0.22 : layoutIsClean ? 0.06 : 0.09;
+    ctx.globalAlpha = layoutIsLuxury ? 0.11 : layoutIsClean ? 0.06 : 0.09;
     ctx.drawImage(
       watermark,
       layoutIsLuxury ? 0 : 445,

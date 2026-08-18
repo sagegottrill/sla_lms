@@ -60,9 +60,12 @@ function titleParts(title: string): [string, string] | [string] {
   return [title];
 }
 
+/** Premium SLA certificate surface — clean white, not cream/yellow. */
+export const CERTIFICATE_SURFACE = "#FFFFFF";
+
 /**
  * Premium certificate HTML template (Certiva / pdf4.dev pattern):
- * background image + positioned text fields + flex footer.
+ * white surface + optional watermark + positioned text fields + flex footer.
  */
 export function buildCertificateHtml(input: CertificateHtmlInput): string {
   const { config, studentName, courseTitle, credentialId, verificationUrl } = input;
@@ -118,10 +121,12 @@ export function buildCertificateHtml(input: CertificateHtmlInput): string {
 
   const bgStyle = hasCustomBg
     ? `background-image:url('${escapeHtml(config.background_url)}');`
-    : "background-color:#F7F3EC;";
+    : `background-color:${CERTIFICATE_SURFACE};`;
 
   const watermarkLayer = hasWatermark
-    ? `<div class="cert-watermark" style="background-image:url('${escapeHtml(config.watermark_url)}')"></div>`
+    ? `<div class="cert-watermark" style="background-image:url('${escapeHtml(config.watermark_url)}')"></div>${
+        hasCustomBg ? "" : '<div class="cert-white-wash"></div>'
+      }`
     : "";
 
   const bandsLayer = hasCustomBg ? "" : `<div class="cert-bands" style="--accent:${accent}"></div>`;
@@ -143,6 +148,7 @@ export function buildCertificateHtml(input: CertificateHtmlInput): string {
     overflow: hidden;
     font-family: Arial, Helvetica, sans-serif;
     ${bgStyle}
+    background-color: ${CERTIFICATE_SURFACE};
     background-size: cover;
     background-position: center;
   }
@@ -165,11 +171,19 @@ export function buildCertificateHtml(input: CertificateHtmlInput): string {
   }
   .cert-watermark {
     position: absolute;
-    inset: 120px 0 90px 0;
+    inset: 100px 0 72px 0;
     background-size: cover;
     background-position: center;
-    opacity: 0.22;
+    filter: grayscale(100%) contrast(0.92);
+    opacity: 0.11;
     z-index: 0;
+    pointer-events: none;
+  }
+  .cert-white-wash {
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.78);
+    z-index: 1;
     pointer-events: none;
   }
   .cert-logos {

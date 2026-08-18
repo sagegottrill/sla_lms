@@ -4,7 +4,7 @@ import {
   mergeCertificateConfig,
   type CertificateConfig,
 } from "@/lib/certificateConfig";
-import { buildCertificateHtml } from "@/lib/certificateHtmlTemplate";
+import { buildCertificateHtml, CERTIFICATE_SURFACE } from "@/lib/certificateHtmlTemplate";
 import { getSiteUrl } from "@/lib/siteUrl";
 
 export type LuxuryCertificateInput = {
@@ -95,7 +95,7 @@ export async function renderLuxuryCertificateBlob(
       scale: 2,
       useCORS: true,
       allowTaint: false,
-      backgroundColor: null,
+      backgroundColor: CERTIFICATE_SURFACE,
       logging: false,
     });
 

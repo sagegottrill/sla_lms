@@ -302,7 +302,7 @@ export default function CertificateDesignEditor({
         <div>
           <h4 className={sectionTitleCls}>Background & Decorative Assets</h4>
           <p className={sectionHintCls}>
-            Decorative assets should be subtle. The best certificates use texture and seals lightly, not loudly.
+            Default surface is premium white. Upload a graduation photo as the watermark for the faded background look — not as the main background.
           </p>
         </div>
         <div>
