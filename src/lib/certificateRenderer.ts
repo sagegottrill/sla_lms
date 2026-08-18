@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import { getSiteUrl } from "@/lib/siteUrl";
+import { renderLuxuryCertificateBlob } from "@/lib/certificateHtmlRenderer";
 import {
   fillCertificateBody,
   mergeCertificateConfig,
@@ -277,6 +278,11 @@ export async function generateCertificateImage(
   input: CertificateRenderInput,
 ): Promise<Blob | null> {
   const config = mergeCertificateConfig(input.config);
+  if (config.layout_variant === "formal_luxury") {
+    const htmlBlob = await renderLuxuryCertificateBlob(input);
+    if (htmlBlob) return htmlBlob;
+  }
+
   const verificationUrl = `${getSiteUrl()}/dashboard/certificates`;
   const canvas = document.createElement("canvas");
   canvas.width = 1400;
