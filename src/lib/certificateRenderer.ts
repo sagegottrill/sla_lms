@@ -195,12 +195,15 @@ function drawRichLine(
     ctx.font = token.bold ? boldFont : baseFont;
     totalWidth += ctx.measureText(token.text).width;
   }
+  const prevAlign = ctx.textAlign;
+  ctx.textAlign = "left";
   let x = centerX - totalWidth / 2;
   for (const token of tokens) {
     ctx.font = token.bold ? boldFont : baseFont;
     ctx.fillText(token.text, x, y);
     x += ctx.measureText(token.text).width;
   }
+  ctx.textAlign = prevAlign;
 }
 
 function formatLuxuryDate(completedAt?: string | null): string {
@@ -557,7 +560,7 @@ export async function generateCertificateImage(
   if (showTrust) {
     ctx.textAlign = "left";
     if (layoutIsLuxury) {
-      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.fillStyle = "#FFFFFF";
       ctx.font = "600 11px Arial, Helvetica, sans-serif";
       ctx.fillText("Verification", 96, trustTop + 14);
       ctx.font = "10px Arial, Helvetica, sans-serif";
