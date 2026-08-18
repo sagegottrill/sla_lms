@@ -75,6 +75,7 @@ const navByRole: Record<UserRole, NavGroup[]> = {
       group: "Engage",
       items: [
         { label: "Students", icon: Users, href: "/dashboard/students" },
+        { label: "Certificates", icon: Award, href: "/dashboard/certificates" },
         { label: "Forums", icon: MessageSquare, href: "/dashboard/forums" },
       ],
     },
@@ -108,6 +109,7 @@ const navByRole: Record<UserRole, NavGroup[]> = {
         { label: "Programs", icon: FolderOpen, href: "/dashboard/programs" },
         { label: "Create Program", icon: PlusCircle, href: "/dashboard/programs/new" },
         { label: "Participants", icon: Users, href: "/dashboard/participants" },
+        { label: "Certificates", icon: Award, href: "/dashboard/certificates" },
         { label: "Assessments", icon: ListChecks, href: "/dashboard/assessments/setup" },
       ],
     },

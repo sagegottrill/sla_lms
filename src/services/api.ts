@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { UUID_ROUTE } from "@/lib/publicRoutes";
 import { mergeCertificateConfig, type CertificateConfig } from "@/lib/certificateConfig";
+import { getCertificateVerifyUrl } from "@/lib/certificateUrls";
 import type { Course, Program, ApiResponse } from "@/types";
 import { apiResponse, isApiSuccess, handleApiError } from "@/lib/utils/api";
 import {
@@ -1667,6 +1668,158 @@ export const api = {
     return { data: data ?? [], error: null, success: true };
   },
 
+  getAllCertificates: async (): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) {
+      return { data: [], error: null, success: true };
+    }
+    const { data, error } = await supabase
+      .from("certificates")
+      .select("*, profiles(name, email)")
+      .order("completed_at", { ascending: false });
+    if (error) {
+      console.error("Supabase getAllCertificates error:", error.message);
+      return { data: [], error: error.message, success: false };
+    }
+    return { data: data ?? [], error: null, success: true };
+  },
+
+  verifyCertificateByCredentialId: async (
+    credentialId: string,
+  ): Promise<ApiResponse<{
+    valid: boolean;
+    status: string;
+    credential_id: string;
+    course_title: string;
+    completed_at: string;
+    recipient_name: string;
+    org_name: string;
+  } | null>> => {
+    if (!USE_SUPABASE || !credentialId.trim()) {
+      return { data: null, error: "Invalid credential.", success: false };
+    }
+    const { data, error } = await supabase.rpc("verify_certificate", {
+      p_credential_id: credentialId.trim(),
+    });
+    if (error) {
+      console.error("verify_certificate RPC error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+    if (!data) {
+      return { data: null, error: "Certificate not found.", success: false };
+    }
+    return { data: data as any, error: null, success: true };
+  },
+
+  revokeCertificate: async (certificateRowId: number): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const payload: Record<string, unknown> = {
+      status: "revoked",
+      revoked_at: new Date().toISOString(),
+    };
+    if (user?.id) payload.revoked_by = user.id;
+
+    const { data, error } = await supabase
+      .from("certificates")
+      .update(payload)
+      .eq("id", certificateRowId)
+      .select("*")
+      .single();
+    if (error) {
+      if (isMissingColumnError(error.message, "status")) {
+        return { data: null, error: "Apply certificate management migration first.", success: false };
+      }
+      console.error("Supabase revokeCertificate error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+    return { data, error: null, success: true };
+  },
+
+  reissueCertificate: async (certificateRowId: number): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    const { data: existing, error: fetchError } = await supabase
+      .from("certificates")
+      .select("*")
+      .eq("id", certificateRowId)
+      .single();
+    if (fetchError || !existing) {
+      return { data: null, error: fetchError?.message || "Certificate not found.", success: false };
+    }
+
+    await supabase
+      .from("certificates")
+      .update({
+        status: "revoked",
+        revoked_at: new Date().toISOString(),
+      })
+      .eq("id", certificateRowId);
+
+    const resolvedCourseId = existing.course_id ?? null;
+    const resolvedProgramId = existing.program_id ?? null;
+    const credentialId = `SLA-${resolvedCourseId ?? `P${resolvedProgramId}`}-${String(existing.user_id).slice(0, 8)}-${Date.now().toString(36).toUpperCase()}`;
+
+    const { data, error } = await supabase
+      .from("certificates")
+      .insert({
+        user_id: existing.user_id,
+        course_id: resolvedCourseId,
+        program_id: resolvedProgramId,
+        course_title: existing.course_title,
+        instructor: existing.instructor,
+        duration: existing.duration,
+        credential_id: credentialId,
+        completed_at: new Date().toISOString(),
+        status: "active",
+      })
+      .select("*")
+      .single();
+    if (error) {
+      if (isMissingColumnError(error.message, "status")) {
+        return { data: null, error: "Apply certificate management migration first.", success: false };
+      }
+      console.error("Supabase reissueCertificate error:", error.message);
+      return { data: null, error: error.message, success: false };
+    }
+    return { data: { ...data, newly_issued: true }, error: null, success: true };
+  },
+
+  resendCertificateEmailForRow: async (cert: {
+    user_id: string;
+    course_id?: number | null;
+    program_id?: number | null;
+    course_title?: string;
+    credential_id?: string;
+    completed_at?: string;
+    profiles?: { name?: string; email?: string } | null;
+  }): Promise<ApiResponse<any | null>> => {
+    const email = cert.profiles?.email;
+    if (!email) {
+      return { data: null, error: "Learner email not found.", success: false };
+    }
+    let config: Record<string, unknown> | null = null;
+    if (cert.course_id) {
+      const res = await api.getCourseCertificateConfig(cert.course_id);
+      if (res.success) config = res.data;
+    } else if (cert.program_id) {
+      const res = await api.getProgramCertificateConfig(cert.program_id);
+      if (res.success) config = res.data;
+    }
+    return api.sendCertificateEmail(
+      email,
+      cert.profiles?.name || "Learner",
+      cert.course_title || "Course",
+      cert.credential_id || "",
+      cert.completed_at || new Date().toISOString(),
+      config,
+    );
+  },
+
   issueCertificate: async (
     userId: string,
     courseId: number | null,
@@ -1701,20 +1854,22 @@ export const api = {
     }
 
     const credentialId = `SLA-${resolvedCourseId ?? `P${resolvedProgramId}`}-${userId.slice(0, 8)}-${Date.now().toString(36).toUpperCase()}`;
-    const { data, error } = await supabase
-      .from("certificates")
-      .insert({
-        user_id: userId,
-        course_id: resolvedCourseId,
-        program_id: resolvedProgramId,
-        course_title: courseTitle,
-        instructor,
-        duration,
-        credential_id: credentialId,
-        completed_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    const insertPayload = {
+      user_id: userId,
+      course_id: resolvedCourseId,
+      program_id: resolvedProgramId,
+      course_title: courseTitle,
+      instructor,
+      duration,
+      credential_id: credentialId,
+      completed_at: new Date().toISOString(),
+      status: "active",
+    };
+    let { data, error } = await supabase.from("certificates").insert(insertPayload).select().single();
+    if (error && isMissingColumnError(error.message, "status")) {
+      const { status: _s, ...legacyPayload } = insertPayload;
+      ({ data, error } = await supabase.from("certificates").insert(legacyPayload).select().single());
+    }
     if (error) {
       console.error("Supabase issueCertificate error:", error.message);
       return { data: null, error: error.message, success: false };
@@ -1735,6 +1890,7 @@ export const api = {
     }
 
     const appUrl = window.location.origin;
+    const verifyUrl = getCertificateVerifyUrl(credentialId);
     const config = mergeCertificateConfig(configInput);
     const completedDate = new Date(completedAt).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -1776,12 +1932,16 @@ export const api = {
             <p style="margin: 0; color: #666; font-size: 14px;"><strong>Program:</strong> ${safeProgramLabel}</p>
             <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;"><strong>Certificate ID:</strong> ${safeCredentialId}</p>
             <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;"><strong>Issued:</strong> ${safeCompletedDate}</p>
+            <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;"><strong>Verify:</strong> <a href="${verifyUrl}" style="color:${brandColor};">${verifyUrl}</a></p>
           </div>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${appUrl}/dashboard/certificates" 
                style="display: inline-block; background: linear-gradient(135deg, ${brandColor} 0%, #17324D 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">
               View Certificate
             </a>
+          </div>
+          <div style="text-align: center; margin: 0 0 20px;">
+            <a href="${verifyUrl}" style="color:${brandColor}; font-size:14px;">Verify this credential publicly</a>
           </div>
           <p style="font-size: 14px; color: #666; line-height: 1.6; margin-top: 30px;">
             Share your achievement on LinkedIn and inspire others in the ${safeOrgName} community.
@@ -1804,6 +1964,8 @@ Program: ${config.program_label}
 
 Certificate ID: ${credentialId}
 Issued: ${completedDate}
+
+Verify online: ${verifyUrl}
 
 View your certificate: ${appUrl}/dashboard/certificates
 

@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
-import { getSiteUrl } from "@/lib/siteUrl";
+import { jsPDF } from "jspdf";
+import { getCertificateVerifyUrl } from "@/lib/certificateUrls";
 import { renderLuxuryCertificateBlob } from "@/lib/certificateHtmlRenderer";
 import {
   fillCertificateBody,
@@ -283,7 +284,7 @@ export async function generateCertificateImage(
     if (htmlBlob) return htmlBlob;
   }
 
-  const verificationUrl = `${getSiteUrl()}/dashboard/certificates`;
+  const verificationUrl = getCertificateVerifyUrl(input.credentialId);
   const canvas = document.createElement("canvas");
   canvas.width = 1400;
   canvas.height = 990;
@@ -599,6 +600,26 @@ export async function generateCertificateImage(
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), "image/png");
   });
+}
+
+export async function downloadCertificatePdf(
+  input: CertificateRenderInput,
+): Promise<void> {
+  const blob = await generateCertificateImage(input);
+  if (!blob) return;
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Could not read certificate image."));
+    reader.readAsDataURL(blob);
+  });
+  const pdf = new jsPDF({
+    orientation: "landscape",
+    unit: "pt",
+    format: [1400, 990],
+  });
+  pdf.addImage(dataUrl, "PNG", 0, 0, 1400, 990);
+  pdf.save(`SLA-Certificate-${input.credentialId}.pdf`);
 }
 
 export async function downloadOrOpenCertificate(

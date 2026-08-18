@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
-import { Award, Download, Share2, ExternalLink, Loader2, Search, Users } from "lucide-react";
+import { Award, Download, ExternalLink, Loader2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { api } from "@/services/api";
-import { getSiteUrl } from "@/lib/siteUrl";
 import { mergeCertificateConfig } from "@/lib/certificateConfig";
-import { downloadOrOpenCertificate } from "@/lib/certificateRenderer";
+import {
+  downloadCertificatePdf,
+  downloadOrOpenCertificate,
+} from "@/lib/certificateRenderer";
+import CertificateManagementPanel from "@/components/admin/CertificateManagementPanel";
 
 async function resolveCertConfig(cert: {
   course_id?: number | null;
@@ -30,26 +33,39 @@ async function handleCertAction(
     course_title?: string;
     credential_id?: string;
     completed_at?: string;
+    status?: string;
   },
   userName: string,
-  open: boolean,
+  opts: { open?: boolean; pdf?: boolean },
 ) {
+  if (cert.status === "revoked") {
+    toast.error("This certificate has been revoked.");
+    return;
+  }
   try {
     const config = await resolveCertConfig(cert);
-    await downloadOrOpenCertificate({
+    const input = {
       studentName: userName,
       courseTitle: cert.course_title || "Course",
       credentialId: cert.credential_id || "N/A",
       completedAt: cert.completed_at,
       config,
-      open,
-    });
-    toast.success(open ? "Certificate opened." : "Certificate downloaded!");
+      open: opts.open,
+    };
+    if (opts.pdf) {
+      await downloadCertificatePdf(input);
+      toast.success("PDF downloaded!");
+    } else {
+      await downloadOrOpenCertificate(input);
+      toast.success(opts.open ? "Certificate opened." : "Certificate downloaded!");
+    }
   } catch (e) {
     console.error(e);
     toast.error("Could not generate certificate.");
   }
 }
+
+const STAFF_ROLES = ["admin", "program_manager", "instructor"] as const;
 
 export default function CertificatesPage() {
   const { appUser } = useAuth();
@@ -58,23 +74,16 @@ export default function CertificatesPage() {
   const [inProgressCount, setInProgressCount] = useState(0);
   const [totalHours, setTotalHours] = useState(0);
   const [allCertificates, setAllCertificates] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
 
-  const isAdmin =
-    appUser?.role === "admin" ||
-    appUser?.role === "program_manager" ||
-    appUser?.role === "instructor";
+  const isStaff = STAFF_ROLES.includes(appUser?.role as (typeof STAFF_ROLES)[number]);
 
   const load = useCallback(async () => {
     if (!appUser?.id) return;
     setLoading(true);
     try {
-      if (isAdmin) {
-        const { data } = await supabase
-          .from("certificates")
-          .select("*, profiles(name, email)")
-          .order("completed_at", { ascending: false });
-        setAllCertificates(data || []);
+      if (isStaff) {
+        const res = await api.getAllCertificates();
+        setAllCertificates(res.success ? res.data || [] : []);
       } else {
         const [certsResponse, enrollRes] = await Promise.all([
           api.getCertificates(appUser.id),
@@ -97,131 +106,31 @@ export default function CertificatesPage() {
     } finally {
       setLoading(false);
     }
-  }, [appUser?.id, isAdmin]);
+  }, [appUser?.id, isStaff]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const filteredAdmin = allCertificates.filter((cert) => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      cert.profiles?.name?.toLowerCase().includes(search) ||
-      cert.profiles?.email?.toLowerCase().includes(search) ||
-      cert.course_title?.toLowerCase().includes(search) ||
-      cert.credential_id?.toLowerCase().includes(search)
-    );
-  });
-
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 py-6 pb-20">
       <div className="border-b border-border/40 pb-6">
         <h1 className="font-display text-3xl font-light text-foreground tracking-tight mb-2">
-          {isAdmin ? "Certificate Management" : "My Certificates"}
+          {isStaff ? "Certificate Management" : "My Certificates"}
         </h1>
         <p className="text-muted-foreground text-sm">
-          {isAdmin
-            ? "Manage all certificates issued across the platform"
+          {isStaff
+            ? "Issue, verify, revoke, reissue, and export credentials across the platform."
             : `${certificates.length} digital credentials earned.`}
         </p>
       </div>
 
-      {isAdmin ? (
-        <>
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by name, email, course, credential…"
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-card text-sm"
-            />
-          </div>
-          {loading ? (
-            <div className="flex justify-center py-16">
-              <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="bg-card rounded-2xl shadow-sm border-0 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-xs text-muted-foreground uppercase tracking-wider">
-                      <th className="px-6 py-3">Learner</th>
-                      <th className="px-6 py-3">Course</th>
-                      <th className="px-6 py-3">Credential</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {filteredAdmin.map((cert) => (
-                      <tr key={cert.id}>
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-foreground">
-                            {cert.profiles?.name || "Student"}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {cert.profiles?.email}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-foreground">{cert.course_title}</td>
-                        <td className="px-6 py-4">
-                          <code className="text-xs font-mono bg-muted px-2 py-1 rounded">
-                            {cert.credential_id}
-                          </code>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="rounded-lg text-xs"
-                              onClick={() =>
-                                handleCertAction(
-                                  cert,
-                                  cert.profiles?.name || "Student",
-                                  true,
-                                )
-                              }
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="rounded-lg text-xs"
-                              onClick={() => {
-                                navigator.clipboard.writeText(
-                                  `${getSiteUrl()}/dashboard/certificates`,
-                                );
-                                toast.success("Link copied!");
-                              }}
-                            >
-                              <Share2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {filteredAdmin.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center">
-                          <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                          <p className="text-muted-foreground">
-                            {searchTerm
-                              ? "No certificates found matching your search"
-                              : "No certificates issued yet"}
-                          </p>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </>
+      {isStaff ? (
+        <CertificateManagementPanel
+          certificates={allCertificates}
+          loading={loading}
+          onRefresh={() => void load()}
+        />
       ) : (
         <>
           <div className="grid grid-cols-3 gap-6 mb-10">
@@ -279,6 +188,11 @@ export default function CertificatesPage() {
                     <p className="text-xs text-muted-foreground mt-1 font-mono">
                       {cert.credential_id}
                     </p>
+                    {cert.status === "revoked" && (
+                      <p className="text-xs text-destructive mt-1 font-semibold uppercase">
+                        Revoked
+                      </p>
+                    )}
                     {cert.completed_at && (
                       <p className="text-xs text-muted-foreground mt-1">
                         {new Date(cert.completed_at).toLocaleDateString("en-GB", {
@@ -289,22 +203,35 @@ export default function CertificatesPage() {
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-2 mt-auto">
+                  <div className="flex gap-2 mt-auto flex-wrap">
                     <Button
                       size="sm"
-                      className="rounded-xl flex-1"
+                      className="rounded-xl flex-1 min-w-[100px]"
+                      disabled={cert.status === "revoked"}
                       onClick={() =>
-                        handleCertAction(cert, appUser?.name || "Student", false)
+                        handleCertAction(cert, appUser?.name || "Student", {})
                       }
                     >
-                      <Download className="w-3.5 h-3.5 mr-1" /> Download
+                      <Download className="w-3.5 h-3.5 mr-1" /> PNG
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       className="rounded-xl"
+                      disabled={cert.status === "revoked"}
                       onClick={() =>
-                        handleCertAction(cert, appUser?.name || "Student", true)
+                        handleCertAction(cert, appUser?.name || "Student", { pdf: true })
+                      }
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl"
+                      disabled={cert.status === "revoked"}
+                      onClick={() =>
+                        handleCertAction(cert, appUser?.name || "Student", { open: true })
                       }
                     >
                       <ExternalLink className="w-3.5 h-3.5" />

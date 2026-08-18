@@ -73,7 +73,7 @@ const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const AuthCallbackPage = lazy(() => import("./pages/AuthCallbackPage"));
 const JobsBoardPage = lazy(() => import("./pages/JobsBoardPage"));
 const OpportunitiesPage = lazy(() => import("./pages/OpportunitiesPage"));
-const WebinarsPage = lazy(() => import("./pages/WebinarsPage"));
+const VerifyCertificatePage = lazy(() => import("./pages/VerifyCertificatePage"));
 
 function CoursesRoute() {
   const { appUser } = useAuth();
@@ -130,6 +130,7 @@ const App = () => (
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
+              <Route path="/verify/:credentialId" element={<VerifyCertificatePage />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
 
               {/* Protected Dashboard */}

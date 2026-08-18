@@ -5,7 +5,7 @@ import {
   type CertificateConfig,
 } from "@/lib/certificateConfig";
 import { buildCertificateHtml, CERTIFICATE_SURFACE } from "@/lib/certificateHtmlTemplate";
-import { getSiteUrl } from "@/lib/siteUrl";
+import { getCertificateVerifyUrl } from "@/lib/certificateUrls";
 
 export type LuxuryCertificateInput = {
   studentName: string;
@@ -40,7 +40,7 @@ export async function renderLuxuryCertificateBlob(
   input: LuxuryCertificateInput,
 ): Promise<Blob | null> {
   const config = mergeCertificateConfig(input.config);
-  const verificationUrl = `${getSiteUrl()}/dashboard/certificates`;
+  const verificationUrl = getCertificateVerifyUrl(input.credentialId);
   const html = buildCertificateHtml({
     studentName: input.studentName,
     courseTitle: input.courseTitle,
