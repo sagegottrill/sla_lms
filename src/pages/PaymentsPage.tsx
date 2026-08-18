@@ -20,9 +20,8 @@ export default function PaymentsPage() {
     data: paystackFinance,
     isLoading: loadingPaystack,
     isError: paystackError,
-    error: paystackErr,
     refetch,
-  } = usePaystackFinance();
+  } = usePaystackFinance({ includeTransactions: true });
 
    const { data: payments = [], isLoading: loadingPayments } = useQuery({
      queryKey: queryKeys.payments.ledger(),
@@ -41,6 +40,16 @@ export default function PaymentsPage() {
       if (s === "failed") return "Failed";
       return s || "—";
     };
+    const methodLabel = (method: string) => {
+      const key = method.toLowerCase().replace(/_/g, " ");
+      if (key === "card") return "Card";
+      if (key === "bank") return "Bank";
+      if (key === "bank transfer") return "Bank transfer";
+      if (key === "ussd") return "USSD";
+      if (key === "qr") return "QR";
+      if (key === "mobile money") return "Mobile money";
+      return method ? method.replace(/_/g, " ") : "Payment";
+    };
     if (paystackFinance?.transactions?.length) {
       return paystackFinance.transactions.map((p) => ({
         id: p.reference,
@@ -49,7 +58,7 @@ export default function PaymentsPage() {
         currency: String(p.currency ?? "NGN"),
         status: mapStatus(String(p.status ?? "")),
         customer: p.customer_email || "—",
-        item: p.method ? `Paystack · ${p.method}` : "Paystack",
+        item: methodLabel(String(p.method ?? "")),
       }));
     }
     return (payments as any[]).map((p) => {
@@ -100,10 +109,12 @@ export default function PaymentsPage() {
           </h1>
           <p className="text-muted-foreground text-sm">
             {loadingPaystack
-              ? "Syncing revenue from Paystack…"
+              ? "Loading payments…"
               : paystackError
-                ? (paystackErr instanceof Error ? paystackErr.message : "Could not load Paystack finance.")
-                : "Live totals from Paystack."}
+                ? "Couldn't load payments. Try again."
+                : paystackFinance?.isTest
+                  ? "Test payments — not live money."
+                : "All payments across the platform."}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -113,13 +124,13 @@ export default function PaymentsPage() {
             onClick={async () => {
               const result = await refetch();
               if (result.error) {
-                toast.error(result.error instanceof Error ? result.error.message : "Could not sync Paystack.");
+                toast.error("Couldn't refresh payments. Try again.");
                 return;
               }
-              toast.success("Paystack finance synced.");
+              toast.success("Payments updated.");
             }}
           >
-             Sync Paystack
+             Refresh
           </Button>
         </div>
       </div>
@@ -130,7 +141,7 @@ export default function PaymentsPage() {
         {/* ———— LEFT COLUMN (Global Metrics Widget) ———— */}
         <div className="lg:col-span-4 xl:col-span-3 space-y-8">
           <div className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-6 shadow-sm">
-            <h2 className="font-display font-semibold text-lg text-foreground mb-6">Financial KPIs</h2>
+            <h2 className="font-display font-semibold text-lg text-foreground mb-6">Overview</h2>
             
             <div className="space-y-6">
               <div>
@@ -147,7 +158,7 @@ export default function PaymentsPage() {
 
               <div>
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1.5">
-                  <CreditCard className="w-3.5 h-3.5" /> Settled Txs
+                  <CreditCard className="w-3.5 h-3.5" /> Paid
                 </p>
                 <div className="flex items-end gap-2">
                   {isLoading || loadingPayments || loadingPaystack ? (
@@ -163,7 +174,7 @@ export default function PaymentsPage() {
 
               <div className="pt-4 border-t border-border/40">
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1.5">
-                  <ArrowUpRight className="w-3.5 h-3.5" /> Net MRR
+                  <ArrowUpRight className="w-3.5 h-3.5" /> Collected
                 </p>
                 <div className="flex items-end gap-2">
                   <p className="text-3xl font-bold text-primary">₦{isLoading || loadingPaystack ? "—" : totalRevenue.toLocaleString()}</p>
@@ -211,15 +222,15 @@ export default function PaymentsPage() {
                   {(isLoading || loadingPayments || loadingPaystack) ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-20 text-center bg-card/20 text-muted-foreground">
-                        Loading transactions…
+                        Loading payments…
                       </td>
                     </tr>
                   ) : filteredRows.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-20 text-center bg-card/20">
                         <CreditCard className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                        <p className="text-foreground font-medium mb-1">No Paystack transactions yet</p>
-                        <p className="text-sm text-muted-foreground">Successful charges from Paystack will appear here after sync.</p>
+                        <p className="text-foreground font-medium mb-1">No payments yet</p>
+                        <p className="text-sm text-muted-foreground">Payments will show here once learners pay.</p>
                       </td>
                     </tr>
                   ) : (

@@ -1,10 +1,14 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const PAYSTACK_HISTORY_FROM = "2010-01-01";
+const PAYSTACK_PER_PAGE = 100;
+const LIST_PAGE_CAP = 8;
 
 type PaystackTxn = {
   id?: number;
@@ -17,6 +21,25 @@ type PaystackTxn = {
   created_at?: string | null;
   customer?: { email?: string };
   metadata?: Record<string, unknown> | null;
+};
+
+type PaystackListResponse = {
+  data?: PaystackTxn[];
+  meta?: { total?: number; pageCount?: number };
+};
+
+type MappedTxn = {
+  reference: string;
+  amount: number;
+  currency: string;
+  status: string;
+  method: string;
+  customer_email: string;
+  paid_at: string | null;
+  course_id: number | null;
+  program_id: number | null;
+  user_id: string | null;
+  synced: boolean;
 };
 
 function json(body: unknown, status = 200) {
@@ -58,37 +81,113 @@ function resolveMeta(metadata: Record<string, unknown> | null | undefined) {
   return { user_id, course_id, program_id };
 }
 
-async function fetchPaystackPage(secret: string, page: number): Promise<PaystackTxn[]> {
-  const url = `https://api.paystack.co/transaction?perPage=100&page=${page}`;
-  const res = await fetch(url, {
+function mapStatus(paystackStatus: string): string {
+  const s = paystackStatus.toLowerCase();
+  if (s === "success") return "successful";
+  if (s === "failed" || s === "reversed") return "failed";
+  return "pending";
+}
+
+function mapTxn(txn: PaystackTxn): MappedTxn | null {
+  const reference = String(txn.reference || "").trim();
+  if (!reference) return null;
+  const { user_id, course_id, program_id } = resolveMeta(
+    txn.metadata && typeof txn.metadata === "object" ? txn.metadata : null,
+  );
+  return {
+    reference,
+    amount: Number(txn.amount || 0) / 100,
+    currency: txn.currency || "NGN",
+    status: mapStatus(String(txn.status || "")),
+    method: txn.channel || "card",
+    customer_email: String(txn.customer?.email || "").trim().toLowerCase(),
+    paid_at: txn.paid_at || txn.created_at || null,
+    course_id,
+    program_id,
+    user_id,
+    synced: false,
+  };
+}
+
+function isLmsTxn(txn: PaystackTxn): boolean {
+  const reference = String(txn.reference || "");
+  if (reference.startsWith("ref_")) return true;
+  const meta = resolveMeta(
+    txn.metadata && typeof txn.metadata === "object" ? txn.metadata : null,
+  );
+  return meta.course_id != null || meta.program_id != null;
+}
+
+async function fetchPaystackPage(
+  secret: string,
+  page: number,
+  extra: Record<string, string> = {},
+): Promise<PaystackListResponse> {
+  const params = new URLSearchParams({
+    perPage: String(PAYSTACK_PER_PAGE),
+    page: String(page),
+    from: PAYSTACK_HISTORY_FROM,
+    ...extra,
+  });
+  const res = await fetch(`https://api.paystack.co/transaction?${params}`, {
     headers: { Authorization: `Bearer ${secret}` },
   });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Paystack list failed (${res.status}): ${text.slice(0, 200)}`);
   }
-  const body = await res.json() as { status?: boolean; data?: PaystackTxn[] };
-  return Array.isArray(body.data) ? body.data : [];
+  return await res.json() as PaystackListResponse;
 }
 
-async function fetchPaystackTotals(secret: string): Promise<{ volumeNgn: number; totalTransactions: number } | null> {
-  const res = await fetch("https://api.paystack.co/transaction/totals", {
-    headers: { Authorization: `Bearer ${secret}` },
-  });
-  if (!res.ok) return null;
-  const body = await res.json() as {
-    data?: {
-      total_transactions?: number;
-      total_volume?: number;
-      total_volume_by_currency?: Array<{ currency?: string; amount?: number }>;
-    };
-  };
-  const ngn = body.data?.total_volume_by_currency?.find((row) => row.currency === "NGN");
-  const kobo = ngn?.amount ?? body.data?.total_volume ?? 0;
-  return {
-    volumeNgn: Number(kobo) / 100,
-    totalTransactions: Number(body.data?.total_transactions) || 0,
-  };
+async function fetchLmsTransactions(
+  secret: string,
+  extra: Record<string, string> = {},
+): Promise<PaystackTxn[]> {
+  const first = await fetchPaystackPage(secret, 1, extra);
+  const txns: PaystackTxn[] = Array.isArray(first.data) ? [...first.data] : [];
+  const pageCount = Math.min(LIST_PAGE_CAP, Math.max(1, Number(first.meta?.pageCount) || 1));
+  if (pageCount > 1 && txns.length >= PAYSTACK_PER_PAGE) {
+    const rest = await Promise.all(
+      Array.from({ length: pageCount - 1 }, (_, i) => fetchPaystackPage(secret, i + 2, extra)),
+    );
+    for (const body of rest) {
+      if (Array.isArray(body.data)) txns.push(...body.data);
+    }
+  }
+  return txns.filter(isLmsTxn);
+}
+
+async function syncLedger(adminClient: SupabaseClient, transactions: MappedTxn[]) {
+  for (const txn of transactions) {
+    const userId = txn.user_id;
+    if (!userId || (txn.course_id == null && txn.program_id == null)) continue;
+    const { data: existing } = await adminClient
+      .from("payments")
+      .select("id, status")
+      .eq("reference", txn.reference)
+      .maybeSingle();
+    if (existing) {
+      if (existing.status !== "successful" && txn.status === "successful") {
+        await adminClient.from("payments").update({
+          status: "successful",
+          amount: txn.amount,
+          method: txn.method,
+        }).eq("id", existing.id);
+      }
+      continue;
+    }
+    await adminClient.from("payments").insert({
+      user_id: userId,
+      course_id: txn.course_id,
+      program_id: txn.program_id,
+      amount: txn.amount,
+      currency: txn.currency,
+      status: txn.status,
+      reference: txn.reference,
+      method: txn.method,
+      receipt_id: txn.reference,
+    });
+  }
 }
 
 Deno.serve(async (req) => {
@@ -124,123 +223,49 @@ Deno.serve(async (req) => {
     return json({ error: "Forbidden" }, 403);
   }
 
+  let includeTransactions = false;
   try {
-    const [totals, firstPage] = await Promise.all([
-      fetchPaystackTotals(secretKey),
-      fetchPaystackPage(secretKey, 1),
-    ]);
+    const body = await req.json() as { includeTransactions?: unknown };
+    includeTransactions = body?.includeTransactions === true;
+  } catch {
+    includeTransactions = false;
+  }
 
-    const all: PaystackTxn[] = [...firstPage];
-    if (firstPage.length === 100) {
-      for (let page = 2; page <= 10; page++) {
-        const batch = await fetchPaystackPage(secretKey, page);
-        all.push(...batch);
-        if (batch.length < 100) break;
-      }
-    }
+  try {
+    const isTest = secretKey.startsWith("sk_test_");
+    const raw = await fetchLmsTransactions(
+      secretKey,
+      includeTransactions ? {} : { status: "success" },
+    );
+    const transactions = raw
+      .map(mapTxn)
+      .filter((row): row is MappedTxn => row != null);
+    const successful = transactions.filter((row) => row.status === "successful");
+    const totalRevenue = successful.reduce((sum, row) => sum + row.amount, 0);
 
-    const transactions: Array<{
-      reference: string;
-      amount: number;
-      currency: string;
-      status: string;
-      method: string;
-      customer_email: string;
-      paid_at: string | null;
-      course_id: number | null;
-      program_id: number | null;
-      synced: boolean;
-    }> = [];
-
-    let synced = 0;
-    let totalRevenue = 0;
-    let successfulCount = 0;
-
-    for (const txn of all) {
-      const reference = String(txn.reference || "").trim();
-      if (!reference) continue;
-      const amountNgn = Number(txn.amount || 0) / 100;
-      const paystackStatus = String(txn.status || "").toLowerCase();
-      const isSuccess = paystackStatus === "success";
-      const mappedStatus = isSuccess ? "successful" : paystackStatus === "failed" ? "failed" : "pending";
-      const email = String(txn.customer?.email || "").trim().toLowerCase();
-      const { user_id: metaUser, course_id, program_id } = resolveMeta(
-        txn.metadata && typeof txn.metadata === "object" ? txn.metadata : null,
-      );
-
-      if (isSuccess) {
-        totalRevenue += amountNgn;
-        successfulCount += 1;
-      }
-
-      let userId = metaUser;
-      if (!userId && email) {
-        const { data: byEmail } = await adminClient
-          .from("profiles")
-          .select("id")
-          .ilike("email", email)
-          .limit(1)
-          .maybeSingle();
-        if (byEmail?.id) userId = byEmail.id;
-      }
-
-      let didSync = false;
-      if (userId && (course_id != null || program_id != null)) {
-        const row = {
-          user_id: userId,
-          course_id,
-          program_id,
-          amount: amountNgn,
-          currency: txn.currency || "NGN",
-          status: mappedStatus,
-          reference,
-          method: txn.channel || "paystack",
-          receipt_id: String(txn.id ?? reference),
-        };
-        const { data: existing } = await adminClient
-          .from("payments")
-          .select("id, status")
-          .eq("reference", reference)
-          .maybeSingle();
-        if (existing) {
-          if (existing.status !== "successful" && mappedStatus === "successful") {
-            await adminClient.from("payments").update({
-              status: "successful",
-              amount: amountNgn,
-              method: row.method,
-            }).eq("id", existing.id);
-          }
-          didSync = true;
-        } else {
-          const { error: insErr } = await adminClient.from("payments").insert(row);
-          didSync = !insErr || insErr.code === "23505";
-        }
-        if (didSync) synced += 1;
-      }
-
-      transactions.push({
-        reference,
-        amount: amountNgn,
-        currency: txn.currency || "NGN",
-        status: mappedStatus,
-        method: txn.channel || "paystack",
-        customer_email: email,
-        paid_at: txn.paid_at || txn.created_at || null,
-        course_id,
-        program_id,
-        synced: didSync,
+    if (includeTransactions) {
+      const syncTask = syncLedger(adminClient, transactions).catch((err) => {
+        console.error("Ledger sync failed:", err instanceof Error ? err.message : err);
       });
+      // @ts-expect-error EdgeRuntime is available in Supabase Edge Functions
+      if (typeof EdgeRuntime !== "undefined") {
+        // @ts-expect-error EdgeRuntime.waitUntil
+        EdgeRuntime.waitUntil(syncTask);
+      }
     }
 
     return json({
-      totalRevenue: Math.max(totals?.volumeNgn ?? 0, totalRevenue),
-      successfulCount,
-      synced,
+      totalRevenue,
+      successfulCount: successful.length,
+      listedCount: transactions.length,
+      paystackTotal: transactions.length,
+      isTest,
+      synced: 0,
       source: "paystack",
-      transactions,
+      transactions: includeTransactions ? transactions : [],
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Paystack sync failed";
+    const message = err instanceof Error ? err.message : "Could not load payments";
     console.error(message);
     return json({ error: message }, 500);
   }

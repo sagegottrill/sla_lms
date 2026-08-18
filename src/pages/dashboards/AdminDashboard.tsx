@@ -46,7 +46,7 @@ export default function AdminDashboard() {
      select: (response) => response.data || [],
    });
 
-   const { data: paystackFinance, isLoading: loadingPaystack, isError: paystackError, error: paystackErr, refetch: refetchPaystack } = usePaystackFinance();
+   const { data: paystackFinance, isLoading: loadingPaystack, isError: paystackError, refetch: refetchPaystack } = usePaystackFinance();
 
   const totalUsers = systemStats?.totalUsers ?? 0;
   const activeCourses = systemStats?.activeCourses ?? 0;
@@ -71,10 +71,10 @@ export default function AdminDashboard() {
   const handleRefresh = async () => {
     const [, paystackResult] = await Promise.all([refetch(), refetchPaystack()]);
     if (paystackResult.error) {
-      toast.error(paystackResult.error instanceof Error ? paystackResult.error.message : "Could not sync Paystack.");
+      toast.error("Couldn't refresh revenue. Try again.");
       return;
     }
-    toast.success("Dashboard metrics synced from Paystack.");
+    toast.success("Dashboard updated.");
   };
 
   const secondaryMetrics = [
@@ -112,13 +112,13 @@ export default function AdminDashboard() {
               {getGreeting()}, Admin! 👋
             </h1>
             <p className="text-white/80 text-lg">
-              {loadingStats ? "Syncing your data..." : `You have ${totalUsers.toLocaleString()} members across the platform today.`}
+              {loadingStats ? "Loading your overview…" : `You have ${totalUsers.toLocaleString()} members across the platform today.`}
             </p>
           </div>
           <div className="flex items-center gap-3">
             <Button onClick={handleRefresh}
               className="rounded-full px-6 h-11 text-sm font-semibold bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-md transition-all">
-              <Activity className="w-4 h-4 mr-2" /> Sync Data
+              <Activity className="w-4 h-4 mr-2" /> Refresh
             </Button>
             <Button 
               className="rounded-full px-6 h-11 text-sm font-semibold bg-white text-primary hover:bg-white/90 shadow-sm transition-all"
@@ -145,7 +145,7 @@ export default function AdminDashboard() {
             transition={{ delay: 0.1 }}
             className="bg-card rounded-3xl ring-1 ring-black/5 dark:ring-white/10 border-0 p-7 shadow-sm hover:shadow-md transition-all"
           >
-            <h2 className="font-display font-semibold text-xl text-foreground mb-6">Platform KPIs</h2>
+            <h2 className="font-display font-semibold text-xl text-foreground mb-6">Overview</h2>
             <div className="space-y-6">
               <div>
                 <p className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5">
@@ -237,16 +237,20 @@ export default function AdminDashboard() {
               <h2 className="font-display font-semibold text-2xl mb-1">Financial Summary</h2>
               <p className="text-emerald-50 text-sm mb-8 opacity-90">
                 {paystackError
-                  ? (paystackErr instanceof Error ? paystackErr.message : "Paystack sync failed. Deploy paystack-sync and set PAYSTACK_SECRET_KEY.")
+                  ? "Couldn't load revenue. Try again."
+                  : loadingPaystack
+                  ? "Loading revenue…"
                   : paystackFinance
-                  ? `${paystackFinance.successfulCount} successful Paystack payment${paystackFinance.successfulCount === 1 ? "" : "s"}.`
-                  : "Live totals from Paystack."}
+                  ? `${paystackFinance.successfulCount.toLocaleString()} payment${paystackFinance.successfulCount === 1 ? "" : "s"} from courses and programs${paystackFinance.isTest ? " (test — not live money)" : ""}.`
+                  : "From course and program payments."}
               </p>
               <div className="flex items-end gap-3">
                 {loadingStats || loadingPaystack ? <Skeleton className="h-12 w-48 bg-white/20" /> : (
                   <p className="text-5xl font-bold tracking-tight">₦{totalRevenue.toLocaleString()}</p>
                 )}
-                <span className="text-emerald-100 text-sm mb-2 font-medium">Total Revenue</span>
+                <span className="text-emerald-100 text-sm mb-2 font-medium">
+                  {paystackFinance?.isTest ? "Test revenue" : "Total Revenue"}
+                </span>
               </div>
             </div>
             <div className="absolute -top-24 -right-24 w-80 h-80 bg-white/20 rounded-full blur-3xl opacity-60" />

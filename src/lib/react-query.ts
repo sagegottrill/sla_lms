@@ -80,8 +80,13 @@ export const queryKeys = {
 
   payments: {
     base: ['payments'] as const,
-    paystack: () => ['payments', 'paystack'] as const,
+    paystack: (includeTransactions = false) => ['payments', 'paystack', { includeTransactions }] as const,
     ledger: () => ['payments', 'ledger'] as const,
+  },
+
+  analytics: {
+    enrollments: () => ['analytics', 'enrollments'] as const,
+    certificates: () => ['analytics', 'certificates'] as const,
   },
 
   // Dashboard lists

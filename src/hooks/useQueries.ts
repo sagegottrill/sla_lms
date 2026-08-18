@@ -472,27 +472,51 @@ export const useProfile = (userId: string | undefined) => {
    });
  };
 
- export const usePaystackFinance = () => {
+ export const usePaystackFinance = (options?: { includeTransactions?: boolean }) => {
    const { appUser, loading: authLoading } = useAuth();
    const role = appUser?.role;
    const enabled = role === "admin" || role === "program_manager";
+   const includeTransactions = options?.includeTransactions === true;
    const query = useQuery({
-     queryKey: queryKeys.payments.paystack(),
+     queryKey: queryKeys.payments.paystack(includeTransactions),
      queryFn: async () => {
-       const response = await api.syncPaystackFinance();
+       const response = await api.syncPaystackFinance({ includeTransactions });
        if (!response.success || !response.data) {
-         throw new Error(response.error || "Could not load Paystack finance.");
+         throw new Error(response.error || "Could not load payments.");
        }
        return response.data;
      },
      enabled,
-     staleTime: 60_000,
+     staleTime: 5 * 60_000,
+     placeholderData: (previous) => previous,
      retry: 1,
    });
    return {
      ...query,
      isLoading: authLoading || query.isLoading,
    };
+ };
+
+ export const useAnalyticsEnrollments = () => {
+   const { appUser } = useAuth();
+   const enabled = appUser?.role === "admin" || appUser?.role === "program_manager";
+   return useQuery({
+     queryKey: queryKeys.analytics.enrollments(),
+     queryFn: api.getAnalyticsEnrollments,
+     enabled,
+     select: (response) => response.data || [],
+   });
+ };
+
+ export const useAllCertificates = () => {
+   const { appUser } = useAuth();
+   const enabled = appUser?.role === "admin" || appUser?.role === "program_manager" || appUser?.role === "instructor";
+   return useQuery({
+     queryKey: queryKeys.analytics.certificates(),
+     queryFn: api.getAllCertificates,
+     enabled,
+     select: (response) => response.data || [],
+   });
  };
 
  export const useInstructorStats = (instructorId: string | undefined) => {

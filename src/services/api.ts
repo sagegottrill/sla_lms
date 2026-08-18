@@ -40,6 +40,12 @@ function isMissingColumnError(message: string | undefined, column: string): bool
   return m.includes(column.toLowerCase()) && (m.includes("does not exist") || m.includes("schema cache") || m.includes("could not find"));
 }
 
+function isMissingRelationError(message: string | undefined, table: string): boolean {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return m.includes(table.toLowerCase()) && (m.includes("does not exist") || m.includes("schema cache") || m.includes("could not find"));
+}
+
 async function selectCoursesWithFallback(
   build: (columns: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
 ) {
@@ -1683,6 +1689,39 @@ export const api = {
     return { data: data ?? [], error: null, success: true };
   },
 
+  getAnalyticsEnrollments: async (): Promise<ApiResponse<Array<{
+    user_id: string;
+    course_id: number | null;
+    program_id: number | null;
+    progress: number;
+    enrolled_at: string | null;
+    last_accessed: string | null;
+    completed_at: string | null;
+  }>>> => {
+    if (!USE_SUPABASE) return { data: [], error: null, success: true };
+    const { data, error } = await supabase
+      .from("enrollments")
+      .select("user_id, course_id, program_id, progress, enrolled_at, last_accessed, completed_at")
+      .order("enrolled_at", { ascending: false });
+    if (error) {
+      console.error("Supabase getAnalyticsEnrollments error:", error.message);
+      return { data: [], error: error.message, success: false };
+    }
+    return {
+      data: (data ?? []).map((row) => ({
+        user_id: String(row.user_id ?? ""),
+        course_id: row.course_id == null ? null : Number(row.course_id),
+        program_id: row.program_id == null ? null : Number(row.program_id),
+        progress: Number(row.progress) || 0,
+        enrolled_at: row.enrolled_at ?? null,
+        last_accessed: row.last_accessed ?? null,
+        completed_at: row.completed_at ?? null,
+      })),
+      error: null,
+      success: true,
+    };
+  },
+
   verifyCertificateByCredentialId: async (
     credentialId: string,
   ): Promise<ApiResponse<{
@@ -2206,9 +2245,12 @@ ${config.org_name}`;
     return { data: data ?? [], error: null, success: true };
   },
 
-  syncPaystackFinance: async (): Promise<ApiResponse<{
+  syncPaystackFinance: async (options?: { includeTransactions?: boolean }): Promise<ApiResponse<{
     totalRevenue: number;
     successfulCount: number;
+    listedCount: number;
+    paystackTotal: number;
+    isTest: boolean;
     synced: number;
     source: string;
     transactions: Array<{
@@ -2227,7 +2269,9 @@ ${config.org_name}`;
     if (!USE_SUPABASE) {
       return { data: null, error: null, success: true };
     }
-    const { data, error } = await supabase.functions.invoke("paystack-sync", { body: {} });
+    const { data, error } = await supabase.functions.invoke("paystack-sync", {
+      body: { includeTransactions: options?.includeTransactions === true },
+    });
     let invokeError = "";
     if (data && typeof data === "object" && "error" in data && data.error) {
       invokeError = String(data.error);
@@ -2257,6 +2301,9 @@ ${config.org_name}`;
       data: {
         totalRevenue: Number(data?.totalRevenue) || 0,
         successfulCount: Number(data?.successfulCount) || 0,
+        listedCount: Number(data?.listedCount) || (Array.isArray(data?.transactions) ? data.transactions.length : 0),
+        paystackTotal: Number(data?.paystackTotal) || 0,
+        isTest: Boolean(data?.isTest),
         synced: Number(data?.synced) || 0,
         source: "paystack",
         transactions: Array.isArray(data?.transactions) ? data.transactions : [],
@@ -2713,6 +2760,9 @@ ${config.org_name}`;
     }
     const { data, error } = await supabase.from("site_config").select("*").eq("id", id).maybeSingle();
     if (error) {
+      if (isMissingRelationError(error.message, "site_config")) {
+        return { data: defaultLandingPageConfig(), error: null, success: true };
+      }
       console.error("Supabase getSiteConfig error:", error.message);
       return { data: defaultLandingPageConfig(), error: error.message, success: false };
     }
