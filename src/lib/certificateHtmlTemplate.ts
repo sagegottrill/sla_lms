@@ -237,17 +237,28 @@ export function buildCertificateHtml(input: CertificateHtmlInput): string {
     color: #111;
     letter-spacing: 0.04em;
   }
-  .cert-name {
+  .cert-name-block {
     margin-top: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .cert-name {
     font-family: Georgia, "Times New Roman", serif;
     font-size: clamp(36px, 5vw, 56px);
     font-weight: 700;
     color: ${nameColor};
-    line-height: 1.15;
-    display: inline-block;
+    line-height: 1.25;
     max-width: 900px;
-    border-bottom: 2px solid #1F2937;
-    padding-bottom: 8px;
+  }
+  .cert-name-rule {
+    display: block;
+    width: min(680px, 88%);
+    height: 2px;
+    background: #1F2937;
+    border: none;
+    margin: 14px auto 0;
+    flex-shrink: 0;
   }
   .cert-body {
     margin-top: 32px;
@@ -352,7 +363,10 @@ export function buildCertificateHtml(input: CertificateHtmlInput): string {
   <div class="cert-content">
     ${titleHtml}
     <div class="cert-presented">${escapeHtml(config.presented_to_label)}</div>
-    <div class="cert-name">${escapeHtml(studentName)}</div>
+    <div class="cert-name-block">
+      <div class="cert-name">${escapeHtml(studentName)}</div>
+      <div class="cert-name-rule" aria-hidden="true"></div>
+    </div>
     <p class="cert-body">${body}</p>
     <div class="cert-date">${escapeHtml(dateStr)}</div>
   </div>

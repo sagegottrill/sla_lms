@@ -402,12 +402,20 @@ export async function generateCertificateImage(
     nameY = presentedY + 78;
     ctx.fillText(input.studentName, 700, nameY);
 
-    const nameWidth = ctx.measureText(input.studentName).width;
+    const nameMetrics = ctx.measureText(input.studentName);
+    const nameWidth = nameMetrics.width;
+    const nameDescent =
+      "actualBoundingBoxDescent" in nameMetrics &&
+      typeof nameMetrics.actualBoundingBoxDescent === "number"
+        ? nameMetrics.actualBoundingBoxDescent
+        : nameSize * 0.22;
+    const lineY = nameY + nameDescent + 12;
+    const lineHalfWidth = Math.max(nameWidth / 2 + 48, 320);
     ctx.strokeStyle = "#1F2937";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(700 - nameWidth / 2 - 24, nameY + 14);
-    ctx.lineTo(700 + nameWidth / 2 + 24, nameY + 14);
+    ctx.moveTo(700 - lineHalfWidth, lineY);
+    ctx.lineTo(700 + lineHalfWidth, lineY);
     ctx.stroke();
 
     const bodySegments = buildBodySegments(config.body_template, {
