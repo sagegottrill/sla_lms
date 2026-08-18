@@ -40,12 +40,6 @@ function isMissingColumnError(message: string | undefined, column: string): bool
   return m.includes(column.toLowerCase()) && (m.includes("does not exist") || m.includes("schema cache") || m.includes("could not find"));
 }
 
-function isMissingRelationError(message: string | undefined, table: string): boolean {
-  if (!message) return false;
-  const m = message.toLowerCase();
-  return m.includes(table.toLowerCase()) && (m.includes("does not exist") || m.includes("schema cache") || m.includes("could not find"));
-}
-
 async function selectCoursesWithFallback(
   build: (columns: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
 ) {
@@ -2760,7 +2754,7 @@ ${config.org_name}`;
     }
     const { data, error } = await supabase.from("site_config").select("*").eq("id", id).maybeSingle();
     if (error) {
-      if (isMissingRelationError(error.message, "site_config")) {
+      if (isMissingRelationError(error)) {
         return { data: defaultLandingPageConfig(), error: null, success: true };
       }
       console.error("Supabase getSiteConfig error:", error.message);
