@@ -117,6 +117,101 @@ function drawAngledBands(
   ctx.restore();
 }
 
+type RichToken = { text: string; bold?: boolean };
+
+function buildBodySegments(
+  template: string,
+  vars: { course_title: string; program_label: string },
+): RichToken[] {
+  const segments: RichToken[] = [];
+  const regex = /\{\{\s*(course_title|program_label)\s*\}\}/gi;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(template)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ text: template.slice(lastIndex, match.index) });
+    }
+    const key = match[1].toLowerCase();
+    segments.push({
+      text: key === "course_title" ? vars.course_title : vars.program_label,
+      bold: true,
+    });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < template.length) {
+    segments.push({ text: template.slice(lastIndex) });
+  }
+  return segments;
+}
+
+function segmentsToWords(segments: RichToken[]): RichToken[] {
+  const words: RichToken[] = [];
+  for (const segment of segments) {
+    for (const part of segment.text.split(/(\s+)/)) {
+      if (!part) continue;
+      words.push({ text: part, bold: segment.bold });
+    }
+  }
+  return words;
+}
+
+function wrapRichWords(
+  ctx: CanvasRenderingContext2D,
+  words: RichToken[],
+  maxWidth: number,
+  baseFont: string,
+  boldFont: string,
+): RichToken[][] {
+  const lines: RichToken[][] = [];
+  let current: RichToken[] = [];
+  let currentWidth = 0;
+
+  for (const token of words) {
+    ctx.font = token.bold ? boldFont : baseFont;
+    const width = ctx.measureText(token.text).width;
+    if (currentWidth + width > maxWidth && current.length > 0) {
+      lines.push(current);
+      current = [token];
+      currentWidth = width;
+    } else {
+      current.push(token);
+      currentWidth += width;
+    }
+  }
+  if (current.length) lines.push(current);
+  return lines;
+}
+
+function drawRichLine(
+  ctx: CanvasRenderingContext2D,
+  tokens: RichToken[],
+  centerX: number,
+  y: number,
+  baseFont: string,
+  boldFont: string,
+) {
+  let totalWidth = 0;
+  for (const token of tokens) {
+    ctx.font = token.bold ? boldFont : baseFont;
+    totalWidth += ctx.measureText(token.text).width;
+  }
+  let x = centerX - totalWidth / 2;
+  for (const token of tokens) {
+    ctx.font = token.bold ? boldFont : baseFont;
+    ctx.fillText(token.text, x, y);
+    x += ctx.measureText(token.text).width;
+  }
+}
+
+function formatLuxuryDate(completedAt?: string | null): string {
+  const date = completedAt ? new Date(completedAt) : new Date();
+  if (Number.isNaN(date.getTime())) {
+    const now = new Date();
+    return `${now.toLocaleDateString("en-US", { month: "long" })}, ${now.getFullYear()}`;
+  }
+  return `${date.toLocaleDateString("en-US", { month: "long" })}, ${date.getFullYear()}`;
+}
+
 function drawSeal(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -172,8 +267,8 @@ function drawSeal(
 }
 
 /**
- * Renders an SLA-style certificate matching the sample layout
- * (name → CERTIFICATE OF COMPLETION → PRESENTED TO → body → date → two signers).
+ * Renders certificate layouts. Luxury variant follows the SLA sample:
+ * logos → title → presented to → name → body → date → signatures/seal.
  */
 export async function generateCertificateImage(
   input: CertificateRenderInput,
@@ -210,8 +305,14 @@ export async function generateCertificateImage(
   const watermark = await loadImage(config.watermark_url);
   if (watermark) {
     ctx.save();
-    ctx.globalAlpha = layoutIsLuxury ? 0.16 : layoutIsClean ? 0.06 : 0.09;
-    ctx.drawImage(watermark, layoutIsLuxury ? 60 : 445, layoutIsLuxury ? 250 : 210, layoutIsLuxury ? 1280 : 510, layoutIsLuxury ? 660 : 510);
+    ctx.globalAlpha = layoutIsLuxury ? 0.22 : layoutIsClean ? 0.06 : 0.09;
+    ctx.drawImage(
+      watermark,
+      layoutIsLuxury ? 0 : 445,
+      layoutIsLuxury ? 120 : 210,
+      layoutIsLuxury ? 1400 : 510,
+      layoutIsLuxury ? 780 : 510,
+    );
     ctx.restore();
   }
 
@@ -235,8 +336,8 @@ export async function generateCertificateImage(
   const logo = await loadImage(config.logo_url);
   const partner = await loadImage(config.partner_logo_url);
   if (logo && partner && layoutIsLuxury) {
-    ctx.drawImage(logo, 330, 92, 185, 64);
-    ctx.drawImage(partner, 885, 92, 185, 64);
+    ctx.drawImage(logo, 118, 98, 230, 78);
+    ctx.drawImage(partner, 1052, 98, 230, 78);
   } else if (logo && partner) {
     ctx.drawImage(logo, 180, 88, 200, 70);
     ctx.drawImage(partner, 1020, 88, 200, 70);
@@ -247,119 +348,141 @@ export async function generateCertificateImage(
     ctx.lineTo(700, 156);
     ctx.stroke();
   } else if (logo) {
-    ctx.drawImage(logo, 600, 85, 200, 70);
+    ctx.drawImage(logo, layoutIsLuxury ? 585 : 600, layoutIsLuxury ? 92 : 85, layoutIsLuxury ? 230 : 200, layoutIsLuxury ? 82 : 70);
   } else {
     ctx.fillStyle = accent;
     ctx.font = "bold 22px Georgia, serif";
     ctx.textAlign = "center";
-    ctx.fillText(config.org_name.toUpperCase(), 700, 130);
+    ctx.fillText(config.org_name.toUpperCase(), 700, layoutIsLuxury ? 142 : 130);
   }
 
   ctx.textAlign = "center";
 
-  // Student name (top, prominent — matches sample)
-  ctx.fillStyle = nameColor;
-  const nameSize = fitText(
-    ctx,
-    input.studentName,
-    "Georgia, serif",
-    layoutIsLuxury ? 54 : 58,
-    38,
-    layoutIsLuxury ? 820 : 1080,
-  );
-  ctx.font = `bold ${nameSize}px Georgia, serif`;
-  ctx.fillText(input.studentName, 700, layoutIsLuxury ? 450 : 230);
-
-  // CERTIFICATE / OF COMPLETION
   const titleParts = config.title.includes("\n")
     ? config.title.split("\n")
     : config.title.toUpperCase().includes("OF COMPLETION")
       ? ["CERTIFICATE", "OF COMPLETION"]
       : [config.title];
-  ctx.fillStyle = accent;
-  let titleY = layoutIsLuxury ? 220 : 306;
+
+  let titleY = layoutIsLuxury ? 252 : 306;
+  let nameY = 230;
+  let bodyY = titleY + 74;
+
   if (layoutIsLuxury) {
-    ctx.font = "300 58px Arial, Helvetica, sans-serif";
-    ctx.fillText("CERTIFICATE", 700, titleY);
-    ctx.font = "bold 33px Arial, Helvetica, sans-serif";
-    ctx.fillText("OF COMPLETION", 700, titleY + 56);
-    titleY += 56;
-  } else {
-    ctx.font = layoutIsClean ? "600 38px Georgia, serif" : "bold 42px Georgia, serif";
-    for (const part of titleParts) {
-      ctx.fillText(part.trim(), 700, titleY);
-      titleY += layoutIsClean ? 44 : 48;
+    // Sample order: title → presented to → name → body → date
+    ctx.fillStyle = "#111111";
+    if (titleParts.length >= 2) {
+      ctx.font = "300 58px Arial, Helvetica, sans-serif";
+      ctx.fillText(titleParts[0].trim().toUpperCase(), 700, titleY);
+      ctx.font = "bold 32px Arial, Helvetica, sans-serif";
+      ctx.fillText(titleParts.slice(1).join(" ").trim().toUpperCase(), 700, titleY + 50);
+    } else {
+      ctx.font = "bold 40px Arial, Helvetica, sans-serif";
+      ctx.fillText(titleParts[0].trim().toUpperCase(), 700, titleY + 24);
     }
-  }
 
-  // PRESENTED TO
-  ctx.fillStyle = layoutIsLuxury ? "#111111" : "#555555";
-  ctx.font = layoutIsLuxury
-    ? "500 26px Arial, Helvetica, sans-serif"
-    : layoutIsClean
-      ? "600 14px system-ui, sans-serif"
-      : "16px system-ui, sans-serif";
-  ctx.fillText(config.presented_to_label, 700, titleY + (layoutIsLuxury ? 62 : 20));
+    ctx.fillStyle = "#111111";
+    ctx.font = "500 24px Arial, Helvetica, sans-serif";
+    const presentedY = titleY + 112;
+    ctx.fillText(config.presented_to_label, 700, presentedY);
 
-  // Body
-  const body = fillCertificateBody(config.body_template, {
-    course_title: input.courseTitle,
-    program_label: config.program_label,
-  });
-  ctx.fillStyle = bodyColor;
-  ctx.font = layoutIsLuxury
-    ? "17px Arial, Helvetica, sans-serif"
-    : layoutIsAcademic
-      ? "21px Georgia, serif"
-      : "22px Georgia, serif";
-  const bodyLines = wrapText(ctx, body, layoutIsLuxury ? 860 : layoutIsClean ? 930 : 980);
-  let bodyY = layoutIsLuxury ? 538 : titleY + 74;
+    ctx.fillStyle = nameColor;
+    const nameSize = fitText(ctx, input.studentName, "Georgia, serif", 56, 36, 900);
+    ctx.font = `bold ${nameSize}px Georgia, serif`;
+    nameY = presentedY + 78;
+    ctx.fillText(input.studentName, 700, nameY);
 
-  if (layoutIsLuxury) {
+    const nameWidth = ctx.measureText(input.studentName).width;
     ctx.strokeStyle = "#1F2937";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(290, 490);
-    ctx.lineTo(1110, 490);
+    ctx.moveTo(700 - nameWidth / 2 - 24, nameY + 14);
+    ctx.lineTo(700 + nameWidth / 2 + 24, nameY + 14);
     ctx.stroke();
-  }
 
-  for (const line of bodyLines) {
-    ctx.fillText(line, 700, bodyY);
-    bodyY += layoutIsLuxury ? 24 : layoutIsClean ? 30 : 32;
-  }
+    const bodySegments = buildBodySegments(config.body_template, {
+      course_title: input.courseTitle,
+      program_label: config.program_label,
+    });
+    const bodyWords = segmentsToWords(bodySegments);
+    const bodyBaseFont = "18px Arial, Helvetica, sans-serif";
+    const bodyBoldFont = "bold 18px Arial, Helvetica, sans-serif";
+    const richBodyLines = wrapRichWords(ctx, bodyWords, 900, bodyBaseFont, bodyBoldFont);
+    ctx.fillStyle = bodyColor;
+    bodyY = nameY + 64;
+    for (const line of richBodyLines) {
+      drawRichLine(ctx, line, 700, bodyY, bodyBaseFont, bodyBoldFont);
+      bodyY += 28;
+    }
 
-  // Date
-  const dateStr = input.completedAt
-    ? new Date(input.completedAt).toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-      })
-    : new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  ctx.fillStyle = accent;
-  ctx.font = "italic 20px Georgia, serif";
-  ctx.fillText(dateStr, 700, bodyY + (layoutIsLuxury ? 16 : 40));
+    const dateStr = formatLuxuryDate(input.completedAt);
+    ctx.fillStyle = accent;
+    ctx.font = "italic 20px Georgia, serif";
+    ctx.fillText(dateStr, 700, bodyY + 18);
+    bodyY += 18;
+  } else {
+    ctx.fillStyle = nameColor;
+    const nameSize = fitText(ctx, input.studentName, "Georgia, serif", 58, 38, 1080);
+    ctx.font = `bold ${nameSize}px Georgia, serif`;
+    ctx.fillText(input.studentName, 700, nameY);
+
+    ctx.fillStyle = accent;
+    for (const part of titleParts) {
+      ctx.font = layoutIsClean ? "600 38px Georgia, serif" : "bold 42px Georgia, serif";
+      ctx.fillText(part.trim(), 700, titleY);
+      titleY += layoutIsClean ? 44 : 48;
+    }
+
+    ctx.fillStyle = "#555555";
+    ctx.font = layoutIsClean
+      ? "600 14px system-ui, sans-serif"
+      : "16px system-ui, sans-serif";
+    ctx.fillText(config.presented_to_label, 700, titleY + 20);
+
+    const body = fillCertificateBody(config.body_template, {
+      course_title: input.courseTitle,
+      program_label: config.program_label,
+    });
+    ctx.fillStyle = bodyColor;
+    ctx.font = layoutIsAcademic ? "21px Georgia, serif" : "22px Georgia, serif";
+    const bodyLines = wrapText(ctx, body, layoutIsClean ? 930 : 980);
+    bodyY = titleY + 74;
+    for (const line of bodyLines) {
+      ctx.fillText(line, 700, bodyY);
+      bodyY += layoutIsClean ? 30 : 32;
+    }
+
+    const dateStr = input.completedAt
+      ? new Date(input.completedAt).toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        })
+      : new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    ctx.fillStyle = accent;
+    ctx.font = "italic 20px Georgia, serif";
+    ctx.fillText(dateStr, 700, bodyY + 40);
+  }
 
   // Signature block
   const signer1Signature = await loadImage(config.signer1_signature_url);
   const signer2Signature = await loadImage(config.signer2_signature_url);
-  const sigY = layoutIsLuxury ? 760 : 815;
+  const sigY = layoutIsLuxury ? 748 : 815;
   if (signer1Signature) {
     ctx.drawImage(
       signer1Signature,
-      310,
-      layoutIsLuxury ? 665 : 705,
-      layoutIsLuxury ? 130 : 250,
-      layoutIsLuxury ? 48 : 78,
+      layoutIsLuxury ? 250 : 310,
+      layoutIsLuxury ? 652 : 705,
+      layoutIsLuxury ? 170 : 250,
+      layoutIsLuxury ? 58 : 78,
     );
   }
   if (signer2Signature) {
     ctx.drawImage(
       signer2Signature,
-      960,
-      layoutIsLuxury ? 665 : 705,
-      layoutIsLuxury ? 145 : 250,
-      layoutIsLuxury ? 48 : 78,
+      layoutIsLuxury ? 980 : 950,
+      layoutIsLuxury ? 652 : 705,
+      layoutIsLuxury ? 170 : 250,
+      layoutIsLuxury ? 58 : 78,
     );
   }
   if (!layoutIsLuxury) {
@@ -376,27 +499,27 @@ export async function generateCertificateImage(
   }
 
   ctx.fillStyle = accent;
-  ctx.font = "bold 18px Georgia, serif";
-  ctx.fillText(config.signer1_name, layoutIsLuxury ? 405 : 370, sigY + 30);
-  ctx.fillText(config.signer2_name, layoutIsLuxury ? 995 : 1030, sigY + 30);
+  ctx.font = layoutIsLuxury ? "bold 17px Georgia, serif" : "bold 18px Georgia, serif";
+  ctx.fillText(config.signer1_name, layoutIsLuxury ? 335 : 370, sigY + 28);
+  ctx.fillText(config.signer2_name, layoutIsLuxury ? 1065 : 1030, sigY + 28);
 
-  ctx.fillStyle = "#555555";
-  ctx.font = "12px system-ui, sans-serif";
-  const title1Lines = wrapText(ctx, config.signer1_title, 280);
-  const title2Lines = wrapText(ctx, config.signer2_title, 280);
+  ctx.fillStyle = layoutIsLuxury ? "#333333" : "#555555";
+  ctx.font = layoutIsLuxury ? "11px Arial, Helvetica, sans-serif" : "12px system-ui, sans-serif";
+  const title1Lines = wrapText(ctx, config.signer1_title, layoutIsLuxury ? 250 : 280);
+  const title2Lines = wrapText(ctx, config.signer2_title, layoutIsLuxury ? 250 : 280);
   title1Lines.forEach((l, i) =>
-    ctx.fillText(l, layoutIsLuxury ? 405 : 370, sigY + 54 + i * 16),
+    ctx.fillText(l, layoutIsLuxury ? 335 : 370, sigY + 50 + i * 15),
   );
   title2Lines.forEach((l, i) =>
-    ctx.fillText(l, layoutIsLuxury ? 995 : 1030, sigY + 54 + i * 16),
+    ctx.fillText(l, layoutIsLuxury ? 1065 : 1030, sigY + 50 + i * 15),
   );
 
   // Trust block
   const qr = config.show_qr ? await qrImage(verificationUrl) : null;
-  const trustTop = layoutIsLuxury ? 874 : 842;
+  const trustTop = layoutIsLuxury ? 930 : 842;
   const trustLeft = 84;
   const trustWidth = 1232;
-  const trustHeight = layoutIsLuxury ? 56 : 90;
+  const trustHeight = 90;
   ctx.fillStyle = layoutIsClean ? "rgba(255,255,255,0.86)" : "rgba(255,255,255,0.7)";
   if (!layoutIsLuxury) {
     ctx.fillRect(trustLeft, trustTop, trustWidth, trustHeight);
@@ -405,39 +528,64 @@ export async function generateCertificateImage(
     ctx.strokeRect(trustLeft, trustTop, trustWidth, trustHeight);
   }
 
-  if (qr) {
-    ctx.drawImage(qr, layoutIsLuxury ? 1160 : trustLeft + 18, layoutIsLuxury ? 836 : trustTop + 10, layoutIsLuxury ? 84 : 70, layoutIsLuxury ? 84 : 70);
-  }
-
   const seal = await loadImage(config.seal_url);
   if (seal) {
     ctx.save();
     ctx.globalAlpha = 0.92;
     if (layoutIsLuxury) {
-      ctx.drawImage(seal, 635, 684, 130, 130);
+      ctx.drawImage(seal, 628, 668, 144, 144);
     } else {
       ctx.drawImage(seal, 1210, 730, 96, 96);
     }
     ctx.restore();
   } else if (layoutIsLuxury) {
-    drawSeal(ctx, 700, 745, 54);
+    drawSeal(ctx, 700, 736, 60);
   }
 
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#5A6470";
-  ctx.font = "600 12px system-ui, sans-serif";
-  ctx.fillText("Verification", layoutIsLuxury ? 210 : trustLeft + 108, trustTop + 20);
-  ctx.fillStyle = "#1F2937";
-  ctx.font = layoutIsLuxury ? "11px system-ui, sans-serif" : "12px system-ui, sans-serif";
-  let trustY = trustTop + (layoutIsLuxury ? 36 : 48);
-  if (config.show_credential_id) {
-    ctx.fillText(`Certificate ID: ${input.credentialId}`, layoutIsLuxury ? 210 : trustLeft + 108, trustY);
-    trustY += layoutIsLuxury ? 0 : 20;
+  if (qr) {
+    ctx.drawImage(
+      qr,
+      layoutIsLuxury ? 1288 : trustLeft + 18,
+      layoutIsLuxury ? 900 : trustTop + 10,
+      layoutIsLuxury ? 64 : 70,
+      layoutIsLuxury ? 64 : 70,
+    );
   }
-  if (config.show_verification_url) {
-    ctx.fillText(`Verify at: ${verificationUrl}`, layoutIsLuxury ? 580 : trustLeft + 108, trustY);
+
+  const showTrust =
+    config.show_credential_id || config.show_verification_url || config.show_qr;
+  if (showTrust) {
+    ctx.textAlign = "left";
+    if (layoutIsLuxury) {
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.font = "600 11px Arial, Helvetica, sans-serif";
+      ctx.fillText("Verification", 96, trustTop + 14);
+      ctx.font = "10px Arial, Helvetica, sans-serif";
+      let trustY = trustTop + 30;
+      if (config.show_credential_id) {
+        ctx.fillText(`Certificate ID: ${input.credentialId}`, 96, trustY);
+        trustY += 14;
+      }
+      if (config.show_verification_url) {
+        ctx.fillText(`Verify at: ${verificationUrl}`, 96, trustY);
+      }
+    } else {
+      ctx.fillStyle = "#5A6470";
+      ctx.font = "600 12px system-ui, sans-serif";
+      ctx.fillText("Verification", trustLeft + 108, trustTop + 18);
+      ctx.fillStyle = "#1F2937";
+      ctx.font = "12px system-ui, sans-serif";
+      let trustY = trustTop + 48;
+      if (config.show_credential_id) {
+        ctx.fillText(`Certificate ID: ${input.credentialId}`, trustLeft + 108, trustY);
+        trustY += 20;
+      }
+      if (config.show_verification_url) {
+        ctx.fillText(`Verify at: ${verificationUrl}`, trustLeft + 108, trustY);
+      }
+    }
+    ctx.textAlign = "center";
   }
-  ctx.textAlign = "center";
 
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), "image/png");
