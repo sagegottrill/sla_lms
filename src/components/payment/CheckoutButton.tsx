@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { initializePaystackPayment } from '../../lib/paystack';
+import { initializePaystackPayment, PAYSTACK_NGN_CHANNELS } from '../../lib/paystack';
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 
@@ -20,6 +20,7 @@ export function CheckoutButton({ email, amount, label = "Pay Now", onSuccess, cl
       email,
       amount,
       reference: `ref_${Math.floor(Math.random() * 1000000000 + 1)}`,
+      channels: [...PAYSTACK_NGN_CHANNELS],
       onSuccess: (response) => {
         setIsProcessing(false);
         if (onSuccess) {

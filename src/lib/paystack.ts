@@ -13,7 +13,7 @@ interface PaystackConfig {
   amount: number; // Amount in kobo (if NGN)
   currency?: string; // Default: 'NGN'
   reference: string;
-  channels?: string[]; // e.g. ['card'], ['mobile_money'], ['bank_transfer']
+  channels?: string[]; // omit to show all Paystack-enabled methods
   metadata?: Record<string, any>;
   onSuccess: (response: any) => void;
   onClose: () => void;
@@ -21,6 +21,16 @@ interface PaystackConfig {
 }
 
 const PAYSTACK_INLINE_SCRIPT_SRC = "https://js.paystack.co/v1/inline.js";
+
+/** All NGN methods Paystack supports. Dashboard must also have them enabled. */
+export const PAYSTACK_NGN_CHANNELS = [
+  "card",
+  "bank",
+  "ussd",
+  "qr",
+  "mobile_money",
+  "bank_transfer",
+] as const;
 
 let paystackScriptPromise: Promise<void> | null = null;
 

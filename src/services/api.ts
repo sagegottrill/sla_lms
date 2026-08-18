@@ -2058,12 +2058,21 @@ ${config.org_name}`;
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase.from("courses").select("id", { count: "exact", head: true }),
         supabase.from("programs").select("id", { count: "exact", head: true }),
-        supabase.from("payments").select("amount").eq("status", "successful"),
+        supabase.from("payments").select("amount, status"),
         supabase.from("enrollments").select("progress"),
         supabase.from("courses").select("rating").eq("status", "published"),
         supabase.from("certificates").select("id", { count: "exact", head: true }),
       ]);
-      const totalRevenue = payments.data?.reduce((acc, p) => acc + (Number(p.amount) || 0), 0) || 0;
+      const paymentRows = payments.data || [];
+      if (payments.error) {
+        console.error("Supabase getSystemStats payments error:", payments.error.message);
+      }
+      const totalRevenue = paymentRows
+        .filter((p) => {
+          const s = String(p.status || "").toLowerCase();
+          return s === "successful" || s === "success" || s === "paid";
+        })
+        .reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
       
       const enrolls = enrollments.data || [];
       const totalHours = Math.round(enrolls.reduce((acc, e) => acc + ((e.progress || 0) / 100 * 20), 0));
@@ -2175,12 +2184,21 @@ ${config.org_name}`;
     if (!USE_SUPABASE) {
       return { data: [], error: null, success: true };
     }
-    const { data, error } = await supabase
+    const withRelations =
+      "id, created_at, amount, currency, status, reference, method, receipt_id, user_id, course_id, program_id, profiles(name, email), courses(title), programs(title)";
+    const core =
+      "id, created_at, amount, currency, status, reference, method, receipt_id, user_id, course_id, program_id";
+    let { data, error } = await supabase
       .from("payments")
-      .select(
-        "id, created_at, amount, currency, status, reference, method, receipt_id, user_id, course_id, program_id, profiles(name, email), courses(title), programs(title)",
-      )
+      .select(withRelations)
       .order("created_at", { ascending: false });
+    if (error) {
+      console.warn("getPayments with relations failed, retrying core columns:", error.message);
+      ({ data, error } = await supabase
+        .from("payments")
+        .select(core)
+        .order("created_at", { ascending: false }));
+    }
     if (error) {
       console.error("Supabase getPayments error:", error.message);
       return { data: [], error: error.message, success: false };

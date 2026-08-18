@@ -7,10 +7,11 @@ import { useCourse, useEnrollUserMutation, useUserEnrollments } from "@/hooks/us
 import type { Course } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { initializePaystackPayment } from "@/lib/paystack";
+import { initializePaystackPayment, PAYSTACK_NGN_CHANNELS } from "@/lib/paystack";
 import { coursePathSegment, isCourseOrProgramRouteParam } from "@/lib/publicRoutes";
 import { getSiteUrl } from "@/lib/siteUrl";
 import { api } from "@/services/api";
+import { useQueryClient } from "@tanstack/react-query";
 
 type PaymentMethod = "card" | "mobile_money" | "bank_transfer";
 
@@ -33,6 +34,7 @@ export default function CheckoutPage() {
   const { data: course, isLoading: loading } = useCourse(id);
   const { data: enrollments = [], isLoading: loadingEnrollments } = useUserEnrollments(appUser?.id);
   const enrollMutation = useEnrollUserMutation();
+  const queryClient = useQueryClient();
 
   const enrolled = !!course && enrollments.some((e: any) => e.course_id === course.id);
 
@@ -228,19 +230,13 @@ export default function CheckoutPage() {
     setProcessing(true);
 
     const reference = `ref_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
-    const channels =
-      method === "card"
-        ? ["card"]
-        : method === "mobile_money"
-          ? ["mobile_money"]
-          : ["bank_transfer"];
 
     initializePaystackPayment({
       email: form.email,
       amount: amountKobo,
       currency: "NGN",
       reference,
-      channels,
+      channels: [...PAYSTACK_NGN_CHANNELS],
       metadata: {
         user_id: appUser.id,
         course_id: course.id,
@@ -251,7 +247,7 @@ export default function CheckoutPage() {
           { display_name: "Course ID", variable_name: "course_id", value: String(course.id) },
         ],
       },
-      onSuccess: async (response?: { reference?: string }) => {
+      onSuccess: async (response?: { reference?: string; channel?: string }) => {
         const paidRef = response?.reference || reference;
         try {
           const payRes = await api.recordPayment({
@@ -260,12 +256,16 @@ export default function CheckoutPage() {
             amount: priceNgn,
             currency: "NGN",
             reference: paidRef,
-            method,
+            method: response?.channel || method,
             receiptId: paidRef,
             status: "successful",
           });
           if (!payRes.success) {
             console.error("Failed to record payment ledger entry:", payRes.error);
+            toast.warning("Payment went through. Revenue may take a moment to appear on the admin dashboard.");
+          } else {
+            void queryClient.invalidateQueries({ queryKey: ["payments"] });
+            void queryClient.invalidateQueries({ queryKey: ["stats"] });
           }
           await enrollMutation.mutateAsync(
             { userId: appUser.id, courseId: course.id },
@@ -431,18 +431,20 @@ export default function CheckoutPage() {
               {step === "payment" && (
                 <>
                   <div className="flex items-center justify-between">
-                    <h2 className="font-display text-xl font-bold text-foreground">Payment Method</h2>
+                    <h2 className="font-display text-xl font-bold text-foreground">Pay with Paystack</h2>
                     <button onClick={() => setStep("details")} className="text-sm text-primary hover:underline">Edit details</button>
                   </div>
+                  <p className="text-sm text-muted-foreground">
+                    Choose any method in the Paystack window: card, bank transfer, USSD, bank, QR, or mobile money.
+                  </p>
 
-                  {/* Method tabs */}
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {([
                       { key: "card" as const, label: "Card", icon: CreditCard },
-                      { key: "mobile_money" as const, label: "Mobile Money", icon: Smartphone },
-                      { key: "bank_transfer" as const, label: "Bank Transfer", icon: Building2 },
+                      { key: "bank_transfer" as const, label: "Bank transfer", icon: Building2 },
+                      { key: "mobile_money" as const, label: "Mobile money", icon: Smartphone },
                     ]).map(({ key, label, icon: Icon }) => (
-                      <button key={key} onClick={() => setMethod(key)}
+                      <button key={key} type="button" onClick={() => setMethod(key)}
                         className={`p-3 rounded-xl border text-center transition-all ${method === key
                           ? "border-primary bg-accent text-primary"
                           : "border-border text-muted-foreground hover:border-primary/40"
@@ -453,78 +455,20 @@ export default function CheckoutPage() {
                     ))}
                   </div>
 
-                  {/* Card form */}
-                  {method === "card" && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-1.5 block">Card Number</label>
-                        <input value={form.cardNumber} onChange={(e) => update("cardNumber", e.target.value.replace(/\D/g, "").replace(/(.{4})/g, "$1 ").trim())}
-                          placeholder="4242 4242 4242 4242" maxLength={19}
-                          className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm font-medium text-foreground mb-1.5 block">Expiry</label>
-                          <input value={form.expiry} onChange={(e) => update("expiry", e.target.value)} placeholder="MM/YY" maxLength={5}
-                            className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono" />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-foreground mb-1.5 block">CVV</label>
-                          <input type="password" value={form.cvv} onChange={(e) => update("cvv", e.target.value)} placeholder="•••" maxLength={4}
-                            className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono" />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Mobile Money form */}
-                  {method === "mobile_money" && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-1.5 block">Provider</label>
-                        <select value={form.mobileProvider} onChange={(e) => update("mobileProvider", e.target.value)}
-                          className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                          <option>M-Pesa</option>
-                          <option>MTN Mobile Money</option>
-                          <option>Airtel Money</option>
-                          <option>Orange Money</option>
-                          <option>Vodafone Cash</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-1.5 block">Mobile Number</label>
-                        <input value={form.mobileNumber} onChange={(e) => update("mobileNumber", e.target.value)} placeholder="+254 700 000 000"
-                          className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                      </div>
-                      <div className="p-3 rounded-xl bg-accent text-sm text-primary">
-                        A payment prompt will be sent to your phone. Approve the transaction to complete enrollment.
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Bank Transfer */}
-                  {method === "bank_transfer" && (
-                    <div className="space-y-4">
-                      <div className="p-4 rounded-xl bg-muted ring-1 ring-black/5 dark:ring-white/10 border-0 space-y-2">
-                        <p className="text-sm font-semibold text-foreground">Transfer to:</p>
-                        <div className="grid grid-cols-2 gap-y-2 text-sm">
-                          <span className="text-muted-foreground">Bank</span>
-                          <span className="text-foreground font-medium">GTBank</span>
-                          <span className="text-muted-foreground">Account Name</span>
-                          <span className="text-foreground font-medium">She Leads Africa Ltd</span>
-                          <span className="text-muted-foreground">Account Number</span>
-                          <span className="text-foreground font-mono font-medium">0174 5829 310</span>
-                          <span className="text-muted-foreground">Amount</span>
-                          <span className="text-foreground font-bold">{currency.symbol}{convertPrice(priceNgn)} {currency.code}</span>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-1.5 block">Payment Reference</label>
-                        <input value={form.accountRef} onChange={(e) => update("accountRef", e.target.value)} placeholder="Enter your transfer reference"
-                          className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                      </div>
-                    </div>
-                  )}
+                  <div className="p-4 rounded-xl bg-muted/40 ring-1 ring-black/5 dark:ring-white/10 text-sm text-foreground space-y-2">
+                    <p className="font-medium">All Paystack options open in the next step:</p>
+                    <ul className="grid grid-cols-2 gap-1 text-muted-foreground text-xs">
+                      <li>Card (Visa, Mastercard, Verve)</li>
+                      <li>Bank transfer (Paystack account)</li>
+                      <li>USSD</li>
+                      <li>Bank</li>
+                      <li>QR</li>
+                      <li>Mobile money</li>
+                    </ul>
+                    <p className="text-xs text-muted-foreground">
+                      Card details are entered only on Paystack — never on this page.
+                    </p>
+                  </div>
 
                   <Button onClick={handlePay} disabled={processing}
                     className="w-full gradient-card text-primary-foreground rounded-xl h-12 font-semibold hover:opacity-90 disabled:opacity-50">
