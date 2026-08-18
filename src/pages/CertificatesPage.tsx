@@ -5,19 +5,28 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { api } from "@/services/api";
 import { getSiteUrl } from "@/lib/siteUrl";
-import { supabase } from "@/lib/supabase";
 import { mergeCertificateConfig } from "@/lib/certificateConfig";
 import { downloadOrOpenCertificate } from "@/lib/certificateRenderer";
 
-async function resolveCertConfig(courseId: number | null | undefined) {
-  if (!courseId) return mergeCertificateConfig(null);
-  const res = await api.getCourseCertificateConfig(courseId);
-  return mergeCertificateConfig(res.success ? res.data : null);
+async function resolveCertConfig(cert: {
+  course_id?: number | null;
+  program_id?: number | null;
+}) {
+  if (cert.course_id) {
+    const res = await api.getCourseCertificateConfig(cert.course_id);
+    return mergeCertificateConfig(res.success ? res.data : null);
+  }
+  if (cert.program_id) {
+    const res = await api.getProgramCertificateConfig(cert.program_id);
+    return mergeCertificateConfig(res.success ? res.data : null);
+  }
+  return mergeCertificateConfig(null);
 }
 
 async function handleCertAction(
   cert: {
-    course_id?: number;
+    course_id?: number | null;
+    program_id?: number | null;
     course_title?: string;
     credential_id?: string;
     completed_at?: string;
@@ -26,7 +35,7 @@ async function handleCertAction(
   open: boolean,
 ) {
   try {
-    const config = await resolveCertConfig(cert.course_id);
+    const config = await resolveCertConfig(cert);
     await downloadOrOpenCertificate({
       studentName: userName,
       courseTitle: cert.course_title || "Course",

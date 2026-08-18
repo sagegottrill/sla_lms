@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { UUID_ROUTE } from "@/lib/publicRoutes";
+import { mergeCertificateConfig, type CertificateConfig } from "@/lib/certificateConfig";
 import type { Course, Program, ApiResponse } from "@/types";
 import { apiResponse, isApiSuccess, handleApiError } from "@/lib/utils/api";
 import {
@@ -92,6 +93,15 @@ function stripProgramOptionalColumns(payload: Record<string, unknown>) {
   delete next.partners;
   delete next.application_deadline;
   return next;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 async function fetchCourseRowById(id: number): Promise<Course | undefined> {
@@ -1717,47 +1727,68 @@ export const api = {
     recipientName: string,
     courseTitle: string,
     credentialId: string,
-    completedAt: string
+    completedAt: string,
+    configInput?: CertificateConfig | Record<string, unknown> | null,
   ): Promise<ApiResponse<any | null>> => {
     if (!USE_SUPABASE) {
       return { data: null, error: null, success: true };
     }
 
     const appUrl = window.location.origin;
+    const config = mergeCertificateConfig(configInput);
     const completedDate = new Date(completedAt).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
+    const safeRecipientName = escapeHtml(recipientName);
+    const safeCourseTitle = escapeHtml(courseTitle);
+    const safeCredentialId = escapeHtml(credentialId);
+    const safeCompletedDate = escapeHtml(completedDate);
+    const safeOrgName = escapeHtml(config.org_name);
+    const safeProgramLabel = escapeHtml(config.program_label);
+    const brandColor = config.accent_color || "#0A4D8C";
+    const logoMarkup = config.logo_url
+      ? `<img src="${escapeHtml(config.logo_url)}" alt="${safeOrgName} logo" style="max-height:44px; max-width:160px; object-fit:contain;" />`
+      : `<div style="font-size:20px; font-weight:700; letter-spacing:0.02em;">${safeOrgName}</div>`;
+    const partnerMarkup = config.partner_logo_url
+      ? `<img src="${escapeHtml(config.partner_logo_url)}" alt="${safeProgramLabel} logo" style="max-height:40px; max-width:140px; object-fit:contain;" />`
+      : safeProgramLabel;
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">Congratulations, ${recipientName}! 🎓</h1>
+        <div style="background: linear-gradient(135deg, ${brandColor} 0%, #17324D 100%); padding: 22px 24px; text-align: center; border-radius: 16px 16px 0 0;">
+          <div style="display:flex; align-items:center; justify-content:center; gap:18px; flex-wrap:wrap; margin-bottom:18px;">
+            ${logoMarkup}
+            <div style="width:1px; height:32px; background:rgba(255,255,255,0.28);"></div>
+            <div style="color:white; font-size:13px; font-weight:600; opacity:0.9;">${partnerMarkup}</div>
+          </div>
+          <h1 style="color: white; margin: 0; font-size: 28px;">Congratulations, ${safeRecipientName}!</h1>
         </div>
         <div style="background: white; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           <p style="font-size: 16px; color: #333; line-height: 1.6;">
-            You've successfully completed <strong>${courseTitle}</strong>!
+            You've successfully completed <strong>${safeCourseTitle}</strong>.
           </p>
           <p style="font-size: 16px; color: #333; line-height: 1.6;">
-            Your certificate is now available in your dashboard. You can view and download it anytime.
+            Your branded certificate from ${safeOrgName} is now available in your dashboard. You can view and download it anytime.
           </p>
-          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 0; color: #666; font-size: 14px;"><strong>Certificate ID:</strong> ${credentialId}</p>
-            <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;"><strong>Issued:</strong> ${completedDate}</p>
+          <div style="background: #f8f9fa; border-left: 4px solid ${brandColor}; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #666; font-size: 14px;"><strong>Program:</strong> ${safeProgramLabel}</p>
+            <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;"><strong>Certificate ID:</strong> ${safeCredentialId}</p>
+            <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;"><strong>Issued:</strong> ${safeCompletedDate}</p>
           </div>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${appUrl}/dashboard/certificates" 
-               style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">
+               style="display: inline-block; background: linear-gradient(135deg, ${brandColor} 0%, #17324D 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">
               View Certificate
             </a>
           </div>
           <p style="font-size: 14px; color: #666; line-height: 1.6; margin-top: 30px;">
-            Share your achievement on LinkedIn and inspire others in the She Leads Africa community!
+            Share your achievement on LinkedIn and inspire others in the ${safeOrgName} community.
           </p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
           <p style="font-size: 12px; color: #999; text-align: center; margin: 0;">
-            She Leads Africa | Empowering African Women Through Education
+            ${safeOrgName}
           </p>
         </div>
       </div>
@@ -1767,7 +1798,9 @@ export const api = {
 
 You've successfully completed ${courseTitle}!
 
-Your certificate is now available in your dashboard.
+Your branded certificate from ${config.org_name} is now available in your dashboard.
+
+Program: ${config.program_label}
 
 Certificate ID: ${credentialId}
 Issued: ${completedDate}
@@ -1777,7 +1810,7 @@ View your certificate: ${appUrl}/dashboard/certificates
 Share your achievement on LinkedIn and inspire others!
 
 ---
-She Leads Africa | Empowering African Women Through Education`;
+${config.org_name}`;
 
     try {
       const { data, error } = await supabase.functions.invoke('send-email', {

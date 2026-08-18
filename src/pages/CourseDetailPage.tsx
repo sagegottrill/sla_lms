@@ -227,6 +227,7 @@ export default function CourseDetailPage() {
               course.title,
               certRes.data?.credential_id || "N/A",
               certRes.data?.completed_at || new Date().toISOString(),
+              course.certificateConfig ?? null,
             );
           } catch (emailErr) {
             console.error("Failed to send certificate email:", emailErr);
