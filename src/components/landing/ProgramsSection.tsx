@@ -102,9 +102,11 @@ export default function ProgramsSection() {
               <div className="relative overflow-hidden h-44">
                 <img src={program.image} alt={program.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                 <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
-                <span className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold ${tagStyles[program.tag || "Most Popular"] ?? "bg-primary text-primary-foreground"}`}>
-                  {program.tag || "Open"}
-                </span>
+                {program.tag && tagStyles[program.tag] ? (
+                  <span className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold ${tagStyles[program.tag]}`}>
+                    {program.tag}
+                  </span>
+                ) : null}
                 <div className="absolute bottom-3 left-3 right-3">
                   <CountdownBadge deadline={program.deadline || program.startDate || ""} />
                 </div>

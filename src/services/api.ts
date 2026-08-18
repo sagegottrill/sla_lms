@@ -2206,6 +2206,66 @@ ${config.org_name}`;
     return { data: data ?? [], error: null, success: true };
   },
 
+  syncPaystackFinance: async (): Promise<ApiResponse<{
+    totalRevenue: number;
+    successfulCount: number;
+    synced: number;
+    source: string;
+    transactions: Array<{
+      reference: string;
+      amount: number;
+      currency: string;
+      status: string;
+      method: string;
+      customer_email: string;
+      paid_at: string | null;
+      course_id: number | null;
+      program_id: number | null;
+      synced: boolean;
+    }>;
+  } | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: null, success: true };
+    }
+    const { data, error } = await supabase.functions.invoke("paystack-sync", { body: {} });
+    let invokeError = "";
+    if (data && typeof data === "object" && "error" in data && data.error) {
+      invokeError = String(data.error);
+    } else if (error) {
+      invokeError = error.message;
+      const ctx = (error as { context?: Response }).context;
+      if (ctx && typeof ctx.json === "function") {
+        try {
+          const body = await ctx.json();
+          if (body && typeof body === "object" && body.error) {
+            invokeError = String(body.error);
+          }
+        } catch {
+          /* keep invokeError */
+        }
+      }
+    }
+    if (invokeError) {
+      console.error("paystack-sync error:", invokeError);
+      const lowered = invokeError.toLowerCase();
+      if (lowered.includes("not found") || lowered.includes("404") || lowered.includes("failed to send a request")) {
+        invokeError = "Paystack sync is not deployed yet. Deploy the paystack-sync Edge Function and keep PAYSTACK_SECRET_KEY set.";
+      }
+      return { data: null, error: invokeError, success: false };
+    }
+    return {
+      data: {
+        totalRevenue: Number(data?.totalRevenue) || 0,
+        successfulCount: Number(data?.successfulCount) || 0,
+        synced: Number(data?.synced) || 0,
+        source: "paystack",
+        transactions: Array.isArray(data?.transactions) ? data.transactions : [],
+      },
+      error: null,
+      success: true,
+    };
+  },
+
   // Instructor-scoped payments — only courses owned by this instructor
   getInstructorPayments: async (instructorId: string): Promise<ApiResponse<any[]>> => {
     if (!USE_SUPABASE || !instructorId) return { data: [], error: null, success: true };

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useSystemStats, useCourses, useProfiles } from "@/hooks/useQueries";
+import { useSystemStats, useCourses, useProfiles, usePaystackFinance } from "@/hooks/useQueries";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -46,12 +46,14 @@ export default function AdminDashboard() {
      select: (response) => response.data || [],
    });
 
+   const { data: paystackFinance, isLoading: loadingPaystack, isError: paystackError, error: paystackErr, refetch: refetchPaystack } = usePaystackFinance();
+
   const totalUsers = systemStats?.totalUsers ?? 0;
   const activeCourses = systemStats?.activeCourses ?? 0;
   const activePrograms = systemStats?.activePrograms ?? 0;
   const completionRate = systemStats?.completionRate ?? 0;
   const totalCertificates = systemStats?.totalCertificates ?? 0;
-  const totalRevenue = systemStats?.totalRevenue ?? 0;
+  const totalRevenue = paystackFinance?.totalRevenue ?? systemStats?.totalRevenue ?? 0;
 
   // Derived metrics from real data
   const totalEnrollments = allCourses.reduce((acc: number, c: any) => acc + (c.students || 0), 0);
@@ -66,9 +68,13 @@ export default function AdminDashboard() {
 
 
 
-  const handleRefresh = () => {
-    refetch();
-    toast.success("Dashboard metrics synced.");
+  const handleRefresh = async () => {
+    const [, paystackResult] = await Promise.all([refetch(), refetchPaystack()]);
+    if (paystackResult.error) {
+      toast.error(paystackResult.error instanceof Error ? paystackResult.error.message : "Could not sync Paystack.");
+      return;
+    }
+    toast.success("Dashboard metrics synced from Paystack.");
   };
 
   const secondaryMetrics = [
@@ -229,9 +235,15 @@ export default function AdminDashboard() {
           >
             <div className="relative z-10">
               <h2 className="font-display font-semibold text-2xl mb-1">Financial Summary</h2>
-              <p className="text-emerald-50 text-sm mb-8 opacity-90">Revenue collected from course enrollments and subscriptions.</p>
+              <p className="text-emerald-50 text-sm mb-8 opacity-90">
+                {paystackError
+                  ? (paystackErr instanceof Error ? paystackErr.message : "Paystack sync failed. Deploy paystack-sync and set PAYSTACK_SECRET_KEY.")
+                  : paystackFinance
+                  ? `${paystackFinance.successfulCount} successful Paystack payment${paystackFinance.successfulCount === 1 ? "" : "s"}.`
+                  : "Live totals from Paystack."}
+              </p>
               <div className="flex items-end gap-3">
-                {loadingStats ? <Skeleton className="h-12 w-48 bg-white/20" /> : (
+                {loadingStats || loadingPaystack ? <Skeleton className="h-12 w-48 bg-white/20" /> : (
                   <p className="text-5xl font-bold tracking-tight">₦{totalRevenue.toLocaleString()}</p>
                 )}
                 <span className="text-emerald-100 text-sm mb-2 font-medium">Total Revenue</span>

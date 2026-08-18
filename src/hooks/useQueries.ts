@@ -472,6 +472,29 @@ export const useProfile = (userId: string | undefined) => {
    });
  };
 
+ export const usePaystackFinance = () => {
+   const { appUser, loading: authLoading } = useAuth();
+   const role = appUser?.role;
+   const enabled = role === "admin" || role === "program_manager";
+   const query = useQuery({
+     queryKey: queryKeys.payments.paystack(),
+     queryFn: async () => {
+       const response = await api.syncPaystackFinance();
+       if (!response.success || !response.data) {
+         throw new Error(response.error || "Could not load Paystack finance.");
+       }
+       return response.data;
+     },
+     enabled,
+     staleTime: 60_000,
+     retry: 1,
+   });
+   return {
+     ...query,
+     isLoading: authLoading || query.isLoading,
+   };
+ };
+
  export const useInstructorStats = (instructorId: string | undefined) => {
    const { appUser } = useAuth();
    return useQuery({

@@ -1,9 +1,11 @@
 ﻿import { useMemo, useState } from "react";
-import { Download, CreditCard, Filter, ArrowUpRight, CheckCircle2, HelpCircle } from "lucide-react";
+import { CreditCard, ArrowUpRight, CheckCircle2, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useSystemStats } from "@/hooks/useQueries";
+import { useSystemStats, usePaystackFinance } from "@/hooks/useQueries";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
+import { queryKeys } from "@/lib/react-query";
+import { toast } from "sonner";
 import {
   Tooltip,
   TooltipContent,
@@ -14,13 +16,23 @@ import {
 export default function PaymentsPage() {
   const [filter, setFilter] = useState("All");
   const { data: stats, isLoading } = useSystemStats();
-  const totalRevenue = stats?.totalRevenue ?? 0;
+  const {
+    data: paystackFinance,
+    isLoading: loadingPaystack,
+    isError: paystackError,
+    error: paystackErr,
+    refetch,
+  } = usePaystackFinance();
 
    const { data: payments = [], isLoading: loadingPayments } = useQuery({
-     queryKey: ["payments", "ledger"],
+     queryKey: queryKeys.payments.ledger(),
      queryFn: api.getPayments,
      select: (response) => response.data || [],
    });
+
+  const totalRevenue = paystackFinance?.totalRevenue ?? stats?.totalRevenue ?? 0;
+  const settledCount = paystackFinance?.successfulCount ??
+    (payments as any[]).filter((p) => String(p.status).toLowerCase() === "successful").length;
 
   const normalized = useMemo(() => {
     const mapStatus = (s: string) => {
@@ -29,6 +41,17 @@ export default function PaymentsPage() {
       if (s === "failed") return "Failed";
       return s || "—";
     };
+    if (paystackFinance?.transactions?.length) {
+      return paystackFinance.transactions.map((p) => ({
+        id: p.reference,
+        created_at: p.paid_at,
+        amount: Number(p.amount ?? 0),
+        currency: String(p.currency ?? "NGN"),
+        status: mapStatus(String(p.status ?? "")),
+        customer: p.customer_email || "—",
+        item: p.method ? `Paystack · ${p.method}` : "Paystack",
+      }));
+    }
     return (payments as any[]).map((p) => {
       const courseTitle = p?.courses?.title;
       const programTitle = p?.programs?.title;
@@ -44,7 +67,7 @@ export default function PaymentsPage() {
         item,
       };
     });
-  }, [payments]);
+  }, [payments, paystackFinance]);
 
   const filteredRows = useMemo(() => {
     if (filter === "All") return normalized;
@@ -76,12 +99,27 @@ export default function PaymentsPage() {
             </TooltipProvider>
           </h1>
           <p className="text-muted-foreground text-sm">
-            {isLoading ? "Syncing revenue…" : "Revenue overview from your Supabase payments data."}
+            {loadingPaystack
+              ? "Syncing revenue from Paystack…"
+              : paystackError
+                ? (paystackErr instanceof Error ? paystackErr.message : "Could not load Paystack finance.")
+                : "Live totals from Paystack."}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">
-             <Download className="w-3.5 h-3.5 mr-2" /> Export Ledgers
+          <Button
+            variant="outline"
+            className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted"
+            onClick={async () => {
+              const result = await refetch();
+              if (result.error) {
+                toast.error(result.error instanceof Error ? result.error.message : "Could not sync Paystack.");
+                return;
+              }
+              toast.success("Paystack finance synced.");
+            }}
+          >
+             Sync Paystack
           </Button>
         </div>
       </div>
@@ -101,7 +139,7 @@ export default function PaymentsPage() {
                 </p>
                 <div className="flex items-end gap-2">
                   <p className="text-3xl font-light text-foreground">
-                    ₦{isLoading ? "—" : totalRevenue.toLocaleString()}
+                    ₦{isLoading || loadingPaystack ? "—" : totalRevenue.toLocaleString()}
                   </p>
                   <span className="text-[10px] font-bold text-muted-foreground mb-1">—</span>
                 </div>
@@ -112,11 +150,11 @@ export default function PaymentsPage() {
                   <CreditCard className="w-3.5 h-3.5" /> Settled Txs
                 </p>
                 <div className="flex items-end gap-2">
-                  {isLoading || loadingPayments ? (
+                  {isLoading || loadingPayments || loadingPaystack ? (
                     <p className="text-3xl font-light text-foreground">—</p>
                   ) : (
                     <p className="text-3xl font-light text-foreground">
-                      {(payments as any[]).filter(p => p.status === "successful").length.toLocaleString()}
+                      {settledCount.toLocaleString()}
                     </p>
                   )}
                   <span className="text-[10px] font-bold text-muted-foreground mb-1">paid</span>
@@ -128,7 +166,7 @@ export default function PaymentsPage() {
                   <ArrowUpRight className="w-3.5 h-3.5" /> Net MRR
                 </p>
                 <div className="flex items-end gap-2">
-                  <p className="text-3xl font-bold text-primary">₦{isLoading ? "—" : totalRevenue.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-primary">₦{isLoading || loadingPaystack ? "—" : totalRevenue.toLocaleString()}</p>
                   <span className="text-[10px] font-bold text-muted-foreground mb-1">—</span>
                 </div>
               </div>
@@ -170,7 +208,7 @@ export default function PaymentsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
-                  {(isLoading || loadingPayments) ? (
+                  {(isLoading || loadingPayments || loadingPaystack) ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-20 text-center bg-card/20 text-muted-foreground">
                         Loading transactions…
@@ -180,8 +218,8 @@ export default function PaymentsPage() {
                     <tr>
                       <td colSpan={6} className="px-6 py-20 text-center bg-card/20">
                         <CreditCard className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                        <p className="text-foreground font-medium mb-1">No transactions generated</p>
-                        <p className="text-sm text-muted-foreground">Transactions will appear here once payments are recorded in Supabase.</p>
+                        <p className="text-foreground font-medium mb-1">No Paystack transactions yet</p>
+                        <p className="text-sm text-muted-foreground">Successful charges from Paystack will appear here after sync.</p>
                       </td>
                     </tr>
                   ) : (

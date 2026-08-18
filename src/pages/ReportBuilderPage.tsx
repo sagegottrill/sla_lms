@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from "recharts";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
-import { useSystemStats } from "@/hooks/useQueries";
+import { useSystemStats, usePaystackFinance } from "@/hooks/useQueries";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/services/api";
 
@@ -32,6 +32,7 @@ export default function ReportBuilderPage() {
   const [preview, setPreview] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const { data: systemStats } = useSystemStats();
+  const { data: paystackFinance } = usePaystackFinance();
 
   const [form, setForm] = useState<ReportConfig>({
     id: "", name: "", metric: metricOptions[0], dimension: dimensionOptions[0], chartType: "bar", dateRange: "Last 6 months",
@@ -123,7 +124,7 @@ export default function ReportBuilderPage() {
    }, [appUser?.id]);
 
   const previewData = useMemo(() => {
-    const totalRevenue = systemStats?.totalRevenue ?? 0;
+    const totalRevenue = paystackFinance?.totalRevenue ?? systemStats?.totalRevenue ?? 0;
     const totalUsers = systemStats?.totalUsers ?? 0;
     const totalCertificates = systemStats?.totalCertificates ?? 0;
     const completionRate = systemStats?.completionRate ?? 0;
@@ -162,6 +163,7 @@ export default function ReportBuilderPage() {
     return labels.map((label) => ({ label, value }));
   }, [
     form.metric,
+    paystackFinance?.totalRevenue,
     systemStats?.completionRate,
     systemStats?.satisfactionScore,
     systemStats?.totalCertificates,

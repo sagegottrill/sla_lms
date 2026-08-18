@@ -78,6 +78,12 @@ export const queryKeys = {
     instructor: (role: string = 'instructor', instructorId: string) => ['stats', role, 'metrics', { instructorId }] as const,
   },
 
+  payments: {
+    base: ['payments'] as const,
+    paystack: () => ['payments', 'paystack'] as const,
+    ledger: () => ['payments', 'ledger'] as const,
+  },
+
   // Dashboard lists
   participants: {
     base: ['participants'] as const,

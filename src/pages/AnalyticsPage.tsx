@@ -8,7 +8,7 @@ import {
   Download, Calendar, Filter, ChevronDown, FileText,
   Target, Activity, Award, Clock, HelpCircle
 } from "lucide-react";
-import { useSystemStats } from "@/hooks/useQueries";
+import { useSystemStats, usePaystackFinance } from "@/hooks/useQueries";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
@@ -68,10 +68,11 @@ export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState<ReportTab>("overview");
   const [dateRange, setDateRange] = useState("30d");
   const { data: systemStats, isLoading } = useSystemStats();
+  const { data: paystackFinance, isLoading: loadingPaystack } = usePaystackFinance();
 
   const totalUsers = systemStats?.totalUsers ?? 0;
   const activeCourses = systemStats?.activeCourses ?? 0;
-  const totalRevenue = systemStats?.totalRevenue ?? 0;
+  const totalRevenue = paystackFinance?.totalRevenue ?? systemStats?.totalRevenue ?? 0;
   const completionRate = systemStats?.completionRate ?? 0;
 
   const tabs: { id: ReportTab; label: string; icon: React.ElementType }[] = [
@@ -148,7 +149,7 @@ export default function AnalyticsPage() {
                 {metric.change}
               </span>
             </div>
-            {isLoading ? (
+            {isLoading || (metric.label === "Total Revenue" && loadingPaystack) ? (
               <Skeleton className="h-8 w-24 mb-1" />
             ) : (
               <div className="text-2xl font-semibold text-foreground mb-1">
