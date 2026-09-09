@@ -88,14 +88,14 @@ export default function ProgramBuilderPage() {
         : "All Levels",
     );
     setDuration(String(p.duration ?? ""));
-    setStartDate(String(p.start_date ?? "").slice(0, 10));
+    setStartDate(String(p.startDate ?? p.start_date ?? "").slice(0, 10));
     setDeadline(String(p.deadline ?? "").slice(0, 10));
     setApplicationDeadline(
       String((p as any).applicationDeadline ?? (p as any).application_deadline ?? "").slice(0, 10),
     );
     setCapacity(String(p.capacity ?? ""));
     setPrice(p.price != null ? String(p.price) : "");
-    setOriginalPrice(p.original_price != null ? String(p.original_price) : "");
+    setOriginalPrice(p.originalPrice != null ? String(p.originalPrice) : p.original_price != null ? String(p.original_price) : "");
     setCohort(String(p.tag ?? (p as { cohort?: string }).cohort ?? ""));
     setImage(String(p.image ?? ""));
     const hl = p.highlights;

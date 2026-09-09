@@ -104,20 +104,20 @@ export default function CourseBuilderPage() {
     const p = typeof c.price === "number" ? c.price : Number(c.price ?? 0);
     setIsFree(p === 0);
     setPrice(p ? String(p) : "");
-    const op = typeof c.original_price === "number" ? c.original_price : Number(c.original_price ?? 0);
+    const op = typeof c.originalPrice === "number" ? c.originalPrice : typeof c.original_price === "number" ? c.original_price : Number(c.original_price ?? c.originalPrice ?? 0);
     setOriginalPrice(op ? String(op) : "");
     setBadge(typeof c.badge === "string" && c.badge ? c.badge : BADGES[0]);
     setLanguage(typeof c.language === "string" && c.language ? c.language : "English");
     setImage(String(c.image ?? ""));
     setInstructor(String(c.instructor ?? ""));
-    setInstructorTitle(String(c.instructor_title ?? ""));
-    setInstructorBio(String(c.instructor_bio ?? ""));
-    setInstructorAvatar(String(c.instructor_avatar ?? ""));
+    setInstructorTitle(String(c.instructorTitle ?? c.instructor_title ?? ""));
+    setInstructorBio(String(c.instructorBio ?? c.instructor_bio ?? ""));
+    setInstructorAvatar(String(c.instructorAvatar ?? c.instructor_avatar ?? ""));
     setCertificateConfig(
       mergeCertificateConfig(c.certificateConfig ?? c.certificate_config),
     );
 
-    const wyl = c.what_youll_learn;
+    const wyl = c.whatYoullLearn ?? c.what_youll_learn;
     if (Array.isArray(wyl)) {
       const arr = wyl.map((x: any) => String(x ?? "")).filter(Boolean);
       setWhatYoullLearn(arr.length ? arr : ["", "", ""]);
