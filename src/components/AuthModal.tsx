@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { getSiteUrl } from "@/lib/siteUrl";
+import { LEGAL_COMPANY } from "@/lib/legal/company";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -35,6 +36,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [roleHint, setRoleHint] = useState<"admin" | "program_manager" | null>(null);
+  // Policy acceptance state for signup. Must be re-confirmed each time the modal opens.
+  const [consentAccepted, setConsentAccepted] = useState(false);
 
   // IMPORTANT:
   // `initialMode` can change while the modal is already mounted/open
@@ -48,6 +51,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
     setName("");
     setShowPass(false);
     setLoading(false);
+    setConsentAccepted(false);
   }, [initialMode, isOpen]);
 
   // Reset state when mode changes
@@ -84,6 +88,10 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
     const validation = signupSchema.safeParse({ name, email, password });
     if (!validation.success) {
       toast.error(validation.error.errors[0].message);
+      return;
+    }
+    if (!consentAccepted) {
+      toast.error("Please accept the Terms and Conditions and Privacy Policy to continue.");
       return;
     }
     setLoading(true);
@@ -191,6 +199,29 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
                   </div>
                 )}
               </div>
+
+              {mode === "signup" && (
+                <div className="flex items-start gap-2 pt-1">
+                  <input
+                    id="signup-consent"
+                    type="checkbox"
+                    checked={consentAccepted}
+                    onChange={(e) => setConsentAccepted(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-primary"
+                  />
+                  <label htmlFor="signup-consent" className="text-xs text-muted-foreground leading-relaxed">
+                    I agree to the{" "}
+                    <Link to="/terms" onClick={onClose} className="font-medium text-primary hover:text-primary/90 underline underline-offset-2">
+                      Terms and Conditions
+                    </Link>{" "}
+                    and the{" "}
+                    <Link to="/privacy" onClick={onClose} className="font-medium text-primary hover:text-primary/90 underline underline-offset-2">
+                      Privacy Policy
+                    </Link>
+                    , and I am at least {LEGAL_COMPANY.minimumAge} years old or have the consent of a parent or guardian.
+                  </label>
+                </div>
+              )}
 
               <Button
                 type="submit"

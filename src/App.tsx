@@ -12,6 +12,7 @@ import { useAuth } from "./contexts/AuthContext";
 import AuthModal from "./components/AuthModal";
 import { RoleGuard } from "./components/auth/RoleGuard";
 import { MasqueradeBar } from "@/components/admin/MasqueradeBar";
+import SeoManager from "./components/common/SeoManager";
 
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from "@/lib/react-query";
@@ -75,6 +76,10 @@ const JobsBoardPage = lazy(() => import("./pages/JobsBoardPage"));
 const OpportunitiesPage = lazy(() => import("./pages/OpportunitiesPage"));
 const WebinarsPage = lazy(() => import("./pages/WebinarsPage"));
 const VerifyCertificatePage = lazy(() => import("./pages/VerifyCertificatePage"));
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
+const TermsPage = lazy(() => import("./pages/TermsPage"));
+const CookiePolicyPage = lazy(() => import("./pages/CookiePolicyPage"));
+const RefundPolicyPage = lazy(() => import("./pages/RefundPolicyPage"));
 
 function CoursesRoute() {
   const { appUser } = useAuth();
@@ -111,6 +116,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <MasqueradeBar />
+          <SeoManager />
           <SmoothScroll>
             <Suspense fallback={<RouteLoadingFallback />}>
               <Routes>
@@ -133,6 +139,12 @@ const App = () => (
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
               <Route path="/verify/:credentialId" element={<VerifyCertificatePage />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
+
+              {/* Legal — public, indexable, linked from the footer */}
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/cookies" element={<CookiePolicyPage />} />
+              <Route path="/refunds" element={<RefundPolicyPage />} />
 
               {/* Protected Dashboard */}
               <Route path="/dashboard" element={

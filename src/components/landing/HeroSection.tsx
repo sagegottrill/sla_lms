@@ -66,11 +66,11 @@ export default function HeroSection() {
       <div className="relative container mx-auto px-5 sm:px-6 lg:px-8 py-24 sm:py-28 lg:py-32">
         <div className="max-w-2xl text-white space-y-6">
           <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-[1.15]">
-            Achieve your career goals with world-class learning
+            Achieve your career goals with practical, career-focused learning
           </h1>
 
           <p className="text-base sm:text-lg text-white/90 max-w-xl leading-relaxed">
-            Learn practical skills from world-class institutions and industry experts, on your schedule.
+            Learn practical skills from experienced industry practitioners, on your schedule.
           </p>
 
           <div className="flex flex-col sm:flex-row items-start gap-4 pt-2">

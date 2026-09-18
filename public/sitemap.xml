@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Public, crawlable routes for SLA ConnectHer.
+
+  Only routes that render for signed-out visitors belong here. Authenticated
+  surfaces (/dashboard, /onboarding, /reset-password, /auth/*) are intentionally
+  excluded and are also blocked in robots.txt.
+
+  NOTE: /courses/:id, /programs/:id/apply and /verify/:credentialId are dynamic and
+  therefore not listed. They are discovered by crawlers from the links on
+  /courses and /programs once the pages render server-side (see the prerendering
+  work item) — a sitemap cannot make a client-rendered route indexable on its own.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://connecther.sheleadsafrica.org/</loc>
+    <lastmod>2026-09-18</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://connecther.sheleadsafrica.org/courses</loc>
+    <lastmod>2026-09-18</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://connecther.sheleadsafrica.org/programs</loc>
+    <lastmod>2026-09-18</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://connecther.sheleadsafrica.org/opportunities</loc>
+    <lastmod>2026-09-18</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://connecther.sheleadsafrica.org/for-teams</loc>
+    <lastmod>2026-09-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://connecther.sheleadsafrica.org/privacy</loc>
+    <lastmod>2026-09-18</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://connecther.sheleadsafrica.org/terms</loc>
+    <lastmod>2026-09-18</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://connecther.sheleadsafrica.org/cookies</loc>
+    <lastmod>2026-09-18</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://connecther.sheleadsafrica.org/refunds</loc>
+    <lastmod>2026-09-18</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+</urlset>

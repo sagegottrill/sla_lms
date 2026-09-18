@@ -1,14 +1,14 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
+# https://connecther.sheleadsafrica.org/robots.txt
 
 User-agent: *
 Allow: /
+
+# Authenticated / account-recovery surfaces — nothing here is useful to a crawler
+# and indexing them produces duplicate "empty shell" pages.
+Disallow: /dashboard
+Disallow: /onboarding
+Disallow: /auth/
+Disallow: /reset-password
+Disallow: /forgot-password
+
+Sitemap: https://connecther.sheleadsafrica.org/sitemap.xml

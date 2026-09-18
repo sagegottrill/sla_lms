@@ -2,18 +2,26 @@ import { useState } from "react";
 import { BookOpen, Mail, Twitter, Linkedin, Instagram, Youtube, Facebook } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { LEGAL_COMPANY } from "@/lib/legal/company";
 
 const footerLinks: Record<string, { label: string; href: string }[]> = {
   Learn: [
     { label: "Browse courses", href: "/courses" },
     { label: "Browse programs", href: "/programs" },
-    { label: "Certificates", href: "/courses" },
+    { label: "Opportunities", href: "/opportunities" },
   ],
   Platform: [
     { label: "Sign in", href: "/" },
+    { label: "For teams", href: "/for-teams" },
     { label: "She Leads Africa", href: "https://sheleadsafrica.org" },
   ],
-  Support: [{ label: "Contact", href: "mailto:info@sheleadsafrica.org" }],
+  Legal: [
+    { label: "Privacy policy", href: "/privacy" },
+    { label: "Terms & conditions", href: "/terms" },
+    { label: "Cookie policy", href: "/cookies" },
+    { label: "Refund policy", href: "/refunds" },
+  ],
+  Support: [{ label: "Contact", href: `mailto:${LEGAL_COMPANY.contactEmail}` }],
 };
 
 const socials = [
@@ -27,13 +35,23 @@ const socials = [
 export default function Footer() {
   const [email, setEmail] = useState("");
 
+  /**
+   * Opens the visitor's mail client with a subscribe request.
+   *
+   * There is no mailing-list backend wired into this app, and a form that shows
+   * "subscribed!" without storing or sending anything is a false promise — so
+   * this hands the request to a channel that genuinely delivers it. When a
+   * mailing provider is connected, replace this with the provider's API call.
+   */
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !email.includes("@")) {
       toast.error("Please enter a valid email address.");
       return;
     }
-    toast.success("Subscribed! Check your inbox for a welcome email.");
+    const subject = encodeURIComponent("Subscribe to She Leads Africa updates");
+    const body = encodeURIComponent(`Please add this address to your mailing list: ${email.trim()}`);
+    window.location.href = `mailto:${LEGAL_COMPANY.contactEmail}?subject=${subject}&body=${body}`;
     setEmail("");
   };
 
@@ -47,7 +65,7 @@ export default function Footer() {
               <img src="/sla_logo_transparent.png" alt="She Leads Africa" className="h-10 w-auto brightness-0 invert" />
             </Link>
             <p className="text-white/60 text-sm leading-relaxed mb-6 max-w-sm">
-              Africa's leading learning platform for ambitious women. Build career-defining skills, earn certificates, and learn alongside a global community.
+              A learning platform from She Leads Africa. Build career-defining skills, earn certificates, and learn alongside a community of women across Africa.
             </p>
             {/* Newsletter */}
             <form onSubmit={handleSubscribe} className="flex gap-2">
@@ -58,6 +76,7 @@ export default function Footer() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Your email"
+                  aria-label="Email address"
                   className="flex-1 bg-transparent text-sm text-white placeholder:text-white/40 focus:outline-none py-2.5 px-2"
                 />
               </div>
@@ -65,6 +84,11 @@ export default function Footer() {
                 Join
               </button>
             </form>
+            <p className="text-[11px] text-white/40 leading-relaxed mt-3 max-w-sm">
+              By joining you consent to receive emails from She Leads Africa, and you agree to our{" "}
+              <Link to="/privacy" className="underline underline-offset-2 hover:text-white/70">Privacy Policy</Link> and{" "}
+              <Link to="/terms" className="underline underline-offset-2 hover:text-white/70">Terms</Link>. Unsubscribe at any time.
+            </p>
             {/* Socials */}
             <div className="flex gap-3 mt-6">
               {socials.map(({ icon: Icon, href, label }) => (
@@ -114,23 +138,24 @@ export default function Footer() {
         <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="text-[11px] text-white/40 leading-relaxed font-medium">
             <p className="text-white/55 font-semibold mb-1">Powered by She Leads Africa</p>
-            <p>© 2026 She Leads Africa. All rights reserved.</p>
-            <p className="mt-1">Operated by Devorent Nigeria Limited</p>
-            <p>Lagos, Nigeria</p>
+            <p>© 2026 {LEGAL_COMPANY.legalName}. All rights reserved.</p>
+            <p className="mt-1">Operated by {LEGAL_COMPANY.legalName}</p>
+            <p>{LEGAL_COMPANY.addressLines.join(", ")}</p>
           </div>
-          <div className="flex items-center gap-8">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             {[
-              { label: "Privacy", href: "mailto:info@sheleadsafrica.org?subject=Privacy" },
-              { label: "Terms", href: "mailto:info@sheleadsafrica.org?subject=Terms" },
-              { label: "Cookies", href: "mailto:info@sheleadsafrica.org?subject=Cookies" },
+              { label: "Privacy", href: "/privacy" },
+              { label: "Terms", href: "/terms" },
+              { label: "Cookies", href: "/cookies" },
+              { label: "Refunds", href: "/refunds" },
             ].map((link) => (
-              <a
+              <Link
                 key={link.label}
-                href={link.href}
+                to={link.href}
                 className="text-xs text-white/40 hover:text-white transition-colors font-bold"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </div>
         </div>
