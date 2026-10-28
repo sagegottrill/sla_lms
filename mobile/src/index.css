@@ -1,0 +1,74 @@
+/**
+ * SHE LEADS AFRICA — MOBILE APP THEME
+ * Brand (web parity): Coursera Blue #0056D2 primary, Violent Violet #271066 accent,
+ * white surfaces, gray canvas — identical hue values to the web app's tokens.
+ * Typography: Source Sans 3 (body) + Enriqueta (display headings), same as web.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 0 0% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+
+    --primary: 214 100% 41%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 260 44% 27%; /* #271066 Violent Violet */
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 220 16% 93%;
+    --muted-foreground: 220 9% 44%;
+
+    --accent: 214 100% 94%;
+    --accent-foreground: 214 100% 33%;
+
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 14% 89%;
+    --input: 220 14% 89%;
+    --ring: 214 100% 41%;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100dvh;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+
+  input,
+  button,
+  textarea {
+    font: inherit;
+  }
+}
+
+@layer utilities {
+  .pad-bottom-safe {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+  .top-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  /* Hide scrollbars on rails for native feel */
+  .no-scrollbar-scroll {
+    overflow-x: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar-scroll::-webkit-scrollbar {
+    display: none;
+  }
+}

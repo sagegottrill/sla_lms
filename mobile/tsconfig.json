@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "dom.iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "allowJs": false,
+    "noEmit": true,
+    "isolatedModules": true,
+    "preserveSymlinks": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/lib/supabase": ["./src/lib/supabase.ts"],
+      "@/hooks/useForumRealtime": ["./src/hooks/useForumRealtime.ts"],
+      "@kit": ["./src/lib/m/index.ts"],
+      "@/*": ["../src/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts", "capacitor.config.ts"]
+}
