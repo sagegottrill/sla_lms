@@ -168,6 +168,9 @@ const PROFILE_COLUMNS =
 const ENROLLMENT_SELF_COLUMNS =
   "id, user_id, course_id, program_id, status, progress, current_lesson, last_accessed, enrolled_at, completed_at";
 
+/** Max forum image size (matches the 5MB limit on the forum-images bucket). */
+const FORUM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
 function isMissingRelationError(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false;
   const msg = String(error.message ?? "").toLowerCase();
@@ -3069,6 +3072,35 @@ ${config.org_name}`;
   // -------------------------
   // FORUMS
   // -------------------------
+  /** Uploads an image for a forum thread/reply to the public `forum-images` bucket.
+   *  Returns an ApiResponse with the public URL in `data` (string). */
+  uploadForumImage: async (userId: string, file: File): Promise<ApiResponse<string | null>> => {
+    if (!USE_SUPABASE) {
+      return { data: null, error: "Image upload requires Supabase configuration.", success: false };
+    }
+    if (file.size > FORUM_IMAGE_MAX_BYTES) {
+      return { data: null, error: "Image is larger than 5 MB. Please choose a smaller image.", success: false };
+    }
+    try {
+      const ext = (file.name.split(".").pop() ?? "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext || "png"}`;
+      const { error } = await supabase.storage.from("forum-images").upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || "image/png",
+      });
+      if (error) {
+        console.error("Supabase uploadForumImage error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      const { data: urlData } = supabase.storage.from("forum-images").getPublicUrl(path);
+      return { data: urlData.publicUrl, error: null, success: true };
+    } catch (err: any) {
+      console.error("Supabase uploadForumImage unexpected error:", err?.message ?? err);
+      return { data: null, error: err?.message ?? "Image upload failed", success: false };
+    }
+  },
+
   getForumThreads: async (): Promise<ApiResponse<any[]>> => {
     if (!USE_SUPABASE) {
       return { data: [], error: null, success: true };
@@ -3090,6 +3122,7 @@ ${config.org_name}`;
     body: string;
     category?: string;
     authorName: string;
+    imageUrl?: string;
   }): Promise<ApiResponse<any | null>> => {
     if (!USE_SUPABASE) {
       return { data: null, error: null, success: true };
@@ -3102,6 +3135,7 @@ ${config.org_name}`;
         body: payload.body,
         category: payload.category ?? "General",
         author_name: payload.authorName,
+        image_url: payload.imageUrl ?? null,
       })
       .select()
       .single();
@@ -4185,6 +4219,7 @@ ${config.org_name}`;
     userId: string;
     body: string;
     authorName?: string;
+    imageUrl?: string;
   }): Promise<ApiResponse<any | null>> => {
     if (!USE_SUPABASE) return { data: null, error: null, success: true };
     const { data, error } = await supabase
@@ -4194,6 +4229,7 @@ ${config.org_name}`;
         user_id: payload.userId,
         body: payload.body,
         author_name: payload.authorName ?? "User",
+        image_url: payload.imageUrl ?? null,
       })
       .select()
       .single();

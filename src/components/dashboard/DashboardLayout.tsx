@@ -4,6 +4,7 @@ import { Bell, Menu, X, ChevronRight, Home, Settings, LogOut } from "lucide-reac
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardSidebar from "./DashboardSidebar";
 import { useGlobalDashboardSync } from "@/hooks/useGlobalDashboardSync";
+import { useForumRealtime } from "@/hooks/useForumRealtime";
 import { useUIStore } from "@/store/useUIStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,8 @@ export default function DashboardLayout() {
 
   // PILLAR 3: Global Realtime DB Synchronization active across all portals
   useGlobalDashboardSync();
+  // Forum alerts: toast popups for new threads/replies across all dashboard portals
+  useForumRealtime();
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {

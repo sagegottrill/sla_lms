@@ -1,6 +1,6 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { MessageSquare, ThumbsUp, Pin, Search, Plus, ChevronDown, ChevronUp, Loader2, Tag } from "lucide-react";
+import { MessageSquare, ThumbsUp, Pin, Search, Plus, ChevronDown, ChevronUp, Loader2, Tag, ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,6 +8,68 @@ import { useForumThreads, useCreateForumThreadMutation } from "@/hooks/useQuerie
 import { api } from "@/services/api";
 
 const categories = ["All", "General", "Career Advice", "Technical Help", "Programs", "Networking"];
+const FORUM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Picks up a File selected in an <input type="file">, validating size/type. */
+function validateForumImage(file: File): string | null {
+  if (!file.type.startsWith("image/")) return "Please choose an image file (PNG, JPG, GIF, WebP).";
+  if (file.size > FORUM_IMAGE_MAX_BYTES) return "Image is larger than 5 MB. Please choose a smaller image.";
+  return null;
+}
+
+function ForumImagePicker({
+  file,
+  preview,
+  onPick,
+  onClear,
+  disabled,
+}: {
+  file: File | null;
+  preview: string | null;
+  onPick: (f: File | null) => void;
+  onClear: () => void;
+  disabled?: boolean;
+}) {
+  const inputId = `forum-image-${Math.random().toString(36).slice(2, 8)}`;
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        id={inputId}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        disabled={disabled}
+        onChange={(e) => {
+          const f = e.target.files?.[0] ?? null;
+          if (f) {
+            const err = validateForumImage(f);
+            if (err) { toast.error(err); return; }
+          }
+          onPick(f);
+        }}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={disabled}
+        className="rounded-full h-8 text-xs font-semibold"
+        onClick={() => document.getElementById(inputId)?.click()}
+      >
+        <ImagePlus className="w-3.5 h-3.5 mr-1.5" /> Add image
+      </Button>
+      {file && !preview && <span className="text-xs text-muted-foreground max-w-40 truncate">{file.name}</span>}
+      {(preview || file) && (
+        <button type="button" onClick={onClear} disabled={disabled} className="text-muted-foreground hover:text-destructive transition-colors" aria-label="Remove image">
+          <X className="w-4 h-4" />
+        </button>
+      )}
+      {preview && (
+        <img src={preview} alt="" className="h-12 w-12 rounded-lg object-cover ring-1 ring-black/5" />
+      )}
+    </div>
+  );
+}
 
 export default function ForumsPage() {
   const { appUser } = useAuth();
@@ -19,9 +81,13 @@ export default function ForumsPage() {
   const [openThread, setOpenThread] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [newThread, setNewThread] = useState({ title: "", body: "", category: "General" });
+  const [threadImage, setThreadImage] = useState<File | null>(null);
+  const [threadImagePreview, setThreadImagePreview] = useState<string | null>(null);
   const [repliesByThread, setRepliesByThread] = useState<Record<string, any[]>>({});
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [replyImages, setReplyImages] = useState<Record<string, File | null>>({});
   const [loadingReplies, setLoadingReplies] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const filtered = (threads as any[]).filter(t => {
     const matchCat = category === "All" || t.category === category;
@@ -45,12 +111,25 @@ export default function ForumsPage() {
 
   const submitReply = async (threadId: string) => {
     const body = (replyDrafts[threadId] ?? "").trim();
-    if (!body || !appUser?.id) return;
+    const image = replyImages[threadId] ?? null;
+    if ((!body && !image) || !appUser?.id) return;
+    let imageUrl: string | undefined;
+    if (image) {
+      setUploadingImage(true);
+      const up = await api.uploadForumImage(appUser.id, image);
+      setUploadingImage(false);
+      if (!up.success || !up.data) {
+        toast.error(up.error || "Could not upload image");
+        return;
+      }
+      imageUrl = up.data;
+    }
     const res = await api.createForumReply({
       threadId,
       userId: appUser.id,
       body,
       authorName: appUser.name ?? "User",
+      imageUrl,
     });
     if (!res.success) {
       toast.error(res.error || "Could not post reply");
@@ -61,24 +140,42 @@ export default function ForumsPage() {
       [threadId]: [...(prev[threadId] ?? []), res.data],
     }));
     setReplyDrafts((prev) => ({ ...prev, [threadId]: "" }));
+    setReplyImages((prev) => ({ ...prev, [threadId]: null }));
     toast.success("Reply posted");
   };
 
   const submitThread = () => {
     if (!appUser?.id) { toast.error("Please log in to post a thread."); return; }
     if (!newThread.title.trim()) return;
-    createMutation.mutate({
-      userId:     appUser.id,
-      title:      newThread.title.trim(),
-      body:       newThread.body.trim(),
-      category:   newThread.category,
-      authorName: appUser.name ?? "User",
-    }, {
-      onSuccess: () => {
-        setNewThread({ title: "", body: "", category: "General" });
-        setShowNew(false);
-      },
-    });
+    void (async () => {
+      let imageUrl: string | undefined;
+      if (threadImage) {
+        setUploadingImage(true);
+        const up = await api.uploadForumImage(appUser.id!, threadImage);
+        setUploadingImage(false);
+        if (!up.success || !up.data) {
+          toast.error(up.error || "Could not upload image");
+          return;
+        }
+        imageUrl = up.data;
+      }
+      createMutation.mutate({
+        userId:     appUser.id,
+        title:      newThread.title.trim(),
+        body:       newThread.body.trim(),
+        category:   newThread.category,
+        authorName: appUser.name ?? "User",
+        imageUrl,
+      }, {
+        onSuccess: () => {
+          setNewThread({ title: "", body: "", category: "General" });
+          setThreadImage(null);
+          setThreadImagePreview(null);
+          setShowNew(false);
+        },
+        onError: (err: any) => toast.error(err?.message || "Could not post thread"),
+      });
+    })();
   };
 
   return (
@@ -108,6 +205,19 @@ export default function ForumsPage() {
             <textarea value={newThread.body} onChange={e => setNewThread(p => ({ ...p, body: e.target.value }))}
               placeholder="What's on your mind?" rows={3}
               className="w-full px-4 py-3 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none" />
+            <ForumImagePicker
+              file={threadImage}
+              preview={threadImagePreview}
+              onPick={(f) => {
+                setThreadImage(f);
+                setThreadImagePreview(f ? URL.createObjectURL(f) : null);
+              }}
+              onClear={() => {
+                setThreadImage(null);
+                setThreadImagePreview(null);
+              }}
+              disabled={createMutation.isPending || uploadingImage}
+            />
             <div className="flex items-center gap-3">
               <select value={newThread.category} onChange={e => setNewThread(p => ({ ...p, category: e.target.value }))}
                 className="px-4 py-2 rounded-full ring-1 ring-black/5 dark:ring-white/10 border-0 bg-transparent text-sm focus:outline-none appearance-none">
@@ -115,11 +225,11 @@ export default function ForumsPage() {
               </select>
               <Button
                 onClick={submitThread}
-                disabled={createMutation.isPending || !newThread.title.trim()}
+                disabled={createMutation.isPending || uploadingImage || !newThread.title.trim()}
                 className="rounded-full px-6 h-9 text-xs font-bold bg-primary hover:bg-primary/90 text-white border-0"
               >
-                {createMutation.isPending
-                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-2" />Posting…</>
+                {createMutation.isPending || uploadingImage
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-2" />{uploadingImage ? "Uploading image…" : "Posting…"}</>
                   : "Post"}
               </Button>
               <Button variant="outline" onClick={() => setShowNew(false)} className="rounded-full px-5 h-9 text-xs font-semibold bg-transparent border-border hover:bg-muted">Cancel</Button>
@@ -177,6 +287,11 @@ export default function ForumsPage() {
                         <span className="text-[10px] bg-muted px-2 py-0.5 rounded-md text-muted-foreground flex items-center gap-1">
                           <Tag className="w-2.5 h-2.5" />{thread.category}
                         </span>
+                        {thread.image_url && (
+                          <span className="text-[10px] bg-muted px-2 py-0.5 rounded-md text-muted-foreground flex items-center gap-1">
+                            <ImagePlus className="w-2.5 h-2.5" /> Photo
+                          </span>
+                        )}
                       </div>
                       <h3 className="font-semibold text-foreground text-sm leading-snug">{thread.title}</h3>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -196,24 +311,59 @@ export default function ForumsPage() {
                 {openThread === thread.id && (
                   <div className="px-6 pb-5 bg-muted/10 border-t border-border/40">
                     {thread.body ? <p className="text-sm text-foreground py-4 whitespace-pre-wrap">{thread.body}</p> : null}
+                    {thread.image_url && (
+                      <img src={thread.image_url} alt={thread.title} className="max-h-80 rounded-xl mt-1 mb-4 object-cover ring-1 ring-black/5" loading="lazy" />
+                    )}
                     <div className="space-y-3">
                       {loadingReplies === thread.id ? (
                         <p className="text-xs text-muted-foreground">Loading replies…</p>
                       ) : (repliesByThread[thread.id] ?? []).map((reply: any) => (
                         <div key={reply.id} className="bg-card rounded-xl p-3 text-sm">
                           <p className="text-xs text-muted-foreground mb-1">{reply.author_name ?? "User"}</p>
-                          <p className="text-foreground whitespace-pre-wrap">{reply.body}</p>
+                          {reply.body ? <p className="text-foreground whitespace-pre-wrap">{reply.body}</p> : null}
+                          {reply.image_url && (
+                            <img src={reply.image_url} alt="" className="max-h-64 rounded-lg mt-2 object-cover ring-1 ring-black/5" loading="lazy" />
+                          )}
                         </div>
                       ))}
                     </div>
-                    <div className="mt-4 flex gap-2">
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
                       <input
                         value={replyDrafts[thread.id] ?? ""}
                         onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [thread.id]: e.target.value }))}
                         placeholder="Write a reply..."
-                        className="flex-1 px-3 py-2 rounded-xl border bg-background text-sm"
+                        className="flex-1 min-w-40 px-3 py-2 rounded-xl border bg-background text-sm"
                       />
-                      <Button size="sm" className="rounded-full" onClick={() => void submitReply(thread.id)}>Reply</Button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        id={`reply-image-${thread.id}`}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] ?? null;
+                          if (f) {
+                            const err = validateForumImage(f);
+                            if (err) { toast.error(err); return; }
+                          }
+                          setReplyImages((prev) => ({ ...prev, [thread.id]: f }));
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-full h-8 text-xs font-semibold"
+                        onClick={() => document.getElementById(`reply-image-${thread.id}`)?.click()}
+                        aria-label="Attach an image"
+                      >
+                        <ImagePlus className="w-3.5 h-3.5 mr-1.5" />
+                        {replyImages[thread.id]?.name ? "Photo attached" : "Add image"}
+                      </Button>
+                      {replyImages[thread.id] && (
+                        <button onClick={() => setReplyImages((prev) => ({ ...prev, [thread.id]: null }))} className="text-muted-foreground hover:text-destructive" aria-label="Remove attached image">
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                      <Button size="sm" className="rounded-full" disabled={uploadingImage} onClick={() => void submitReply(thread.id)}>Reply</Button>
                     </div>
                   </div>
                 )}
