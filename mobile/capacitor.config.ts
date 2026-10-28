@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   backgroundColor: "#0056D2",
   android: {
     allowMixedContent: false,
-    webContentsDebuggingEnabled: false,
+    webContentsDebuggingEnabled: true, // chrome://inspect on a USB-connected phone for live debugging
   },
   server: {
     androidScheme: "https",

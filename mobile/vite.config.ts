@@ -14,9 +14,35 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
-      // The mobile supabase client (Preferences-backed session storage) takes
-      // precedence over the web client for EVERY shared consumer, so auth
-      // sessions live in exactly one store inside the app shell.
+      // SINGLE-COPY LAW: every runtime dependency shared with ../src must
+      // resolve to the ROOT node_modules. Mobile/node_modules carries different
+      // versions; without these aliases the bundle ships two copies of e.g.
+      // React Query, and their separate contexts crash the app on boot
+      // (the endless-splash bug). Keeps shared + mobile code on one instance.
+      ...[
+        "@tanstack/react-query",
+        "@supabase/supabase-js",
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "react-router-dom",
+        "framer-motion",
+        "lucide-react",
+        "sonner",
+        "clsx",
+        "tailwind-merge",
+        "class-variance-authority",
+        "browser-image-compression",
+      ].map((name) => ({
+        find: new RegExp(`^${name.replace("/", "\\/")}$`),
+        replacement: path.resolve(__dirname, "..", "node_modules", name),
+      })),
+      // The mobile supabase client takes precedence over the web client for
+      // EVERY shared consumer, so auth sessions live in exactly one client
+      // instance. AuthContext imports it as "../lib/supabase" (relative), so
+      // every spelling of the specifier must resolve to the mobile client.
+      { find: /(^\.\.|^\.)\/lib\/supabase$/, replacement: path.resolve(__dirname, "src", "lib", "supabase.ts") },
+      // literal "@/lib/supabase" spelling used by mobile pages + shared src
       { find: "@/lib/supabase", replacement: path.resolve(__dirname, "src", "lib", "supabase.ts") },
       // Mobile-specific forum popup hook (desktop-free navigation targets).
       { find: "@/hooks/useForumRealtime", replacement: path.resolve(__dirname, "src", "hooks", "useForumRealtime.ts") },
@@ -28,14 +54,9 @@ export default defineConfig({
   build: {
     outDir: "dist",
     chunkSizeWarningLimit: 1600,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ["react", "react-dom", "react-router-dom", "@tanstack/react-query"],
-          supabase: ["@supabase/supabase-js"],
-          motion: ["framer-motion"],
-        },
-      },
-    },
+    // IMPORTANT: no manualChunks here. Forcing vendor/supabase/motion chunks
+    // produced DUPLICATE copies of React Query (one per chunk); the provider
+    // and the auth hook then read from different context copies and the app
+    // crashed silently on boot (endless splash). Let Rollup dedupe naturally.
   },
 });
