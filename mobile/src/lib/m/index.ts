@@ -11,10 +11,12 @@ export {
   Input,
   PageLoader,
   ProgressBar,
+  Skeleton,
   Spinner,
   Tag,
   Tappable,
   Textarea,
+  motion,
 } from "../../components/kit";
 
 /**

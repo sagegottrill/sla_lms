@@ -20,14 +20,21 @@ const AuthScreen = lazy(() => import("./pages/AuthScreen"));
 const CourseDetail = lazy(() => import("./pages/CourseDetail"));
 const CourseLearn = lazy(() => import("./pages/CourseLearn"));
 const ForumThreadDetail = lazy(() => import("./pages/ForumThreadDetail"));
+const Programs = lazy(() => import("./pages/Programs"));
+const Jobs = lazy(() => import("./pages/Jobs"));
+const Sessions = lazy(() => import("./pages/Sessions"));
+const Certificates = lazy(() => import("./pages/Certificates"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
 
-/** Auth gate: splash while restoring → auth screen → protected app. */
+/** Auth gate: splash while restoring → auth screen → onboarding (learners) → app. */
 function Gate() {
   useAndroidBackButton(); // gesture/hardware back navigates the in-app stack
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, appUser } = useAuth();
 
+  const welcome = !appUser?.onboarding?.completed;
   if (loading) return <Splash ready={!loading} />;
   if (!isAuthenticated) return <AuthScreen />;
+  if (welcome) return <Onboarding />;
   return <Outlet />;
 }
 
@@ -51,6 +58,11 @@ const router = createBrowserRouter([
       { path: "/course/:id", element: <CourseDetail /> },
       { path: "/course/:id/learn", element: <CourseLearn /> },
       { path: "/forum/:threadId", element: <ForumThreadDetail /> },
+      { path: "/programs", element: <Programs /> },
+      { path: "/jobs", element: <Jobs /> },
+      { path: "/sessions", element: <Sessions /> },
+      { path: "/certificates", element: <Certificates /> },
+      { path: "/onboarding", element: <Onboarding /> },
       { path: "*", element: <Navigate to="/home" replace /> },
     ],
   },

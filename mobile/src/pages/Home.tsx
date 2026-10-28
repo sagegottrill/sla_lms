@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, BookOpen, GraduationCap, Loader2, MessagesSquare, Sparkles } from "lucide-react";
+import { ArrowRight, Award, BookOpen, Briefcase, CalendarClock, GraduationCap, Loader2, MessagesSquare, Sparkles } from "lucide-react";
 import { api } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { queryKeys } from "@/lib/react-query";
@@ -9,8 +9,8 @@ import { Card, Empty, PageLoader, ProgressBar, Tag } from "@kit";
 import { cn, fmtDate, initials, isApp } from "@kit";
 
 /**
- * HOME TAB — greeting, enrolled-course continue rail (real data),
- * live forum pulse and quick links. Mobile-native card feel.
+ * HOME TAB — greeting, quick-access tiles (programs/jobs/live/awards),
+ * enrolled-course continue rail (real data), live forum pulse. Mobile-native.
  */
 export default function Home() {
   const { appUser } = useAuth();
@@ -64,8 +64,24 @@ export default function Home() {
         </div>
       </header>
 
-      {/* continue learning */}
+      {/* quick access tiles */}
       <section className="-mt-8 px-4">
+        <div className="mb-5 grid grid-cols-4 gap-2.5">
+          {[
+            { to: "/programs", label: "Programs", icon: GraduationCap, tint: "bg-accent text-[#271066]" },
+            { to: "/jobs", label: "Jobs", icon: Briefcase, tint: "bg-primary/10 text-primary" },
+            { to: "/sessions", label: "Live", icon: CalendarClock, tint: "bg-emerald-100 text-emerald-700" },
+            { to: "/certificates", label: "Awards", icon: Award, tint: "bg-amber-100 text-amber-700" },
+          ].map(({ to, label, icon: Icon, tint }) => (
+            <Link key={to} to={to} className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform">
+              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${tint}`}>
+                <Icon className="h-5 w-5" />
+              </span>
+              <span className="text-[10px] font-semibold text-foreground">{label}</span>
+            </Link>
+          ))}
+        </div>
+
         <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold">
           <BookOpen className="h-5 w-5 text-primary" /> Continue learning
         </h2>

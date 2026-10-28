@@ -1,7 +1,9 @@
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Award, LogOut, Pencil, MapPin, Link2, Camera, BookOpen } from "lucide-react";
+import { ChevronRight, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Award, LogOut, MapPin, Link2, Camera, BookOpen } from "lucide-react";
 import { api } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, Btn, Card, PageLoader, Tag } from "@kit";
@@ -13,6 +15,7 @@ import { errorText, fmtDate, friendlyError } from "@kit";
  */
 export default function Profile() {
   const { appUser, logout, refreshProfile } = useAuth();
+  const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -69,6 +72,17 @@ export default function Profile() {
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadAvatar(f); e.target.value = ""; }} />
 
       <div className="-mt-10 space-y-3 px-4">
+        {!appUser.onboarding?.completed && (
+          <Card onClick={() => navigate("/onboarding")} className="flex items-center gap-3 border-primary/30 bg-accent p-4">
+            <Sparkles className="h-5 w-5 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-[#271066]">Complete your profile</p>
+              <p className="text-xs text-[#271066]/70">Headline, goals & skills — 60 seconds, mentors find you faster.</p>
+            </div>
+            <ChevronRight2 />
+          </Card>
+        )}
+
         {/* career snapshot */}
         <Card className="p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Career snapshot</p>
@@ -120,10 +134,14 @@ export default function Profile() {
         <Btn variant="outline" className="w-full border-destructive/30 text-destructive hover:bg-destructive/5" onClick={() => void logout()}>
           <LogOut className="h-4 w-4" /> Sign out
         </Btn>
-        <p className="pb-4 text-center text-[11px] text-muted-foreground">She Leads Africa · Mobile · v1.0.0</p>
+        <p className="pb-4 text-center text-[11px] text-muted-foreground">She Leads Africa · Mobile · v2.0.0</p>
       </div>
     </div>
   );
+}
+
+function ChevronRight2() {
+  return <ChevronRight className="h-5 w-5 shrink-0 text-[#271066]/60" />;
 }
 
 function FileLoader() {
