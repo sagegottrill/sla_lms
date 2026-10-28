@@ -12,7 +12,7 @@
 @layer base {
   :root {
     --background: 220 20% 97%;
-    --foreground: 0 0% 10%;
+      --foreground: 0 0% 10%;
 
     --card: 0 0% 100%;
     --card-foreground: 0 0% 10%;
@@ -61,8 +61,7 @@
   }
   .top-safe {
     padding-top: env(safe-area-inset-top, 0px);
-  }
-  /* Hide scrollbars on rails for native feel */
+  }/* Hide scrollbars on rails for native feel */
   .no-scrollbar-scroll {
     overflow-x: auto;
     -ms-overflow-style: none;
@@ -71,4 +70,45 @@
   .no-scrollbar-scroll::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* ---- DARK MODE (system-following) ---- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 228 16% 8%;
+    --foreground: 220 20% 94%;
+
+    --card: 228 14% 12%;
+    --card-foreground: 220 20% 94%;
+
+    --primary: 214 95% 55%;
+    --secondary: 260 44% 34%;
+
+    --muted: 228 10% 18%;
+    --muted-foreground: 220 10% 62%;
+
+    --accent: 214 40% 18%;
+    --accent-foreground: 214 90% 75%;
+
+    --border: 228 10% 20%;
+    --input: 228 10% 22%;
+    --ring: 214 95% 55%;
+  }
+}
+
+/* ---- skeleton shimmer ---- */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.06), transparent);
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
 }

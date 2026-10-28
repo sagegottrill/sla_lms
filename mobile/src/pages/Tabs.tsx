@@ -1,7 +1,9 @@
+import { useRef } from "react";
 import { NavLink, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, Bell, House, MessagesSquare, UserRound } from "lucide-react";
-import { cn, isApp } from "@kit";
+import { cn } from "@kit";
+import { hapticTap } from "../lib/haptics";
 import Home from "./Home";
 import MyCourses from "./MyCourses";
 import Forums from "./Forums";
@@ -24,19 +26,28 @@ const TABS = [
 export default function Tabs() {
   const { tab } = useParams();
   const active = (tab ?? "home") as (typeof TABS)[number]["key"];
+  const activeIndex = TABS.findIndex((t) => t.key === active);
 
+  // Slide direction follows the tab order, like a native pager.
+  const dirRef = useRef(1);
+  const lastIndex = useRef(activeIndex);
+  if (lastIndex.current !== activeIndex) {
+    dirRef.current = activeIndex > lastIndex.current ? 1 : -1;
+    lastIndex.current = activeIndex;
+    void hapticTap();
+  }
   return (
-    <div className={cn("flex h-full min-h-[100dvh] w-full flex-col", isApp && "-mt-5")}>
-      {isApp && <div className="h-5" />}
+    <div className="flex h-full min-h-[100dvh] w-full flex-col">
       <main className="flex-1 pb-24">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="popLayout">
           <motion.div
             key={active}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.16, ease: "easeOut" }}
+            initial={{ opacity: 0, x: dirRef.current * 44 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -dirRef.current * 44 }}
+            transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
             className="min-h-full"
+            style={{ position: "relative" }}
           >
             {active === "home" && <Home />}
             {active === "courses" && <MyCourses />}
@@ -52,7 +63,12 @@ export default function Tabs() {
           {TABS.map(({ key, label, icon: Icon }) => {
             const isActive = active === key;
             return (
-              <NavLink key={key} to={`/tabs/${key}`} className="relative flex flex-col items-center pb-1 pt-2">
+              <NavLink
+                key={key}
+                to={`/tabs/${key}`}
+                onClick={() => { if (active !== key) void hapticTap(); }}
+                className="relative flex flex-col items-center pb-1 pt-2"
+              >
                 {isActive && (
                   <motion.span
                     layoutId="tab-pill"

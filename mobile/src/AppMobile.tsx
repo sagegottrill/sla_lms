@@ -13,6 +13,7 @@ import { queryClient } from "@/lib/react-query";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Splash from "./components/Splash";
 import { PageLoader } from "./components/kit";
+import { initStatusBar, OfflineBanner, useAndroidBackButton } from "./components/NativeShell";
 
 const Tabs = lazy(() => import("./pages/Tabs"));
 const AuthScreen = lazy(() => import("./pages/AuthScreen"));
@@ -22,6 +23,7 @@ const ForumThreadDetail = lazy(() => import("./pages/ForumThreadDetail"));
 
 /** Auth gate: splash while restoring → auth screen → protected app. */
 function Gate() {
+  useAndroidBackButton(); // gesture/hardware back navigates the in-app stack
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) return <Splash ready={!loading} />;
@@ -55,9 +57,11 @@ const router = createBrowserRouter([
 ]);
 
 export default function AppMobile() {
+  initStatusBar();
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <OfflineBanner />
         <Toaster position="top-center" richColors closeButton />
         <Suspense fallback={<PageLoader />}>
           <RouterProvider router={router} />

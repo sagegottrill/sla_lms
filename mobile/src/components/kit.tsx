@@ -6,6 +6,7 @@ import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type R
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { cn, initials } from "@kit";
+import { hapticTap, hapticSelect } from "../lib/haptics";
 
 export function Spinner({ className }: { className?: string }) {
   return <Loader2 className={cn("h-5 w-5 animate-spin text-primary", className)} />;
@@ -27,7 +28,7 @@ type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 export const Btn = forwardRef<HTMLButtonElement, BtnProps>(function Btn(
-  { className, variant = "primary", size = "md", loading, disabled, children, ...props },
+  { className, variant = "primary", size = "md", loading, disabled, onClick, children, ...props },
   ref,
 ) {
   const variants: Record<string, string> = {
@@ -41,8 +42,9 @@ export const Btn = forwardRef<HTMLButtonElement, BtnProps>(function Btn(
     <button
       ref={ref}
       disabled={disabled || loading}
+      onClick={(e) => { void hapticSelect(); onClick?.(e); }}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50",
         size === "md" ? "h-11 px-4 text-sm" : "h-13 px-6 text-base",
         variants[variant],
         className,
@@ -88,17 +90,20 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 });
 
 export function Card({ className, children, onClick }: { className?: string; children: ReactNode; onClick?: () => void }) {
+  if (onClick) {
+    return (
+      <motion.div
+        onClick={() => { void hapticTap(); onClick(); }}
+        whileTap={{ scale: 0.975 }}
+        transition={{ type: "spring", stiffness: 480, damping: 30 }}
+        className={cn("cursor-pointer rounded-2xl border border-border/70 bg-card shadow-sm", className)}
+      >
+        {children}
+      </motion.div>
+    );
+  }
   return (
-    <div
-      onClick={onClick}
-      className={cn(
-        "rounded-2xl border border-border/70 bg-card shadow-sm",
-        onClick && "cursor-pointer transition-transform active:scale-[0.98]",
-        className,
-      )}
-    >
-      {children}
-    </div>
+    <div className={cn("rounded-2xl border border-border/70 bg-card shadow-sm", className)}>{children}</div>
   );
 }
 
@@ -141,11 +146,24 @@ export function Empty({ icon: Icon, title, sub }: { icon: React.ComponentType<{ 
 /** Haptic-style tap feedback wrapper for list rows/cards. */
 export function Tappable({ children, onClick, className }: { children: ReactNode; onClick?: () => void; className?: string }) {
   return (
-    <motion.div whileTap={{ scale: 0.97 }} transition={{ type: "spring", stiffness: 500, damping: 30 }} onClick={onClick} className={cn("cursor-pointer", className)}>
+    <motion.div
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+      onClick={() => { void hapticTap(); onClick?.(); }}
+      className={cn("cursor-pointer", className)}
+    >
       {children}
     </motion.div>
   );
 }
+
+/** Shimmering skeleton block for native-feel loading states. */
+export function Skeleton({ className }: { className?: string }) {
+  return <div className={cn("skeleton-shimmer rounded-xl bg-muted", className)} />;
+}
+
+/** Spinner already exported at top; re-export motion for pages that compose bespoke layouts. */
+export { motion };
 
 export function ProgressBar({ value, className }: { value: number; className?: string }) {
   const v = Math.max(0, Math.min(100, value));
