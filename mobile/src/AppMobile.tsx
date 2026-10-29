@@ -18,6 +18,7 @@ import Splash from "./components/Splash";
 import { PageLoader } from "./components/kit";
 import { initStatusBar, OfflineBanner, useAndroidBackButton } from "./components/NativeShell";
 import { devPreviewUser } from "@kit";
+import { learnerNeedsOnboarding } from "@/lib/userRole";
 
 const Tabs = lazy(() => import("./pages/Tabs"));
 const AuthScreen = lazy(() => import("./pages/AuthScreen"));
@@ -66,7 +67,8 @@ function Gate() {
   if (loading) content = null; // splash covers; blue body underlay avoids any flash
   else if (bootErrors?.length) content = <StartupProblem bootErrors={bootErrors} />;
   else if (!authed) content = <AuthScreen />;
-  else if (!shownUser?.onboarding?.completed) content = <Onboarding />;
+  // Web parity: the learner wizard belongs to students only — staff go straight in.
+  else if (learnerNeedsOnboarding(shownUser)) content = <Onboarding />;
   else content = <Outlet />;
 
   return (

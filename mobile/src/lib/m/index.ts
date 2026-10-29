@@ -84,13 +84,15 @@ export function devPreviewUser(): any | null {
     admin: "Ada Admin",
   };
   if (!role || !(role in names)) return null;
+  // ?onboard=1 forces the learner onboarding wizard to show for visual QA.
+  const forceOnboarding = new URLSearchParams(window.location.search).get("onboard") === "1";
   return {
     id: "preview-user",
     name: names[role],
     email: "preview@sheleadsafrica.org",
     role,
     avatar_url: null,
-    onboarding: { completed: true },
+    onboarding: { completed: !forceOnboarding },
   };
 }
 

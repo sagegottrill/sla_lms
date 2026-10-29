@@ -4,6 +4,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Btn, Input } from "@kit";
 import { friendlyError, isApp } from "@kit";
+import { LEGAL_COMPANY } from "@/lib/legal/company";
 import { useAuth } from "@/contexts/AuthContext";
 import { isUsingSupabasePlaceholders } from "@/lib/supabase";
 import { startGoogleOAuth } from "../lib/oauth";
@@ -20,6 +21,8 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Signup consent — same policy acceptance the web modal requires.
+  const [consentAccepted, setConsentAccepted] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,13 +39,16 @@ export default function AuthScreen() {
         if (error) toast.error(friendlyError(error.message));
       } else {
         if (!name.trim()) return toast.error("Please enter your name");
-        if (password.length < 6) return toast.error("Password must be at least 6 characters");
+        if (password.length < 8) return toast.error("Password must be at least 8 characters"); // web rule
+        if (!consentAccepted) return toast.error("Please accept the Terms and Conditions and Privacy Policy to continue.");
         const { error } = await signup(name.trim(), email.trim(), password, "student");
         if (error) {
           toast.error(friendlyError(error.message));
         } else {
-          toast.success("Welcome to She Leads Africa! Confirm your email if prompted, then sign in.");
-          setMode("login");
+          toast.success("Account created!");
+          // Web parity: go straight to onboarding (session lands via onAuthStateChange;
+          // if email confirmation is required project-wide, the auth screen returns and we ask).
+          toast.success("Set up your profile in the next few steps ✨");
         }
       }
     } finally {
@@ -151,6 +157,23 @@ export default function AuthScreen() {
               </button>
             </div>
 
+            {mode === "signup" && (
+              <div className="mt-1 flex items-start gap-2">
+                <input
+                  id="mobile-signup-consent"
+                  type="checkbox"
+                  checked={consentAccepted}
+                  onChange={(e) => setConsentAccepted(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[hsl(var(--primary))]"
+                />
+                <label htmlFor="mobile-signup-consent" className="text-[11px] leading-relaxed text-muted-foreground">
+                  I agree to the{" "}
+                  <span className="font-medium text-foreground underline underline-offset-2">Terms and Conditions</span> and the{" "}
+                  <span className="font-medium text-foreground underline underline-offset-2">Privacy Policy</span>, and I am at least {LEGAL_COMPANY.minimumAge} years old or have the consent of a parent or guardian.
+                </label>
+              </div>
+            )}
+
             <Btn type="submit" size="lg" loading={busy} className="w-full rounded-2xl">
               {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : mode === "login" ? "Sign in" : "Create account"}
             </Btn>
@@ -192,7 +215,7 @@ export default function AuthScreen() {
 
         {isApp && (
           <p className="mt-6 pb-6 text-center text-[11px] leading-relaxed text-muted-foreground">
-            She Leads Africa · version 2.3.0
+            She Leads Africa · version 2.4.0
             <br />
             By continuing, you accept our{" "}
             <span className="font-medium text-foreground underline underline-offset-2">Terms of Use</span> and{" "}
