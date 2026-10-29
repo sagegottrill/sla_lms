@@ -38,14 +38,14 @@ export default function Tabs() {
   }
   return (
     <div className="flex h-full min-h-[100dvh] w-full flex-col">
-      <main className="flex-1 pb-24">
+      <main className="flex-1 pb-28">
         <AnimatePresence mode="popLayout">
           <motion.div
             key={active}
             initial={{ opacity: 0, x: dirRef.current * 44 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -dirRef.current * 44 }}
-            transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             className="min-h-full"
             style={{ position: "relative" }}
           >
@@ -58,8 +58,10 @@ export default function Tabs() {
         </AnimatePresence>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur-lg pad-bottom-safe">
-        <div className="mx-auto grid max-w-lg grid-cols-5">
+      {/* Floating glassy pill nav (the vault's 10K chrome rule: pills for
+          chrome, not for cards). Rounded-full, floating over the canvas. */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 pad-bottom-safe">
+        <div className="mx-auto mb-3 flex w-[min(96%,26rem)] items-stretch justify-between overflow-hidden rounded-full border border-border bg-card/85 px-1.5 py-1.5 shadow-lg shadow-black/10 backdrop-blur-xl">
           {TABS.map(({ key, label, icon: Icon }) => {
             const isActive = active === key;
             return (
@@ -67,17 +69,17 @@ export default function Tabs() {
                 key={key}
                 to={`/tabs/${key}`}
                 onClick={() => { if (active !== key) void hapticTap(); }}
-                className="relative flex flex-col items-center pb-1 pt-2"
+                className="relative flex flex-col items-center justify-center px-3 py-1.5"
               >
                 {isActive && (
                   <motion.span
                     layoutId="tab-pill"
-                    className="absolute inset-x-2 inset-y-0 rounded-xl bg-accent"
-                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                    className="absolute inset-0 rounded-full bg-primary"
+                    transition={{ type: "spring", stiffness: 400, damping: 34 }}
                   />
                 )}
-                <Icon className={cn("relative h-6 w-6 transition-colors", isActive ? "text-primary" : "text-muted-foreground")} />
-                <span className={cn("relative mt-0.5 text-[10px] font-semibold", isActive ? "text-primary" : "text-muted-foreground")}>
+                <Icon className={cn("relative z-10 h-[22px] w-[22px] transition-colors ease-premium", isActive ? "text-white" : "text-muted-foreground")} />
+                <span className={cn("relative z-10 mt-0.5 text-[9px] font-semibold transition-colors ease-premium", isActive ? "text-white" : "text-muted-foreground")}>
                   {label}
                 </span>
               </NavLink>

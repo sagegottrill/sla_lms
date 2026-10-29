@@ -65,6 +65,35 @@ export function fmtMoney(n: number | string | null | undefined, currency = "NGN"
   return new Intl.NumberFormat("en-NG", { style: "currency", currency, maximumFractionDigits: 0 }).format(v);
 }
 
+
+/**
+ * DEV/preview visual QA scaffold: when the URL carries ?role=..., hand back a
+ * mock user so every role-shaped screen can be screenshot-tested without real
+ * credentials. Active only while the app is served from a localhost origin
+ * (the browser preview) — the Capacitor shell loads from https://localhost
+ * too, but never with a ?role= query, so an installed APK is unaffected.
+ */
+export function devPreviewUser(): any | null {
+  const onLocalhost = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+  if (!import.meta.env.DEV && !onLocalhost) return null;
+  const role = new URLSearchParams(window.location.search).get("role");
+  const names: Record<string, string> = {
+    student: "Sage Trill",
+    instructor: "Ada Coach",
+    program_manager: "Ngozi Manager",
+    admin: "Ada Admin",
+  };
+  if (!role || !(role in names)) return null;
+  return {
+    id: "preview-user",
+    name: names[role],
+    email: "preview@sheleadsafrica.org",
+    role,
+    avatar_url: null,
+    onboarding: { completed: true },
+  };
+}
+
 export function initials(name?: string): string {
   if (!name) return "U";
   return name

@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Splash from "./components/Splash";
 import { PageLoader } from "./components/kit";
 import { initStatusBar, OfflineBanner, useAndroidBackButton } from "./components/NativeShell";
+import { devPreviewUser } from "@kit";
 
 const Tabs = lazy(() => import("./pages/Tabs"));
 const AuthScreen = lazy(() => import("./pages/AuthScreen"));
@@ -57,11 +58,15 @@ function Gate() {
   const holdSplash = loading && !bootTimedOut;
   const splashReady = !holdSplash;
 
+  const previewUser = devPreviewUser(); // DEV-only visual QA scaffold (?role=...)
+  const authed = isAuthenticated || !!previewUser;
+  const shownUser = appUser ?? previewUser;
+
   let content: ReactNode;
   if (loading) content = null; // splash covers; blue body underlay avoids any flash
   else if (bootErrors?.length) content = <StartupProblem bootErrors={bootErrors} />;
-  else if (!isAuthenticated) content = <AuthScreen />;
-  else if (!appUser?.onboarding?.completed) content = <Onboarding />;
+  else if (!authed) content = <AuthScreen />;
+  else if (!shownUser?.onboarding?.completed) content = <Onboarding />;
   else content = <Outlet />;
 
   return (

@@ -31,6 +31,11 @@
     --destructive: 0 72% 48%;
     --destructive-foreground: 0 0% 100%;
 
+    /* 10K-bar ink band — near-black statement hero, one earned accent */
+    --ink: 240 5% 5%;
+    --ink-foreground: 0 0% 95%;
+    --ink-muted: 240 5% 68%;
+
     --border: 220 14% 89%;
     --input: 220 14% 89%;
     --ring: 214 100% 41%;
@@ -61,6 +66,10 @@
   }
   .top-safe {
     padding-top: env(safe-area-inset-top, 0px);
+  }
+  /* The one easing curve (10K bar) — motion must have a job */
+  .ease-premium {
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }/* Hide scrollbars on rails for native feel */
   .no-scrollbar-scroll {
     overflow-x: auto;
@@ -77,6 +86,10 @@
   :root {
     --background: 228 16% 8%;
     --foreground: 220 20% 94%;
+
+    --ink: 228 16% 6%;
+    --ink-foreground: 220 20% 94%;
+    --ink-muted: 220 10% 62%;
 
     --card: 228 14% 12%;
     --card-foreground: 220 20% 94%;
