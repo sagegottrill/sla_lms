@@ -1,4 +1,4 @@
-import { useCourses, useSiteConfig } from "@/hooks/useQueries";
+import { useScopedCourses, useSiteConfig } from "@/hooks/useQueries";
 import type { Course } from "@/types";
 import { motion } from "framer-motion";
 import { Star, Clock, Users } from "lucide-react";
@@ -83,7 +83,7 @@ function CourseCard({ course, index }: { course: Course; index: number }) {
 }
 
 export default function FeaturedCourses() {
-  const { data: allCourses = [] } = useCourses({ publishedOnly: true });
+  const { data: allCourses = [] } = useScopedCourses({ publishedOnly: true });
   const { data: config } = useSiteConfig();
   
   const featuredIds = (config?.featured_course_ids || []) as number[];

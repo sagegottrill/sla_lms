@@ -121,6 +121,8 @@
     bestseller          boolean default false,
     what_youll_learn    jsonb default '[]',          -- string[]
     curriculum          jsonb default '[]',          -- {module, lessons, duration, items[]}[]
+    post_assessment_url text,                        -- required post-assessment (Google Form); certificate gate
+    post_assessment_title text default 'Post-Assessment',
     reviews             jsonb default '[]',          -- {name, rating, comment, date}[]
     status              text default 'published'
                         check (status in ('draft', 'published', 'archived')),
@@ -156,6 +158,7 @@
                     check (status in ('active', 'completed', 'dropped', 'frozen')), -- Added 'frozen'
     progress         numeric default 0,             -- 0–100
     current_lesson   text,
+    assessment_opened_at timestamptz,               -- required post-assessment was opened (certificate gate)
     last_accessed    timestamptz default now(),     -- Tracking for "Resume Learning"
     enrolled_at      timestamptz default now(),
     completed_at     timestamptz,

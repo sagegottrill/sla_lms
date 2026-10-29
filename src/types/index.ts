@@ -32,6 +32,10 @@ export interface Course {
   revenue?: number;
   /** Editable certificate template (logos, signers, body). */
   certificateConfig?: Record<string, unknown>;
+  /** Required post-assessment (e.g. Google Form) that gates the certificate.
+      Resolved: course-level value, else inherited from the parent program. */
+  postAssessmentUrl?: string | null;
+  postAssessmentTitle?: string | null;
 }
 
 export interface Program {
@@ -58,6 +62,9 @@ export interface Program {
   status?: string;
   certificateConfig?: Record<string, unknown>;
   partners?: unknown[];
+  /** Program-level required post-assessment (Google Form) inherited by its courses. */
+  postAssessmentUrl?: string | null;
+  postAssessmentTitle?: string | null;
   applicationDeadline?: string | null;
 }
 

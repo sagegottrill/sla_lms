@@ -74,6 +74,8 @@ type CourseRow = Record<string, unknown> & {
   public_id?: string | null;
   instructor_id?: string | null;
   program_id?: number | string | null;
+  post_assessment_url?: string | null;
+  post_assessment_title?: string | null;
   title?: string;
   subtitle?: string;
   description?: string;
@@ -150,6 +152,10 @@ export function mapCourseRow(row: CourseRow | null | undefined): Course | undefi
       row.program_id == null || row.program_id === ""
         ? null
         : asNumber(row.program_id),
+    postAssessmentUrl:
+      row.post_assessment_url ?? (row as { postAssessmentUrl?: string | null }).postAssessmentUrl ?? null,
+    postAssessmentTitle:
+      row.post_assessment_title ?? (row as { postAssessmentTitle?: string | null }).postAssessmentTitle ?? null,
     title: asString(row.title),
     subtitle: asString(row.subtitle),
     instructor: asString(row.instructor),
@@ -217,6 +223,8 @@ type ProgramRow = Record<string, unknown> & {
   certificate_config?: unknown;
   partners?: unknown;
   application_deadline?: string | null;
+  post_assessment_url?: string | null;
+  post_assessment_title?: string | null;
 };
 
 /** Normalize Supabase program rows into the app Program shape. */
@@ -260,6 +268,8 @@ export function mapProgramRow(row: ProgramRow | null | undefined): Program | und
       row.application_deadline ??
       (row as { applicationDeadline?: string | null }).applicationDeadline ??
       null,
+    postAssessmentUrl: row.post_assessment_url || null,
+    postAssessmentTitle: row.post_assessment_title || null,
   };
 }
 

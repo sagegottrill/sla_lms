@@ -29,9 +29,16 @@ export default function MyCourses() {
     select: (r) => (r.success ? r.data ?? [] : []),
   });
 
+  // Role-aware catalog: staff see everything; learners see the general catalog
+  // plus their program's courses (BoostHer participants see only BoostHer courses).
+  const isStaff =
+    appUser?.role === "admin" || appUser?.role === "instructor" || appUser?.role === "program_manager";
   const { data: catalog, isLoading: loadingCatalog } = useQuery({
-    queryKey: [...queryKeys.courses.base, "mobile-catalog", q],
-    queryFn: () => api.searchCourses(q),
+    queryKey: [...queryKeys.courses.base, "mobile-catalog", q, isStaff ? "staff" : appUser?.id ?? "anon"],
+    queryFn: () =>
+      isStaff || !appUser?.id
+        ? api.searchCourses(q)
+        : api.searchCoursesForUser(appUser.id, q),
     enabled: view === "catalog",
     select: (r) => (r.success ? r.data ?? [] : []),
   });

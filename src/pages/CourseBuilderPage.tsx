@@ -91,6 +91,8 @@ export default function CourseBuilderPage() {
   const [certificateConfig, setCertificateConfig] = useState<CertificateConfig>({
     ...DEFAULT_CERTIFICATE_CONFIG,
   });
+  const [postAssessmentUrl, setPostAssessmentUrl] = useState("");
+  const [postAssessmentTitle, setPostAssessmentTitle] = useState("Post-Assessment");
 
   // Hydrate builder in edit mode.
   useEffect(() => {
@@ -115,6 +117,10 @@ export default function CourseBuilderPage() {
     setInstructorAvatar(String(c.instructorAvatar ?? c.instructor_avatar ?? ""));
     setCertificateConfig(
       mergeCertificateConfig(c.certificateConfig ?? c.certificate_config),
+    );
+    setPostAssessmentUrl(String(c.postAssessmentUrl ?? c.post_assessment_url ?? ""));
+    setPostAssessmentTitle(
+      String(c.postAssessmentTitle ?? c.post_assessment_title ?? "Post-Assessment") || "Post-Assessment",
     );
 
     const wyl = c.whatYoullLearn ?? c.what_youll_learn;
@@ -352,6 +358,8 @@ export default function CourseBuilderPage() {
       curriculum,
       reviews: [],
       certificate_config: certificateConfig,
+      post_assessment_url: postAssessmentUrl.trim() || null,
+      post_assessment_title: postAssessmentUrl.trim() ? postAssessmentTitle.trim() || "Post-Assessment" : null,
     };
 
     const mutate = isEdit
@@ -828,6 +836,7 @@ export default function CourseBuilderPage() {
                 ["Instructor", instructor || "—"],
                 ["Modules", `${modules.length} modules, ${modules.reduce((a, m) => a + m.lessons.length, 0)} lessons`],
                 ["Learning Points", whatYoullLearn.filter(Boolean).length.toString()],
+                ["Post-assessment", postAssessmentUrl.trim() ? `Required (${postAssessmentTitle.trim() || "Post-Assessment"})` : "None"],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between border-b border-border/50 pb-2">
                   <span className="text-muted-foreground">{k}</span>
@@ -843,6 +852,35 @@ export default function CourseBuilderPage() {
               <img src={image} alt="Course thumbnail" className="w-full max-w-sm h-40 object-cover rounded-xl" />
             </div>
           )}
+
+          <div className="bg-card rounded-2xl shadow-sm border-0 p-6">
+            <h3 className="text-sm font-semibold text-foreground mb-1">Required post-assessment (certificate gate)</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Paste a Google Form link to make it the course's mandatory final assessment. Learners must open the form
+              and mark it done before the course reaches 100% — and the platform refuses to issue a certificate without
+              it. Leave empty for courses without a post-assessment.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className={labelCls}>Assessment form URL (Google Form)</label>
+                <input
+                  value={postAssessmentUrl}
+                  onChange={(e) => setPostAssessmentUrl(e.target.value)}
+                  placeholder="https://docs.google.com/forms/d/e/..."
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Assessment label</label>
+                <input
+                  value={postAssessmentTitle}
+                  onChange={(e) => setPostAssessmentTitle(e.target.value)}
+                  placeholder="Post-Assessment"
+                  className={inputCls}
+                />
+              </div>
+            </div>
+          </div>
 
           <CertificateDesignEditor
             value={certificateConfig}

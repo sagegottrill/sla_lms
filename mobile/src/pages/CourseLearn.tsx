@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { api } from "@/services/api";
@@ -11,7 +11,7 @@ import { cn, errorText, friendlyError } from "@kit";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
-import { BookOpenText, CheckCircle2, ExternalLink, PlayCircle, X } from "lucide-react";
+import { BookOpenText, CheckCircle2, ClipboardList, ExternalLink, PlayCircle, X } from "lucide-react";
 
 /**
  * LEARN VIEWER — speaks the PRODUCTION curriculum shape stored by the web
@@ -28,6 +28,10 @@ import { BookOpenText, CheckCircle2, ExternalLink, PlayCircle, X } from "lucide-
  *  - At 100% the enrollment is completed and the certificate is issued +
  *    emailed, exactly like the web does.
  */
+
+/** Reserved completion key for the required post-assessment (web uses the same). */
+const POST_ASSESSMENT_KEY = "__post_assessment__";
+const EASE_PREMIUM = [0.22, 1, 0.36, 1] as const;
 
 /** Lessons of a section in either stored shape (items array | lessons array | count). */
 function lessonsOf(sec: any): any[] {
@@ -74,6 +78,7 @@ export default function CourseLearn() {
   const [busyLesson, setBusyLesson] = useState<string | null>(null);
   const [playing, setPlaying] = useState<{ title: string; embedUrl: string } | null>(null);
   const [reading, setReading] = useState<{ title: string; content: string } | null>(null);
+  const [assessmentOpenedAt, setAssessmentOpenedAt] = useState<string | null>(null);
 
   const { data: course, isLoading } = useQuery({
     queryKey: [...queryKeys.courses.base, "mobile-detail", Number(id)],
@@ -91,6 +96,13 @@ export default function CourseLearn() {
 
   const enrollment = (enrollments ?? []).find((e: any) => String(e.course_id) === String(id) && e.status !== "dropped");
   const progress = enrollment?.progress ?? 0;
+
+  /* Required post-assessment — course-level URL, else inherited from the program. */
+  const assessmentRequired = Boolean((course as any)?.postAssessmentUrl);
+  const assessmentTitle = (course as any)?.postAssessmentTitle || "Post-Assessment";
+  useEffect(() => {
+    setAssessmentOpenedAt(enrollment?.assessment_opened_at ?? null);
+  }, [enrollment?.assessment_opened_at, enrollment?.id]);
 
   const curriculum = useMemo<any[]>(() => {
     const raw = course?.curriculum;
@@ -122,6 +134,7 @@ export default function CourseLearn() {
   const flatTitles = useMemo(() => flat.map((f) => f.title), [flat]);
 
   const [completed, setCompleted] = useState<Set<string>>(new Set());
+  const assessmentDone = completed.has(POST_ASSESSMENT_KEY);
 
   /* Load persisted completion from the enrollment row (same parse as the web). */
   useEffect(() => {
@@ -166,10 +179,53 @@ export default function CourseLearn() {
     if (!completed.has(lesson.title)) toggleLesson(lesson.title);
   };
 
-  /** Persist completion exactly the way the web's persistProgress does. */
-  const persistProgress = async (nextCompleted: Set<string>) => {
+  /** Opens the required Google-Form assessment and records the open (certificate gate). */
+  const openAssessment = async () => {
+    const url = (course as any)?.postAssessmentUrl as string | undefined;
+    if (!url) return;
+    if (appUser?.id && enrollment?.id) {
+      try {
+        const res = await api.markAssessmentOpened(appUser.id, Number(id));
+        if (res.success) setAssessmentOpenedAt(new Date().toISOString());
+      } catch {
+        // tracking is best-effort; the form still opens
+      }
+    }
+    window.open(url, "_blank", "noopener");
+  };
+
+  /** The assessment can only be marked done after its form was opened. */
+  const toggleAssessment = () => {
+    if (!assessmentRequired) return;
+    if (!assessmentOpenedAt) {
+      toast.error("Open the assessment form first, then mark it done.");
+      return;
+    }
+    setCompleted((prev) => {
+      const next = new Set(prev);
+      if (next.has(POST_ASSESSMENT_KEY)) next.delete(POST_ASSESSMENT_KEY);
+      else next.add(POST_ASSESSMENT_KEY);
+      void persistProgress(next);
+      return next;
+    });
+  };
+
+  /* Persist completion exactly the way the web does — writes are serialized so
+     rapid taps can never land an older snapshot after a newer one. */
+  const persistQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const latestCompletedRef = useRef<Set<string>>(new Set());
+
+  const persistProgress = (nextCompleted: Set<string>) => {
+    latestCompletedRef.current = new Set(nextCompleted);
+    persistQueueRef.current = persistQueueRef.current.then(() =>
+      writeProgress(latestCompletedRef.current),
+    );
+    return persistQueueRef.current;
+  };
+
+  const writeProgress = async (nextCompleted: Set<string>) => {
     if (!appUser?.id || !enrollment?.id) return;
-    const total = flat.length;
+    const total = flat.length + (assessmentRequired ? 1 : 0);
     const done = nextCompleted.size;
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
     setBusyLesson("__persist");
@@ -209,6 +265,8 @@ export default function CourseLearn() {
           } catch (emailErr) {
             console.error("Failed to send certificate email:", emailErr);
           }
+        } else if (!certRes.success && String(certRes.error ?? "").startsWith("ASSESSMENT_REQUIRED")) {
+          toast.error("Complete the required assessment to unlock your certificate.");
         }
       }
     } catch (err) {
@@ -237,7 +295,7 @@ export default function CourseLearn() {
       <div className="px-4 pb-8 pt-2">
         <ProgressBar value={progress} />
         <p className="mt-1.5 text-xs text-muted-foreground">
-          {completed.size} of {flat.length} lessons done · {progress}% complete
+          {completed.size} of {flat.length + (assessmentRequired ? 1 : 0)} steps done · {progress}% complete
         </p>
 
         {curriculum.length === 0 ? (
@@ -292,6 +350,69 @@ export default function CourseLearn() {
                 )}
               </Card>
             ))}
+
+            {assessmentRequired && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: [...EASE_PREMIUM] }}
+              >
+                <Card className={cn(
+                  "overflow-hidden border-0 ring-1",
+                  assessmentDone ? "ring-emerald-500/30 bg-emerald-500/5" : "ring-amber-400/40 bg-amber-400/5",
+                )}>
+                  <div className="flex items-start gap-3 p-4">
+                    <div className={cn(
+                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
+                      assessmentDone ? "bg-emerald-500/15 text-emerald-600" : "bg-amber-400/15 text-amber-600",
+                    )}>
+                      {assessmentDone ? <CheckCircle2 className="h-5.5 w-5.5" /> : <ClipboardList className="h-5.5 w-5.5" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="flex flex-wrap items-center gap-2 text-sm font-bold leading-snug">
+                        {assessmentTitle}
+                        <span className={cn(
+                          "rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.14em]",
+                          assessmentDone ? "bg-emerald-500/15 text-emerald-700" : "bg-amber-400/20 text-amber-700",
+                        )}>
+                          {assessmentDone ? "Complete" : "Required"}
+                        </span>
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        {assessmentDone
+                          ? "Nice work — your certificate unlocks at 100%."
+                          : assessmentOpenedAt
+                            ? "Form opened. Mark it done once you've submitted your answers."
+                            : "This course ends with a mandatory assessment form. It must be completed before your certificate is issued — there's no way around it."}
+                      </p>
+                    </div>
+                  </div>
+                  {!assessmentDone && (
+                    <div className="flex gap-2 border-t border-border/60 px-4 py-3">
+                      <button
+                        onClick={() => void openAssessment()}
+                        className={cn(
+                          "flex h-10 flex-1 items-center justify-center gap-2 rounded-xl text-[13px] font-bold",
+                          assessmentOpenedAt
+                            ? "bg-muted text-foreground"
+                            : "bg-primary text-white shadow-lg shadow-primary/25",
+                        )}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        {assessmentOpenedAt ? "Reopen form" : "Open assessment form"}
+                      </button>
+                      <button
+                        onClick={toggleAssessment}
+                        disabled={!assessmentOpenedAt || busyLesson !== null}
+                        className="flex h-10 items-center justify-center rounded-xl bg-primary/10 px-4 text-[13px] font-bold text-primary disabled:opacity-40"
+                      >
+                        {busyLesson !== null ? <Spinner className="h-4 w-4" /> : "Mark done"}
+                      </button>
+                    </div>
+                  )}
+                </Card>
+              </motion.div>
+            )}
           </div>
         )}
       </div>

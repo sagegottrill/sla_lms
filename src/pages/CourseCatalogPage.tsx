@@ -8,10 +8,11 @@ import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 
-import { useCourses } from "@/hooks/useQueries";
+import { useScopedCourses } from "@/hooks/useQueries";
 import { coursePathSegment } from "@/lib/publicRoutes";
 import { FilterChips } from "@/components/dashboard/FilterChips";
 import { api } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const categoryIcons: Record<string, typeof BookOpen> = {
   "Data Science": Database,
@@ -38,6 +39,9 @@ const normalizedCoursePrice = (price: unknown) => {
 };
 
 export default function CourseCatalogPage() {
+  const { appUser } = useAuth();
+  const isStaffUser =
+    appUser?.role === "admin" || appUser?.role === "instructor" || appUser?.role === "program_manager";
   const [searchParams] = useSearchParams();
   const qFromUrl = searchParams.get("q") || "";
   const categoryFromUrl = searchParams.get("category") || "";
@@ -54,7 +58,9 @@ export default function CourseCatalogPage() {
      if (!search.trim()) { setSearchResults(null); return; }
      const timer = setTimeout(async () => {
        setSearching(true);
-       const response = await api.searchCourses(search.trim());
+       const response = isStaffUser || !appUser?.id
+         ? await api.searchCourses(search.trim())
+         : await api.searchCoursesForUser(appUser.id, search.trim());
        setSearchResults(response.success ? response.data || [] : []);
        setSearching(false);
      }, 350);
@@ -75,7 +81,7 @@ export default function CourseCatalogPage() {
     }
   }, [categoryFromUrl]);
 
-  const { data: allCourses = [] } = useCourses({ publishedOnly: true });
+  const { data: allCourses = [] } = useScopedCourses({ publishedOnly: true });
 
   // Use Supabase search results when a query is active, otherwise use full catalog
   // Ensure we always have an array

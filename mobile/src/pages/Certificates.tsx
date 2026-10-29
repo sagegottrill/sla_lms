@@ -1,13 +1,17 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Award, BadgeCheck, Share2, ShieldCheck } from "lucide-react";
+import { Award, BadgeCheck, ClipboardList, Lock, Share2, ShieldCheck } from "lucide-react";
 import { api } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCertificateVerifyUrl } from "@/lib/certificateUrls";
 import { Btn, Card, Empty, Skeleton } from "@kit";
+import { motion } from "@kit";
 import { fmtDate } from "@kit";
 import { hapticSuccess } from "../lib/haptics";
+
+const EASE_PREMIUM = [0.22, 1, 0.36, 1] as const;
 import Sheet from "../components/Sheet";
 
 /**
@@ -17,6 +21,7 @@ import Sheet from "../components/Sheet";
  */
 export default function Certificates() {
   const { appUser } = useAuth();
+  const navigate = useNavigate();
   const [openId, setOpenId] = useState<number | null>(null);
 
   const { data: certs, isLoading } = useQuery({
@@ -25,6 +30,28 @@ export default function Certificates() {
     enabled: !!appUser,
     select: (r) => (r.success ? r.data ?? [] : []),
   });
+
+  const { data: enrollments } = useQuery({
+    queryKey: ["enrollments", "mobile-certs", appUser?.id],
+    queryFn: () => api.getUserEnrollments(appUser!.id),
+    enabled: !!appUser,
+    select: (r) => (r.success ? r.data ?? [] : []),
+  });
+
+  /* Locked: finished (or 100%) but no credential issued — the required
+     post-assessment is the usual reason. */
+  const locked = (enrollments ?? [])
+    .filter((e: any) => {
+      const hasCert = (certs ?? []).some((c: any) => Number(c.course_id) === Number(e.course_id));
+      const finished = Number(e.progress ?? 0) >= 100 || e.status === "completed";
+      return finished && !hasCert && Number(e.course_id) > 0;
+    })
+    .map((e: any) => ({
+      courseId: Number(e.course_id),
+      title: e.courses?.title ?? "Course",
+      assessmentUrl: e.courses?.post_assessment_url ? String(e.courses.post_assessment_url) : "",
+      assessmentTitle: String(e.courses?.post_assessment_title ?? "Post-Assessment"),
+    }));
 
   const open = (certs ?? []).find((c) => c.id === openId);
 
@@ -53,6 +80,41 @@ export default function Certificates() {
       </div>
 
       <div className="-mt-6 space-y-3 px-4 pb-4">
+        {locked.length > 0 && (
+          <div className="space-y-2.5 pt-2">
+            <p className="flex items-center gap-1.5 px-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-amber-700">
+              <Lock className="h-3.5 w-3.5" /> Locked — finish to earn
+            </p>
+            {locked.map((l) => (
+              <motion.div key={l.courseId} whileTap={{ scale: 0.98 }} transition={{ ease: [...EASE_PREMIUM] }}>
+                <Card
+                  onClick={() => navigate(`/course/${l.courseId}/learn`)}
+                  className="flex items-center gap-3 border-0 bg-amber-400/5 p-4 ring-1 ring-amber-400/40"
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-400/15">
+                    {l.assessmentUrl ? (
+                      <ClipboardList className="h-5 w-5 text-amber-600" />
+                    ) : (
+                      <Award className="h-5 w-5 text-amber-600" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{l.title}</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                      {l.assessmentUrl
+                        ? `Complete the ${l.assessmentTitle} to unlock your certificate.`
+                        : "Tap the course and re-save any lesson to refresh your certificate."}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-xl bg-amber-400/20 px-3 py-1.5 text-[11px] font-bold text-amber-700">
+                    {l.assessmentUrl ? "Assessment" : "Resume"}
+                  </span>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="space-y-3">
             {[0, 1].map((i) => <Card key={i} className="p-4"><Skeleton className="h-4 w-2/3" /><Skeleton className="mt-2 h-3 w-1/2" /></Card>)}

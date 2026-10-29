@@ -57,6 +57,8 @@ export default function ProgramBuilderPage() {
   const [certificateConfig, setCertificateConfig] = useState<CertificateConfig>({
     ...DEFAULT_CERTIFICATE_CONFIG,
   });
+  const [postAssessmentUrl, setPostAssessmentUrl] = useState("");
+  const [postAssessmentTitle, setPostAssessmentTitle] = useState("Post-Assessment");
 
   const [partners, setPartners] = useState<Partner[]>([]);
   const [newPartnerName, setNewPartnerName] = useState("");
@@ -102,6 +104,10 @@ export default function ProgramBuilderPage() {
     if (Array.isArray(hl) && hl.length > 0) setHighlights(hl.map(String));
     setCertificateConfig(
       mergeCertificateConfig((p as any).certificateConfig ?? (p as any).certificate_config),
+    );
+    setPostAssessmentUrl(String((p as any).postAssessmentUrl ?? (p as any).post_assessment_url ?? ""));
+    setPostAssessmentTitle(
+      String((p as any).postAssessmentTitle ?? (p as any).post_assessment_title ?? "Post-Assessment") || "Post-Assessment",
     );
     const rawPartners = (p as any).partners;
     if (Array.isArray(rawPartners)) {
@@ -185,7 +191,10 @@ export default function ProgramBuilderPage() {
       image: image.trim() || null,
       highlights: highlights.filter(Boolean),
       courses: selectedCourseTitles,
+      course_ids: selectedCourses,
       course_count: selectedCourses.length,
+      post_assessment_url: postAssessmentUrl.trim() || null,
+      post_assessment_title: postAssessmentUrl.trim() ? postAssessmentTitle.trim() || "Post-Assessment" : null,
       partners: partners
         .filter((p) => p.name.trim().length > 0)
         .map((p) => ({ name: p.name.trim(), logo_url: p.logoUrl || null })),
@@ -636,6 +645,35 @@ export default function ProgramBuilderPage() {
                       </button>
                     </div>
                   ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-card p-5">
+              <h3 className="text-sm font-semibold text-foreground">Program post-assessment (certificate gate)</h3>
+              <p className="text-xs text-muted-foreground mt-1 mb-4">
+                Optional but powerful: paste one Google Form link and every course in this program requires it as the
+                final assessment. Learners must complete it before any certificate is issued. Courses can override with
+                their own form in the course builder.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Assessment form URL (Google Form)</label>
+                  <input
+                    value={postAssessmentUrl}
+                    onChange={(e) => setPostAssessmentUrl(e.target.value)}
+                    placeholder="https://docs.google.com/forms/d/e/..."
+                    className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Assessment label</label>
+                  <input
+                    value={postAssessmentTitle}
+                    onChange={(e) => setPostAssessmentTitle(e.target.value)}
+                    placeholder="Post-Assessment"
+                    className="w-full px-4 py-2.5 rounded-xl ring-1 ring-black/5 dark:ring-white/10 border-0 bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
+                  />
+                </div>
               </div>
             </div>
 

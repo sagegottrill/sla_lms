@@ -23,6 +23,29 @@ export const useCourses = (options?: { publishedOnly?: boolean }) => {
 };
 
 /**
+ * Program-scoped catalog: learners attached to a program (BoostHer) see only
+ * their program's courses (+ courses they are enrolled in); everyone else sees
+ * the general catalog. Staff always see everything.
+ */
+export const useScopedCourses = (options?: { publishedOnly?: boolean }) => {
+  const { appUser } = useAuth();
+  const publishedOnly = options?.publishedOnly ?? false;
+  const isStaff =
+    appUser?.role === "admin" || appUser?.role === "instructor" || appUser?.role === "program_manager";
+  return useQuery({
+    queryKey: [...queryKeys.courses.all(appUser?.role), "scoped", { publishedOnly, userId: isStaff ? null : appUser?.id ?? "public" }] as const,
+    queryFn: () => {
+      // staff (and the CMS) see everything; learners get their program scope;
+      // signed-out visitors see the general catalog only.
+      if (isStaff) return api.getCourses({ publishedOnly });
+      if (appUser?.id) return api.getCoursesForUser(appUser.id, { publishedOnly });
+      return api.getCoursesForUser("", { publishedOnly, publicOnly: true });
+    },
+    select: (data) => data.success ? data.data : [],
+  });
+};
+
+/**
  * @param routeOrNumericId — URL `:id` segment (public UUID or legacy number), or a positive number from dashboard builders.
  */
 export const useCourse = (routeOrNumericId: string | number | undefined) => {

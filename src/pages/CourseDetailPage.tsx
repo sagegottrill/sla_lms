@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Star, Clock, Users, Play, CheckCircle, ChevronDown, Globe, BookOpen, ArrowLeft, Loader2, Video, Check, Maximize, Minimize, ClipboardList, FileText, ExternalLink } from "lucide-react";
+import { Star, Clock, Users, Play, CheckCircle, ChevronDown, Globe, BookOpen, ArrowLeft, Loader2, Video, Check, Maximize, Minimize, ClipboardList, FileText, ExternalLink, Lock, ExternalLink as LinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCourse, useUserEnrollments, useEnrollUserMutation, useCourseReviews, useMyCourseReview, useUpsertCourseReviewMutation } from "@/hooks/useQueries";
@@ -59,6 +59,9 @@ function isFetchableTextUrl(url: string): boolean {
     lower.endsWith(".htm")
   );
 }
+
+/** Reserved key for the required post-assessment inside the completed-lessons set. */
+const POST_ASSESSMENT_KEY = "__post_assessment__";
 
 export default function CourseDetailPage() {
   const { id } = useParams();
@@ -149,6 +152,36 @@ export default function CourseDetailPage() {
     appUser?.role === "instructor";
   const canAccessLessons = enrolled || canPreviewCourse;
 
+  // ── Required post-assessment (certificate gate) ──
+  const assessmentRequired = Boolean(course?.postAssessmentUrl);
+  const assessmentTitle = course?.postAssessmentTitle || "Post-Assessment";
+  const myEnrollment = useMemo(
+    () => enrollments.find((e: any) => e.course_id === course?.id),
+    [enrollments, course?.id],
+  );
+  const [assessmentOpenedAt, setAssessmentOpenedAt] = useState<string | null>(null);
+  useEffect(() => {
+    setAssessmentOpenedAt(myEnrollment?.assessment_opened_at ?? null);
+  }, [myEnrollment?.assessment_opened_at]);
+
+  // Program-scoped access: courses attached to a program (BoostHer) are only
+  // open to that program's participants — everyone else gets the general catalog.
+  const [programAccess, setProgramAccess] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setProgramAccess(null);
+    if (!course?.program_id || canPreviewCourse || !appUser?.id) {
+      setProgramAccess(true);
+      return;
+    }
+    void api.hasProgramAccess(appUser.id, course.program_id).then((ok) => {
+      if (alive) setProgramAccess(ok);
+    });
+    return () => { alive = false; };
+  }, [course?.program_id, canPreviewCourse, appUser?.id]);
+
+  const assessmentDone = completedLessons.has(POST_ASSESSMENT_KEY);
+
   // Flatten all lessons for sidebar + progress calculation
   const allLessons = useMemo(() => {
     if (!course?.curriculum) return [];
@@ -174,6 +207,10 @@ export default function CourseDetailPage() {
     );
   }, [course]);
 
+  const progressTotal = allLessons.length + (assessmentRequired ? 1 : 0);
+  const progressPercent =
+    progressTotal > 0 ? Math.round((completedLessons.size / progressTotal) * 100) : 0;
+
   // Load persisted lesson completion from enrollment's current_lesson field
   useEffect(() => {
     if (!enrolled || !course) return;
@@ -190,9 +227,22 @@ export default function CourseDetailPage() {
     }
   }, [enrolled, enrollments, course]);
 
-  const persistProgress = async (nextCompleted: Set<string>) => {
+  // Serialize progress writes: rapid completions must never let an older
+  // snapshot land after a newer one (lost updates).
+  const persistQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const latestCompletedRef = useRef<Set<string>>(new Set());
+
+  const persistProgress = (nextCompleted: Set<string>) => {
+    latestCompletedRef.current = new Set(nextCompleted);
+    persistQueueRef.current = persistQueueRef.current.then(() =>
+      writeProgress(latestCompletedRef.current),
+    );
+    return persistQueueRef.current;
+  };
+
+  const writeProgress = async (nextCompleted: Set<string>) => {
     if (!appUser?.id || !course?.id || !enrolled) return;
-    const total = allLessons.length;
+    const total = allLessons.length + (assessmentRequired ? 1 : 0);
     const done = nextCompleted.size;
     const progress = total > 0 ? Math.round((done / total) * 100) : 0;
     setSavingProgress(true);
@@ -247,6 +297,36 @@ export default function CourseDetailPage() {
     setCompletedLessons((prev) => {
       const next = new Set(prev);
       next.add(title);
+      void persistProgress(next);
+      return next;
+    });
+  };
+
+  /** Opens the required Google-Form assessment and records the open (certificate gate). */
+  const openPostAssessment = async () => {
+    if (!course?.postAssessmentUrl) return;
+    if (appUser?.id && enrolled) {
+      try {
+        const res = await api.markAssessmentOpened(appUser.id, course.id);
+        if (res.success) setAssessmentOpenedAt(new Date().toISOString());
+      } catch {
+        // tracking is best-effort; the form still opens
+      }
+    }
+    window.open(course.postAssessmentUrl, "_blank", "noopener,noreferrer");
+  };
+
+  /** The assessment can only be marked done after its form was opened. */
+  const togglePostAssessment = () => {
+    if (!assessmentRequired) return;
+    if (!assessmentOpenedAt) {
+      toast.error("Open the assessment form first, then mark it done.");
+      return;
+    }
+    setCompletedLessons((prev) => {
+      const next = new Set(prev);
+      if (next.has(POST_ASSESSMENT_KEY)) next.delete(POST_ASSESSMENT_KEY);
+      else next.add(POST_ASSESSMENT_KEY);
       void persistProgress(next);
       return next;
     });
@@ -373,6 +453,27 @@ export default function CourseDetailPage() {
           <div className="hidden lg:block">
             <Skeleton className="w-full aspect-[4/5] rounded-2xl" />
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Program-attached courses are only visible to that program's participants.
+  if (course && course.program_id && programAccess === false && !canPreviewCourse) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md px-6">
+          <Lock className="w-16 h-16 mx-auto text-muted-foreground/25 mb-6" />
+          <h1 className="font-display text-2xl font-bold text-foreground mb-2">Reserved for program participants</h1>
+          <p className="text-muted-foreground mb-6">
+            This course is part of a program you're not enrolled in. If you've signed up for the program, sign in with
+            the email you registered — otherwise reach out to the SLA team for access.
+          </p>
+          <Link to="/courses">
+            <Button className="gradient-card text-primary-foreground rounded-xl hover:opacity-90 gap-2">
+              <ArrowLeft className="w-4 h-4" /> Browse Courses
+            </Button>
+          </Link>
         </div>
       </div>
     );
@@ -587,16 +688,16 @@ export default function CourseDetailPage() {
                    <div className="p-4 border-b border-border bg-primary text-white shrink-0">
                      <div className="flex items-center justify-between mb-2">
                        <span className="text-sm font-bold">Course Content</span>
-                       <span className="text-sm font-bold">{completedLessons.size} / {allLessons.length}</span>
+                       <span className="text-sm font-bold">{completedLessons.size} / {progressTotal}</span>
                      </div>
                      <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
                        <motion.div
                          className="h-full bg-white rounded-full"
-                         animate={{ width: `${Math.round((completedLessons.size / Math.max(allLessons.length, 1)) * 100)}%` }}
+                         animate={{ width: `${progressPercent}%` }}
                          transition={{ duration: 0.5, ease: "easeOut" }}
                        />
                      </div>
-                     <p className="text-[10px] text-white/70 mt-1">{Math.round((completedLessons.size / Math.max(allLessons.length, 1)) * 100)}% complete</p>
+                     <p className="text-[10px] text-white/70 mt-1">{progressPercent}% complete</p>
                    </div>
                    {/* Lesson List */}
                    <div className="overflow-y-auto divide-y divide-border flex-1">
@@ -669,6 +770,44 @@ export default function CourseDetailPage() {
                          </button>
                        );
                      })}
+
+                     {assessmentRequired && (
+                       <div className={cn(
+                         "px-4 py-3 flex items-start gap-3 text-sm transition-colors border-l-2",
+                         assessmentDone ? "bg-primary/5 border-primary" : "border-transparent bg-amber-50/60 dark:bg-amber-500/5",
+                       )}>
+                         <button
+                           onClick={togglePostAssessment}
+                           aria-label={assessmentDone ? "Mark assessment as not done" : "Mark assessment as done"}
+                           className={cn(
+                             "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all mt-0.5",
+                             assessmentDone ? "bg-primary border-primary" : assessmentOpenedAt ? "border-primary hover:bg-primary/10" : "border-border",
+                           )}
+                         >
+                           {assessmentDone && <Check className="w-3 h-3 text-white" />}
+                         </button>
+                         <div className="flex-1 min-w-0">
+                           <p className={cn("font-semibold leading-tight", assessmentDone ? "text-muted-foreground line-through" : "text-foreground")}>
+                             {assessmentTitle} <span className="text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-500">Required</span>
+                           </p>
+                           <p className="text-[11px] text-muted-foreground mt-0.5">
+                             {assessmentDone
+                               ? "Done — your certificate unlocks at 100%."
+                               : assessmentOpenedAt
+                                 ? "Form opened — mark it done once you've submitted."
+                                 : "Complete this form to unlock your certificate."}
+                           </p>
+                           {!assessmentDone && (
+                             <button
+                               onClick={() => void openPostAssessment()}
+                               className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1.5 text-[11px] font-semibold text-primary hover:bg-primary/15"
+                             >
+                               <LinkIcon className="w-3 h-3" /> {assessmentOpenedAt ? "Reopen form" : "Open assessment form"}
+                             </button>
+                           )}
+                         </div>
+                       </div>
+                     )}
                    </div>
                  </div>
                ) : (
@@ -726,12 +865,12 @@ export default function CourseDetailPage() {
                            <div className="h-2 bg-muted rounded-full overflow-hidden w-full">
                               <div
                                 className="h-full bg-primary rounded-full transition-all"
-                                style={{ width: `${allLessons.length > 0 ? Math.round((completedLessons.size / allLessons.length) * 100) : 0}%` }}
+                                style={{ width: `${progressPercent}%` }}
                               />
                            </div>
                            <p className="text-xs text-muted-foreground mt-2 text-right flex items-center justify-end gap-1">
                              {savingProgress && <Loader2 className="w-3 h-3 animate-spin" />}
-                             {allLessons.length > 0 ? Math.round((completedLessons.size / allLessons.length) * 100) : 0}% completed
+                             {progressPercent}% completed
                            </p>
                          </div>
                      )}
@@ -884,6 +1023,44 @@ export default function CourseDetailPage() {
                     )}
                   </div>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {assessmentRequired && (
+            <section className="bg-card p-6 rounded-2xl ring-1 ring-amber-300/60 dark:ring-amber-500/30 border-0">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-500/15 flex items-center justify-center shrink-0">
+                  <ClipboardList className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="font-display text-lg font-bold text-foreground mb-1">
+                    {assessmentTitle} <span className="align-middle text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-500">Required for your certificate</span>
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    This course ends with a mandatory post-assessment. Your certificate is only issued once every
+                    lesson <span className="font-semibold text-foreground">and</span> this assessment are complete.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button onClick={() => void openPostAssessment()} className="rounded-xl gradient-card text-primary-foreground">
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      {assessmentOpenedAt ? "Reopen assessment form" : "Open assessment form"}
+                    </Button>
+                    {enrolled && (
+                      <Button
+                        variant="outline"
+                        onClick={togglePostAssessment}
+                        disabled={!assessmentOpenedAt}
+                        className="rounded-xl"
+                      >
+                        {assessmentDone ? "Marked done ✓ (tap to undo)" : assessmentOpenedAt ? "Mark as done" : "Open the form first"}
+                      </Button>
+                    )}
+                  </div>
+                  {!appUser && (
+                    <p className="mt-3 text-xs text-muted-foreground">Sign in and enroll to track your assessment completion.</p>
+                  )}
+                </div>
               </div>
             </section>
           )}

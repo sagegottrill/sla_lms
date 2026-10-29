@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { GraduationCap, PlayCircle, Users } from "lucide-react";
+import { CheckCircle2, GraduationCap, Lock, PlayCircle, Users } from "lucide-react";
 import { TopBar } from "../components/TopBar";
 import { api, formatEnrollmentError } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,6 +33,21 @@ export default function CourseDetail() {
 
   const enrollment = (enrollments ?? []).find((e: any) => String(e.course_id) === String(id) && e.status !== "dropped");
 
+  // Role-aware program gate: staff preview everything; a program-attached course
+  // (BoostHer) opens only for that program's participants.
+  const isStaff =
+    appUser?.role === "admin" || appUser?.role === "instructor" || appUser?.role === "program_manager";
+  const { data: programAllowed } = useQuery({
+    queryKey: ["programAccess", appUser?.id, (course as any)?.program_id],
+    queryFn: () => api.hasProgramAccess(appUser!.id, Number((course as any).program_id)),
+    enabled: !!appUser && !!course && !isStaff && Number((course as any)?.program_id ?? 0) > 0,
+  });
+  const programLocked =
+    !!course && !isStaff && Number((course as any)?.program_id ?? 0) > 0 && programAllowed === false;
+
+  const assessmentRequired = Boolean((course as any)?.postAssessmentUrl);
+  const assessmentDone = Boolean(enrollment?.assessment_opened_at) && String(enrollment?.current_lesson ?? "").includes("__post_assessment__");
+
   const enroll = async () => {
     if (!appUser || !course) return;
     setEnrolling(true);
@@ -52,6 +67,28 @@ export default function CourseDetail() {
   };
 
   if (isLoading) return <PageLoader label="Loading course…" />;
+
+  if (programLocked) {
+    return (
+      <div className="min-h-[100dvh]">
+        <TopBar title="Restricted" />
+        <div className="px-6 pt-16 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-400/15">
+            <Lock className="h-7 w-7 text-amber-600" />
+          </div>
+          <h1 className="mt-5 font-display text-xl font-bold leading-snug">Reserved for program participants</h1>
+          <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">
+            This course belongs to a program you're not enrolled in. Sign up for the program or sign in with the email
+            you registered with — the SLA team can also grant you access.
+          </p>
+          <Btn variant="outline" className="mt-6 rounded-2xl" onClick={() => navigate("/tabs/courses")}>
+            Back to My Learning
+          </Btn>
+        </div>
+      </div>
+    );
+  }
+
   if (!course)
     return (
       <div className="min-h-[100dvh]">
@@ -95,6 +132,17 @@ export default function CourseDetail() {
             <span className="flex items-center gap-1.5"><PlayCircle className="h-4 w-4" /> {lessonsTotal} lessons</span>
           )}
         </div>
+
+        {assessmentRequired && (
+          <div className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2.5 ${assessmentDone ? "bg-emerald-500/10" : "bg-amber-400/10"}`}>
+            <CheckCircle2 className={`h-4 w-4 shrink-0 ${assessmentDone ? "text-emerald-600" : "text-amber-600"}`} />
+            <p className={`text-xs font-semibold ${assessmentDone ? "text-emerald-700" : "text-amber-700"}`}>
+              {assessmentDone
+                ? "Assessment complete — certificate unlocked"
+                : `Ends with a required ${(course as any).postAssessmentTitle || "post-assessment"} — needed for your certificate`}
+            </p>
+          </div>
+        )}
 
         {enrollment && (
           <div className="mt-4">

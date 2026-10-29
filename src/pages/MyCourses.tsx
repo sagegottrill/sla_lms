@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { useCourses, useUserEnrollments } from "@/hooks/useQueries";
+import { useScopedCourses, useUserEnrollments } from "@/hooks/useQueries";
 import { coursePathSegment } from "@/lib/publicRoutes";
 
 const tabs = ["All", "In Progress", "Completed", "Not Started", "Frozen"];
@@ -13,7 +13,7 @@ const tabs = ["All", "In Progress", "Completed", "Not Started", "Frozen"];
 export default function MyCourses() {
   const { appUser } = useAuth();
   const { data: rawEnrollments = [], isLoading: loads1 } = useUserEnrollments(appUser?.id);
-  const { data: catalog = [], isLoading: loads2 } = useCourses({ publishedOnly: true });
+  const { data: catalog = [], isLoading: loads2 } = useScopedCourses({ publishedOnly: true });
 
   const [activeTab, setActiveTab] = useState("All");
   const [search, setSearch] = useState("");

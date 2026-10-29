@@ -26,6 +26,11 @@ const COURSE_COLUMNS_CORE =
 
 const COURSE_COLUMNS = COURSE_COLUMNS_CORE.replace(", created_at", ", certificate_config, created_at");
 
+const COURSE_COLUMNS_ASSESSMENT = COURSE_COLUMNS.replace(
+  ", created_at",
+  ", post_assessment_url, post_assessment_title, created_at",
+);
+
 const PROGRAM_COLUMNS_MINIMAL =
   "id, public_id, title, description, tagline, category, image, duration, start_date, deadline, price, original_price, enrolled, capacity, course_count, tag, level, highlights, courses, status, created_at";
 
@@ -33,6 +38,11 @@ const PROGRAM_COLUMNS_CORE =
   "id, public_id, title, description, tagline, category, image, duration, start_date, deadline, price, original_price, enrolled, capacity, course_count, tag, level, highlights, courses, status, partners, application_deadline, created_at";
 
 const PROGRAM_COLUMNS = PROGRAM_COLUMNS_CORE.replace(", created_at", ", certificate_config, created_at");
+
+const PROGRAM_COLUMNS_ASSESSMENT = PROGRAM_COLUMNS.replace(
+  ", created_at",
+  ", post_assessment_url, post_assessment_title, created_at",
+);
 
 function isMissingColumnError(message: string | undefined, column: string): boolean {
   if (!message) return false;
@@ -43,8 +53,15 @@ function isMissingColumnError(message: string | undefined, column: string): bool
 async function selectCoursesWithFallback(
   build: (columns: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
 ) {
-  const primary = await build(COURSE_COLUMNS);
-  if (!primary.error || !isMissingColumnError(primary.error.message, "certificate_config")) {
+  const primary = await build(COURSE_COLUMNS_ASSESSMENT);
+  if (!primary.error) return primary;
+  if (isMissingColumnError(primary.error.message, "post_assessment_url")) {
+    console.warn("courses.post_assessment_url missing — falling back. Apply supabase/20261029_booster_assessment_scoping.sql");
+    const secondary = await build(COURSE_COLUMNS);
+    if (!secondary.error || !isMissingColumnError(secondary.error.message, "certificate_config")) {
+      return secondary;
+    }
+  } else if (!isMissingColumnError(primary.error.message, "certificate_config")) {
     return primary;
   }
   console.warn("courses.certificate_config missing — falling back to core columns. Apply 20260723_certificate_templates.sql");
@@ -54,8 +71,21 @@ async function selectCoursesWithFallback(
 async function selectProgramsWithFallback(
   build: (columns: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
 ) {
-  const primary = await build(PROGRAM_COLUMNS);
+  const primary = await build(PROGRAM_COLUMNS_ASSESSMENT);
   if (!primary.error) return primary;
+  if (isMissingColumnError(primary.error.message, "post_assessment_url")) {
+    console.warn("programs.post_assessment_url missing — falling back. Apply supabase/20261029_booster_assessment_scoping.sql");
+    const pre = await build(PROGRAM_COLUMNS);
+    if (!pre.error) return pre;
+    return selectProgramColumnsFallback(pre, build);
+  }
+  return selectProgramColumnsFallback(primary, build);
+}
+
+async function selectProgramColumnsFallback(
+  primary: { data: unknown; error: { message: string } | null },
+  build: (columns: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+) {
 
   if (isMissingColumnError(primary.error.message, "certificate_config")) {
     console.warn("programs.certificate_config missing — falling back. Apply 20260723_certificate_templates.sql");
@@ -82,6 +112,22 @@ async function selectProgramsWithFallback(
   return primary;
 }
 
+/**
+ * Program↔course link sync: courses.program_id is the real access-control
+ * link (the program builder also keeps the legacy titles jsonb in sync).
+ * Clear-then-set: a course belongs to at most one program.
+ */
+async function syncProgramCourses(programId: number, courseIds: number[]): Promise<void> {
+  try {
+    await supabase.from("courses").update({ program_id: null }).eq("program_id", programId);
+    if (courseIds.length > 0) {
+      await supabase.from("courses").update({ program_id: programId }).in("id", courseIds);
+    }
+  } catch (err: any) {
+    console.error("syncProgramCourses error:", err?.message ?? err);
+  }
+}
+
 function stripCertificateConfig(payload: Record<string, unknown>) {
   const next = { ...payload };
   delete next.certificate_config;
@@ -105,6 +151,26 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
+
+/** Courses inherit the program's required post-assessment when they have none of their own. */
+async function resolveCourseAssessment(course: Course | undefined): Promise<Course | undefined> {
+  if (!course || course.postAssessmentUrl || !course.program_id) return course;
+  try {
+    const { data: prog, error } = await supabase
+      .from("programs")
+      .select("id, post_assessment_url, post_assessment_title")
+      .eq("id", course.program_id)
+      .maybeSingle();
+    if (!error && prog && prog.post_assessment_url) {
+      course.postAssessmentUrl = String(prog.post_assessment_url);
+      course.postAssessmentTitle = prog.post_assessment_title ? String(prog.post_assessment_title) : null;
+    }
+  } catch {
+    // assessment inheritance is best-effort; the course-level field still applies
+  }
+  return course;
+}
+
 async function fetchCourseRowById(id: number): Promise<Course | undefined> {
   if (!USE_SUPABASE) return undefined;
   const { data, error } = await selectCoursesWithFallback((cols) =>
@@ -114,7 +180,7 @@ async function fetchCourseRowById(id: number): Promise<Course | undefined> {
     console.error("Supabase getCourseById error:", error.message);
     return undefined;
   }
-  return mapCourseRow(data as Record<string, unknown>);
+  return resolveCourseAssessment(mapCourseRow(data as unknown as Record<string, unknown>));
 }
 
 async function fetchCourseRowByPublicId(publicId: string): Promise<Course | undefined> {
@@ -126,7 +192,7 @@ async function fetchCourseRowByPublicId(publicId: string): Promise<Course | unde
     console.error("Supabase getCourseByPublicId error:", error.message);
     return undefined;
   }
-  return mapCourseRow((data ?? undefined) as Record<string, unknown> | undefined);
+  return resolveCourseAssessment(mapCourseRow((data ?? undefined) as unknown as Record<string, unknown> | undefined));
 }
 
 function withComputedDuration<T extends Record<string, unknown>>(payload: T): T {
@@ -465,6 +531,131 @@ export const api = {
   },
 
   // -------------------------
+  // PROGRAM-SCOPED CATALOG (Booster access control)
+  // Learners attached to a program (e.g. BoostHer) see ONLY that program's
+  // courses plus anything they are already enrolled in. Program-attached
+  // courses never appear in the general catalog of non-participants.
+  // -------------------------
+  getUserProgramIds: async (userId: string): Promise<number[]> => {
+    if (!USE_SUPABASE || !userId) return [];
+    try {
+      const { data, error } = await supabase
+        .from("enrollments")
+        .select("program_id")
+        .eq("user_id", userId)
+        .not("program_id", "is", null)
+        .neq("status", "dropped");
+      if (error) {
+        console.error("Supabase getUserProgramIds error:", error.message);
+        return [];
+      }
+      return Array.from(new Set((data ?? []).map((r: any) => Number(r.program_id)).filter((n) => Number.isFinite(n) && n > 0)));
+    } catch (err: any) {
+      console.error("Supabase getUserProgramIds error:", err?.message ?? err);
+      return [];
+    }
+  },
+
+  getUserCourseEnrollmentIds: async (userId: string): Promise<number[]> => {
+    if (!USE_SUPABASE || !userId) return [];
+    try {
+      const { data, error } = await supabase
+        .from("enrollments")
+        .select("course_id")
+        .eq("user_id", userId)
+        .not("course_id", "is", null)
+        .neq("status", "dropped");
+      if (error) return [];
+      return Array.from(new Set((data ?? []).map((r: any) => Number(r.course_id)).filter((n) => Number.isFinite(n) && n > 0)));
+    } catch {
+      return [];
+    }
+  },
+
+  /** True when the user is a participant of the given program. */
+  hasProgramAccess: async (userId: string, programId: number): Promise<boolean> => {
+    if (!USE_SUPABASE || !userId || !programId) return false;
+    try {
+      const { count, error } = await supabase
+        .from("enrollments")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("program_id", programId)
+        .neq("status", "dropped");
+      return !error && (count ?? 0) > 0;
+    } catch {
+      return false;
+    }
+  },
+
+  getCoursesForUser: async (userId: string, options?: { publishedOnly?: boolean; publicOnly?: boolean }): Promise<ApiResponse<Course[]>> => {
+    if (!USE_SUPABASE) return { data: [], error: null, success: true };
+    try {
+      const programIds = userId && !options?.publicOnly ? await api.getUserProgramIds(userId) : [];
+
+      const scopeParts: string[] = [];
+      if (options?.publicOnly || programIds.length === 0) {
+        // Storefront visitors and general learners: the general catalog only.
+        // Program-attached courses stay private to their program's participants.
+        scopeParts.push("program_id.is.null");
+      } else {
+        // Program participants (e.g. BoostHer): strictly their program's courses.
+        scopeParts.push(`program_id.in.(${programIds.join(",")})`);
+      }
+
+      const { data, error } = await selectCoursesWithFallback((cols) => {
+        let q = supabase.from("courses").select(cols).order("created_at", { ascending: false });
+        if (options?.publishedOnly !== false) q = q.eq("status", "published");
+        return q.or(scopeParts.join(","));
+      });
+      if (error) {
+        console.error("Supabase getCoursesForUser error:", error.message);
+        return { data: [], error: error.message, success: false };
+      }
+      return { data: mapCourseRows((data as unknown[]) ?? []), error: null, success: true };
+    } catch (error: any) {
+      console.error("Supabase getCoursesForUser error:", error?.message ?? error);
+      return { data: [], error: error?.message ?? String(error), success: false };
+    }
+  },
+
+  searchCoursesForUser: async (userId: string, query: string): Promise<ApiResponse<Course[]>> => {
+    if (!USE_SUPABASE) return { data: [], error: null, success: true };
+    // Empty query = the full scoped catalog (mobile Browse lists through this).
+    const res = await api.getCoursesForUser(userId, { publishedOnly: true });
+    if (!query.trim()) return res;
+    if (!res.success) return res;
+    const needle = query.toLowerCase();
+    const matches = (res.data ?? []).filter((c) =>
+      [c.title, c.subtitle, (c as unknown as Record<string, unknown>).description, c.instructor, c.category]
+        .some((f) => String(f ?? "").toLowerCase().includes(needle)),
+    );
+    return { data: matches, error: null, success: true };
+  },
+
+  /** Records that the learner opened the required post-assessment through the platform. */
+  markAssessmentOpened: async (userId: string, courseId: number): Promise<ApiResponse<any | null>> => {
+    if (!USE_SUPABASE) return { data: null, error: null, success: true };
+    if (!userId || !courseId) return { data: null, error: "User and course are required.", success: false };
+    try {
+      const { data, error } = await supabase
+        .from("enrollments")
+        .update({ assessment_opened_at: new Date().toISOString(), last_accessed: new Date().toISOString() })
+        .eq("user_id", userId)
+        .eq("course_id", courseId)
+        .select()
+        .maybeSingle();
+      if (error) {
+        console.error("Supabase markAssessmentOpened error:", error.message);
+        return { data: null, error: error.message, success: false };
+      }
+      return { data, error: null, success: true };
+    } catch (err: any) {
+      return { data: null, error: err?.message ?? String(err), success: false };
+    }
+  },
+
+  // -------------------------
   // PROGRAMS
   // -------------------------
   getPrograms: async (options?: { activeCatalog?: boolean }): Promise<ApiResponse<Program[]>> => {
@@ -623,7 +814,15 @@ export const api = {
         console.error("Supabase createProgram error:", error.message);
         return { data: null, error: error.message, success: false };
       }
-      
+
+      const createdId = Number((data as unknown as Record<string, unknown>)?.id);
+      const selectedCourseIds = Array.isArray((programData as Record<string, unknown>).course_ids)
+        ? ((programData as Record<string, unknown>).course_ids as unknown[]).map(Number).filter((n) => Number.isFinite(n) && n > 0)
+        : null;
+      if (Number.isFinite(createdId) && createdId > 0 && selectedCourseIds) {
+        await syncProgramCourses(createdId, selectedCourseIds);
+      }
+
       return { data: mapProgramRow(data as Record<string, unknown>) ?? null, error: null, success: true };
     } catch (error: any) {
       console.error("Supabase createProgram error:", error.message);
@@ -659,7 +858,14 @@ export const api = {
         console.error("Supabase updateProgram error:", error.message);
         return { data: null, error: error.message, success: false };
       }
-      
+
+      const selectedCourseIds = Array.isArray((updates as Record<string, unknown>).course_ids)
+        ? ((updates as Record<string, unknown>).course_ids as unknown[]).map(Number).filter((n) => Number.isFinite(n) && n > 0)
+        : null;
+      if (Number.isFinite(id) && id > 0 && selectedCourseIds) {
+        await syncProgramCourses(id, selectedCourseIds);
+      }
+
       return { data: mapProgramRow(data as Record<string, unknown>) ?? null, error: null, success: true };
     } catch (error: any) {
       console.error("Supabase updateProgram error:", error.message);
@@ -1876,6 +2082,62 @@ export const api = {
       typeof programId === "number" && programId > 0 ? programId : null;
     if (!resolvedCourseId && !resolvedProgramId) {
       return { data: null, error: "Course or program is required.", success: false };
+    }
+
+    // Required post-assessment gate: a course (or its parent program) can demand
+    // a Google-Form post-assessment. No certificate is issued until the learner
+    // has opened that assessment through the platform (enrollments.assessment_opened_at).
+    try {
+      let assessmentUrl: string | null = null;
+      let gateEnrollmentFilter: "course" | "program" | null = null;
+      if (resolvedCourseId) {
+        const { data: courseRow, error: courseErr } = await supabase
+          .from("courses")
+          .select("post_assessment_url, program_id")
+          .eq("id", resolvedCourseId)
+          .maybeSingle();
+        if (!courseErr && courseRow?.post_assessment_url) {
+          assessmentUrl = String(courseRow.post_assessment_url);
+          gateEnrollmentFilter = "course";
+        } else if (!courseErr && courseRow?.program_id) {
+          const { data: progRow, error: progErr } = await supabase
+            .from("programs")
+            .select("post_assessment_url")
+            .eq("id", courseRow.program_id)
+            .maybeSingle();
+          if (!progErr && progRow?.post_assessment_url) {
+            assessmentUrl = String(progRow.post_assessment_url);
+            gateEnrollmentFilter = "course";
+          }
+        }
+      } else if (resolvedProgramId) {
+        const { data: progRow, error: progErr } = await supabase
+          .from("programs")
+          .select("post_assessment_url")
+          .eq("id", resolvedProgramId)
+          .maybeSingle();
+        if (!progErr && progRow?.post_assessment_url) {
+          assessmentUrl = String(progRow.post_assessment_url);
+          gateEnrollmentFilter = "program";
+        }
+      }
+      if (assessmentUrl && gateEnrollmentFilter) {
+        let openedQuery = supabase.from("enrollments").select("assessment_opened_at").eq("user_id", userId).limit(1);
+        openedQuery =
+          gateEnrollmentFilter === "course"
+            ? openedQuery.eq("course_id", resolvedCourseId!)
+            : openedQuery.eq("program_id", resolvedProgramId!);
+        const { data: enr } = await openedQuery.maybeSingle();
+        if (!enr?.assessment_opened_at) {
+          return {
+            data: null,
+            error: "ASSESSMENT_REQUIRED: The required post-assessment must be completed before a certificate can be issued.",
+            success: false,
+          };
+        }
+      }
+    } catch (gateErr: any) {
+      console.error("issueCertificate assessment gate error:", gateErr?.message ?? gateErr);
     }
 
     let existingQuery = supabase.from("certificates").select("*").eq("user_id", userId);

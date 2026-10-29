@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Award, Download, ExternalLink, Loader2, FileText } from "lucide-react";
+import { Award, Download, ExternalLink, Loader2, FileText, Lock } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -74,6 +75,9 @@ export default function CertificatesPage() {
   const [inProgressCount, setInProgressCount] = useState(0);
   const [totalHours, setTotalHours] = useState(0);
   const [allCertificates, setAllCertificates] = useState<any[]>([]);
+  const [locked, setLocked] = useState<
+    Array<{ courseId: number; title: string; assessmentUrl: string; assessmentTitle: string; needsLessons: boolean }>
+  >([]);
 
   const isStaff = STAFF_ROLES.includes(appUser?.role as (typeof STAFF_ROLES)[number]);
 
@@ -94,6 +98,31 @@ export default function CertificatesPage() {
         setInProgressCount(
           enrolls.filter((e: any) => Number(e.progress ?? 0) < 100).length,
         );
+        // Locked certificates: done (or ≥100%) but no credential was issued —
+        // either the required post-assessment is missing or completion predates it.
+        const earnedCourseIds = new Set(
+          (certsResponse.success ? certsResponse.data || [] : [])
+            .map((c: any) => Number(c.course_id))
+            .filter((n: number) => Number.isFinite(n) && n > 0),
+        );
+        const lockedRows = enrolls
+          .filter((e: any) => {
+            const pct = Number(e.progress ?? 0);
+            return !earnedCourseIds.has(Number(e.course_id)) && (pct >= 100 || e.status === "completed" || pct >= 0);
+          })
+          .map((e: any) => {
+            const c = e.courses ?? {};
+            const url = c.post_assessment_url ?? c.postAssessmentUrl ?? null;
+            return {
+              courseId: Number(e.course_id),
+              title: c.title ?? "Course",
+              assessmentUrl: url ? String(url) : "",
+              assessmentTitle: String(c.post_assessment_title ?? c.postAssessmentTitle ?? "Post-Assessment"),
+              needsLessons: Number(e.progress ?? 0) < 100,
+            };
+          })
+          .filter((r: any) => Number.isFinite(r.courseId) && r.courseId > 0);
+        setLocked(lockedRows);
         setTotalHours(
           Math.round(
             enrolls.reduce(
@@ -168,6 +197,39 @@ export default function CertificatesPage() {
               <p className="text-base text-muted-foreground">
                 Complete a course to earn your first certificate.
               </p>
+            </div>
+          )}
+
+          {!loading && locked.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
+                <Lock className="w-4 h-4 text-amber-500" /> Locked — finish these to earn the certificate
+              </h2>
+              {locked.map((l) => (
+                <div
+                  key={l.courseId}
+                  className="flex flex-col sm:flex-row sm:items-center gap-4 bg-card rounded-2xl ring-1 ring-amber-300/60 dark:ring-amber-500/25 border-0 p-5"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-500/15 flex items-center justify-center shrink-0">
+                    <Award className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground truncate">{l.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {l.assessmentUrl
+                        ? `Complete the ${l.assessmentTitle} to unlock your certificate.`
+                        : l.needsLessons
+                          ? "Finish all lessons to unlock your certificate."
+                          : "Your completion is being processed — refresh in a moment."}
+                    </p>
+                  </div>
+                  <Link to={`/courses/${l.courseId}`} className="shrink-0">
+                    <Button variant="outline" className="rounded-xl">
+                      {l.assessmentUrl ? "Complete assessment" : "Continue course"}
+                    </Button>
+                  </Link>
+                </div>
+              ))}
             </div>
           )}
 
