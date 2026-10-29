@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Award, BadgeCheck, Share2, ShieldCheck } from "lucide-react";
 import { api } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { getCertificateVerifyUrl } from "@/lib/certificateUrls";
 import { Btn, Card, Empty, Skeleton } from "@kit";
 import { fmtDate } from "@kit";
 import { hapticSuccess } from "../lib/haptics";
@@ -19,7 +20,7 @@ export default function Certificates() {
   const [openId, setOpenId] = useState<number | null>(null);
 
   const { data: certs, isLoading } = useQuery({
-    queryKey: ["certificates", "mobile-screen", appUser?.id],
+    queryKey: ["certificates", "mobile", appUser?.id],
     queryFn: () => api.getCertificates(appUser!.id),
     enabled: !!appUser,
     select: (r) => (r.success ? r.data ?? [] : []),
@@ -28,7 +29,7 @@ export default function Certificates() {
   const open = (certs ?? []).find((c) => c.id === openId);
 
   const verifyUrl = (c: any) =>
-    `https://sheleadsafrica.org/verify/${c.credential_id ?? c.credentialId ?? ""}`;
+    getCertificateVerifyUrl(String(c.credential_id ?? c.credentialId ?? ""));
 
   const share = async (c: any) => {
     const text = `🎓 I just earned the "${c.course_title ?? c.certificate_name ?? "SLA"}" certificate from She Leads Africa! Verify it: ${verifyUrl(c)}`;

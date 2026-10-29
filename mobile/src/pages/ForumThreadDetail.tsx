@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { queryKeys } from "@/lib/react-query";
 import { supabase } from "@/lib/supabase";
 import { Avatar, Btn, Card, Input, PageLoader, Spinner, Tag, Textarea } from "@kit";
-import { errorText, fmtDate, friendlyError } from "@kit";
+import { errorText, fmtDate, friendlyError, useImagePreviewUrl } from "@kit";
 import { useParams, useNavigate } from "react-router-dom";
 
 /**
@@ -25,6 +25,7 @@ export default function ForumThreadDetail() {
   const [sending, setSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const imagePreview = useImagePreviewUrl(image);
 
   const { data: threads, isLoading: threadLoading } = useQuery({
     queryKey: [...queryKeys.forumThreads.base, "mobile-forums"],
@@ -152,7 +153,7 @@ export default function ForumThreadDetail() {
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-3 pb-3 pt-2 backdrop-blur pad-bottom-safe">
         {image && (
           <div className="relative mb-2 inline-block">
-            <img src={URL.createObjectURL(image)} alt="" className="h-16 rounded-lg object-cover" />
+            <img src={imagePreview ?? undefined} alt="" className="h-16 rounded-lg object-cover" />
             <button onClick={() => setImage(null)} className="absolute -right-2 -top-2 rounded-full bg-black/70 p-1 text-white" aria-label="Remove image">
               <X className="h-3.5 w-3.5" />
             </button>

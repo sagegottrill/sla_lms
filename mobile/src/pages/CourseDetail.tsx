@@ -115,11 +115,11 @@ export default function CourseDetail() {
           </Card>
         )}
 
-        {Array.isArray(course.what_youll_learn) && course.what_youll_learn.length > 0 && (
+        {Array.isArray(course.whatYoullLearn) && course.whatYoullLearn.length > 0 && (
           <Card className="mt-3 p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">What you'll learn</p>
             <ul className="mt-2 space-y-1.5">
-              {(course.what_youll_learn as string[]).slice(0, 6).map((it, i) => (
+              {(course.whatYoullLearn as string[]).slice(0, 6).map((it, i) => (
                 <li key={i} className="flex gap-2 text-sm"><span className="text-primary">✓</span>{it}</li>
               ))}
             </ul>
@@ -132,7 +132,7 @@ export default function CourseDetail() {
             <div className="mt-2 space-y-1.5">
               {curriculum.slice(0, 8).map((sec: any, i: number) => (
                 <div key={i} className="flex items-center justify-between rounded-xl bg-muted/60 px-3 py-2.5">
-                  <p className="min-w-0 flex-1 truncate text-sm font-medium">{sec.title ?? `Section ${i + 1}`}</p>
+                  <p className="min-w-0 flex-1 truncate text-sm font-medium">{sec.module ?? sec.title ?? `Section ${i + 1}`}</p>
                   <span className="text-[11px] text-muted-foreground">{(Array.isArray(sec?.items) ? sec.items.length : Array.isArray(sec?.lessons) ? sec.lessons.length : 0)} lessons</span>
                 </div>
               ))}

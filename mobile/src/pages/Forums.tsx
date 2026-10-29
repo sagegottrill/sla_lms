@@ -6,10 +6,9 @@ import { ImagePlus, Loader2, MessageSquarePlus, MessagesSquare, Pin, Search, X }
 import { api } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { queryKeys } from "@/lib/react-query";
-import { queryClient as sharedQueryClient } from "@/lib/react-query";
 import { supabase } from "@/lib/supabase";
 import { Avatar, Btn, Card, Empty, Input, Spinner, Tag, Textarea } from "@kit";
-import { errorText, fmtDate, friendlyError, isApp } from "@kit";
+import { errorText, fmtDate, friendlyError, isApp, useImagePreviewUrl } from "@kit";
 import { useNavigate } from "react-router-dom";
 
 const CATEGORIES = ["General", "Career", "Business", "Skills", "Funding", "Learning"] as const;
@@ -30,6 +29,7 @@ export default function Forums() {
   const [image, setImage] = useState<File | null>(null);
   const [posting, setPosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imagePreview = useImagePreviewUrl(image);
 
   const { data: threads, isLoading } = useQuery({
     queryKey: [...queryKeys.forumThreads.base, "mobile-forums"],
@@ -113,7 +113,7 @@ export default function Forums() {
           title={title} setTitle={setTitle}
           body={body} setBody={setBody}
           category={category} setCategory={setCategory}
-          imagePreview={image ? URL.createObjectURL(image) : null}
+          imagePreview={imagePreview}
           onPick={() => fileInputRef.current?.click()}
           onClearImage={() => setImage(null)}
           onSubmit={post}

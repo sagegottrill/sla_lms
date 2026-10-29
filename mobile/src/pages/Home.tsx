@@ -320,8 +320,8 @@ function InstructorHome({ appUser }: { appUser: any }) {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{c.title ?? "Course"}</p>
                     <p className="text-xs text-muted-foreground">
-                      {c.enrollments_count ?? c.enrollments ?? 0} students
-                      {c.price ? ` · ${fmtMoney(Number(c.price) || Number(c.price) / 100)}` : ""}
+                      {c.students ?? 0} students
+                      {c.price && Number(c.price) > 0 ? ` · ${fmtMoney(c.price)}` : ""}
                     </p>
                   </div>
                   <Tag color="blue">{c.published ? "Live" : "Draft"}</Tag>
@@ -348,7 +348,7 @@ function StaffHome({ appUser, isAdmin }: { appUser: any; isAdmin: boolean }) {
   const { data: participants, isLoading: loadingParticipants } = useQuery({
     queryKey: ["program-participants", "mobile-staff"],
     queryFn: () => api.getProgramParticipants(),
-    enabled: isAdmin,
+    enabled: isAdmin || appUser?.role === "program_manager",
     select: (r) => (r.success ? r.data ?? [] : []),
   });
   const { data: payments, isLoading: loadingPayments } = useQuery({
@@ -389,7 +389,7 @@ function StaffHome({ appUser, isAdmin }: { appUser: any; isAdmin: boolean }) {
               ]
             : [
                 { icon: GraduationCap, value: loadingPrograms ? "—" : (programs ?? []).length, label: "Programs" },
-                { icon: Users, value: (participants ?? []).length ? participants.length.toLocaleString() : "—", label: "Participants" },
+                { icon: Users, value: loadingParticipants ? "—" : (participants ?? []).length.toLocaleString(), label: "Participants" },
               ]
         }
       />

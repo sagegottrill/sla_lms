@@ -37,6 +37,8 @@ export interface AppUser {
   linkedin?: string;
   /** Professional skills from profiles.skills (jsonb) */
   skills?: string[];
+  /** profiles.joined — signup timestamp (timestamptz) */
+  joined?: string;
   onboarding: OnboardingData;
 }
 
@@ -71,6 +73,7 @@ function mapProfileRowToAppUser(data: Record<string, unknown>): AppUser {
     location: typeof data.location === "string" ? data.location : undefined,
     linkedin: typeof data.linkedin === "string" ? data.linkedin : undefined,
     skills: parseJsonStringArray(data.skills),
+    joined: typeof data.joined === "string" ? data.joined : undefined,
     onboarding: {
       completed: onboardingCompleted,
       careerGoal: typeof data.career_goal === "string" ? data.career_goal : "",

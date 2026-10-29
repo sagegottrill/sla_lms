@@ -118,7 +118,7 @@ export default function Profile() {
               <p className="pt-1 text-xs text-muted-foreground">Add your headline, goal and skills on the web app to complete your profile.</p>
             )}
           </div>
-          <p className="mt-3 text-[11px] text-muted-foreground">Member since {fmtDate(Object(appUser as any).onboarding?.joined ?? null)}</p>
+          <p className="mt-3 text-[11px] text-muted-foreground">Member since {fmtDate(appUser.joined ?? null)}</p>
         </Card>
 
         {/* appearance — light is the default, dark is opt-in */}
@@ -171,7 +171,7 @@ export default function Profile() {
         <Btn variant="outline" className="w-full border-destructive/30 text-destructive hover:bg-destructive/5" onClick={() => void logout()}>
           <LogOut className="h-4 w-4" /> Sign out
         </Btn>
-        <p className="pb-4 text-center text-[11px] text-muted-foreground">She Leads Africa · Mobile · v2.6.0</p>
+        <p className="pb-4 text-center text-[11px] text-muted-foreground">She Leads Africa · Mobile · v2.7.0</p>
       </div>
     </div>
   );

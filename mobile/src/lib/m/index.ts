@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { Capacitor } from "@capacitor/core";
+import { useEffect, useState } from "react";
 
 /** Re-export the full widget surface so `@kit` imports never split. */
 export {
@@ -104,6 +105,21 @@ export function initials(name?: string): string {
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+/** Object URL for an image File preview — revoked automatically on change/unmount. */
+export function useImagePreviewUrl(file: File | null): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file) {
+      setUrl(null);
+      return;
+    }
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  return url;
 }
 
 /* ---- THEME: light is always the default; dark is opt-in (Profile toggle) ---- */

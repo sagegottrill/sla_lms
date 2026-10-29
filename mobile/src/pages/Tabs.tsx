@@ -25,7 +25,8 @@ const TABS = [
  */
 export default function Tabs() {
   const { tab } = useParams();
-  const active = (tab ?? "home") as (typeof TABS)[number]["key"];
+  // Unknown deep-link tab (e.g. /tabs/xyz) falls back to Home instead of a blank page.
+  const active = (TABS.some((t) => t.key === tab) ? tab : "home") as (typeof TABS)[number]["key"];
   const activeIndex = TABS.findIndex((t) => t.key === active);
 
   // Slide direction follows the tab order, like a native pager.

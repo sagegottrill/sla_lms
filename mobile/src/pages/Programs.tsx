@@ -25,7 +25,7 @@ export default function Programs() {
   const [enrolling, setEnrolling] = useState<number | null>(null);
 
   const { data: programs, isLoading } = useQuery({
-    queryKey: [queryKeys.programs.base, "mobile"],
+    queryKey: [...queryKeys.programs.base, "mobile"],
     queryFn: () => api.getPrograms({ activeCatalog: true }),
     select: (r) => (r.success ? r.data ?? [] : []),
   });
