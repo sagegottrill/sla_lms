@@ -61,7 +61,11 @@ export default function CourseDetail() {
     );
 
   const curriculum: any[] = Array.isArray(course.curriculum) ? course.curriculum : [];
-  const lessonsTotal = curriculum.reduce((n, s: any) => n + (s.lessons?.length ?? 0), 0);
+  //lessons live in items[] for builder-authored courses, lessons[] legacy, or a count
+  const lessonsTotal = curriculum.reduce(
+    (n, s: any) => n + (Array.isArray(s?.items) ? s.items.length : Array.isArray(s?.lessons) ? s.lessons.length : 0),
+    0,
+  );
 
   return (
     <div className="min-h-[100dvh] pb-10">
@@ -129,7 +133,7 @@ export default function CourseDetail() {
               {curriculum.slice(0, 8).map((sec: any, i: number) => (
                 <div key={i} className="flex items-center justify-between rounded-xl bg-muted/60 px-3 py-2.5">
                   <p className="min-w-0 flex-1 truncate text-sm font-medium">{sec.title ?? `Section ${i + 1}`}</p>
-                  <span className="text-[11px] text-muted-foreground">{(sec.lessons ?? []).length ?? ""} lessons</span>
+                  <span className="text-[11px] text-muted-foreground">{(Array.isArray(sec?.items) ? sec.items.length : Array.isArray(sec?.lessons) ? sec.lessons.length : 0)} lessons</span>
                 </div>
               ))}
             </div>

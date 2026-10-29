@@ -790,7 +790,7 @@ export default function CourseDetailPage() {
             <section>
               <h2 className="font-display text-2xl font-bold text-foreground mb-6">What You'll Learn</h2>
               <div className="grid sm:grid-cols-2 gap-3">
-                {course.whatYoullLearn.map((item) => (
+                {(Array.isArray(course.whatYoullLearn) ? course.whatYoullLearn : []).map((item: any) => (
                   <div key={item} className="flex gap-3 text-sm text-foreground">
                     <CheckCircle className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
                     {item}
@@ -801,7 +801,7 @@ export default function CourseDetailPage() {
           )}
 
           {/* Curriculum */}
-          {course.curriculum?.length > 0 && (
+          {Array.isArray(course.curriculum) && course.curriculum.length > 0 && (
             <section>
               <h2 className="font-display text-2xl font-bold text-foreground mb-6">Course Curriculum</h2>
               <div className="space-y-2">
@@ -817,7 +817,7 @@ export default function CourseDetailPage() {
                     </button>
                     {openModule === i && (
                       <div className="divide-y divide-border">
-                        {mod.items.map((item: any, j: number) => {
+                        {(Array.isArray(mod?.items) ? mod.items : []).map((item: any, j: number) => {
                           const isObj = typeof item === 'object';
                           const title = isObj ? item.title : item;
                           const url = isObj ? item.vimeo_url : "";

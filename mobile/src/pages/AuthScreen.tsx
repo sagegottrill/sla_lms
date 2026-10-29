@@ -215,7 +215,7 @@ export default function AuthScreen() {
 
         {isApp && (
           <p className="mt-6 pb-6 text-center text-[11px] leading-relaxed text-muted-foreground">
-            She Leads Africa · version 2.5.0
+            She Leads Africa · version 2.6.0
             <br />
             By continuing, you accept our{" "}
             <span className="font-medium text-foreground underline underline-offset-2">Terms of Use</span> and{" "}

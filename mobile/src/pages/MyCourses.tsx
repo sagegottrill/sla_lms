@@ -172,6 +172,7 @@ function CourseSheet({ enrollment, course, onClose }: { enrollment: any; course:
   const navigate = useNavigate();
   const progress = enrollment.progress ?? 0;
   const curriculum: any[] = Array.isArray(course?.curriculum) ? course.curriculum : [];
+  const lessonsCount = curriculum.reduce((n, s: any) => n + (Array.isArray(s?.items) ? s.items.length : Array.isArray(s?.lessons) ? s.lessons.length : 0), 0);
 
   return (
     <Sheet onClose={onClose}>
@@ -197,7 +198,7 @@ function CourseSheet({ enrollment, course, onClose }: { enrollment: any; course:
                 <div key={i} className="flex items-center gap-2 rounded-xl bg-muted/60 px-3 py-2.5">
                   <PlayCircle className="h-4 w-4 shrink-0 text-primary" />
                   <p className="min-w-0 flex-1 truncate text-sm font-medium">{sec.title ?? `Section ${i + 1}`}</p>
-                  <span className="text-[11px] text-muted-foreground">{(sec.lessons ?? []).length ?? ""}</span>
+                  <span className="text-[11px] text-muted-foreground">{(Array.isArray(sec?.items) ? sec.items : Array.isArray(sec?.lessons) ? sec.lessons : []).length}</span>
                 </div>
               ))}
             </div>
