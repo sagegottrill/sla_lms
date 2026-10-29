@@ -105,3 +105,32 @@ export function initials(name?: string): string {
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
 }
+
+/* ---- THEME: light is always the default; dark is opt-in (Profile toggle) ---- */
+export type Theme = "light" | "dark";
+const THEME_KEY = "sla-theme";
+
+export function getTheme(): Theme {
+  try {
+    return localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
+
+export function applyTheme(t: Theme) {
+  document.documentElement.classList.toggle("dark", t === "dark");
+  document.documentElement.style.colorScheme = t;
+}
+
+export function setTheme(t: Theme) {
+  try {
+    localStorage.setItem(THEME_KEY, t);
+  } catch { /* blocked storage — stays light for the session */ }
+  applyTheme(t);
+}
+
+/** Call once at boot, before first paint. */
+export function initTheme() {
+  applyTheme(getTheme());
+}

@@ -3,21 +3,31 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ChevronRight, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Award, LogOut, MapPin, Link2, Camera, BookOpen } from "lucide-react";
+import { Award, LogOut, MapPin, Link2, Camera, BookOpen, Moon, Sun } from "lucide-react";
 import { api } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, Btn, Card, PageLoader, Tag } from "@kit";
-import { errorText, fmtDate, friendlyError } from "@kit";
+import { errorText, fmtDate, friendlyError, getTheme, setTheme, devPreviewUser } from "@kit";
+import type { Theme } from "@kit";
 
 /**
  * PROFILE TAB — account info (avatar upload included), skills & career goal,
  * quick summary of certificates. Sign out lives here too.
  */
 export default function Profile() {
-  const { appUser, logout, refreshProfile } = useAuth();
+  const { appUser: authUser, logout, refreshProfile } = useAuth();
+  // Preview scaffold: ?role= mock feeds Profile too, matching the Gate's fallback.
+  const appUser = authUser ?? devPreviewUser();
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [theme, setThemeState] = useState<Theme>(() => getTheme());
+
+  const toggleTheme = () => {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    setTheme(next); // applies the class + persists
+    setThemeState(next);
+  };
 
   const { data: certs } = useQuery({
     queryKey: ["certificates", "mobile", appUser?.id],
@@ -111,6 +121,33 @@ export default function Profile() {
           <p className="mt-3 text-[11px] text-muted-foreground">Member since {fmtDate(Object(appUser as any).onboarding?.joined ?? null)}</p>
         </Card>
 
+        {/* appearance — light is the default, dark is opt-in */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent">
+                {theme === "dark" ? <Moon className="h-4 w-4 text-primary" /> : <Sun className="h-5 w-5 text-primary" />}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">Dark mode</p>
+                <p className="text-xs text-muted-foreground">Off by default — switch only if you prefer it.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={theme === "dark"}
+              aria-label="Toggle dark mode"
+              onClick={toggleTheme}
+              className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ease-premium ${theme === "dark" ? "bg-primary" : "bg-muted"}`}
+            >
+              <span
+                className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ease-premium ${theme === "dark" ? "left-6" : "left-1"}`}
+              />
+            </button>
+          </div>
+        </Card>
+
         {/* certificates preview */}
         <Card className="p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Certificates</p>
@@ -134,7 +171,7 @@ export default function Profile() {
         <Btn variant="outline" className="w-full border-destructive/30 text-destructive hover:bg-destructive/5" onClick={() => void logout()}>
           <LogOut className="h-4 w-4" /> Sign out
         </Btn>
-        <p className="pb-4 text-center text-[11px] text-muted-foreground">She Leads Africa · Mobile · v2.0.0</p>
+        <p className="pb-4 text-center text-[11px] text-muted-foreground">She Leads Africa · Mobile · v2.5.0</p>
       </div>
     </div>
   );

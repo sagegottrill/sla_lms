@@ -79,11 +79,8 @@
   .no-scrollbar-scroll::-webkit-scrollbar {
     display: none;
   }
-}
-
-/* ---- DARK MODE (system-following) ---- */
-@media (prefers-color-scheme: dark) {
-  :root {
+}/* ---- DARK MODE (opt-in via .dark on <html>; light is always the default) ---- */
+.dark {
     --background: 228 16% 8%;
     --foreground: 220 20% 94%;
 
@@ -106,7 +103,6 @@
     --border: 228 10% 20%;
     --input: 228 10% 22%;
     --ring: 214 95% 55%;
-  }
 }
 
 /* ---- skeleton shimmer ---- */
