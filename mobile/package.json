@@ -1,7 +1,7 @@
 {
   "name": "sla-lms-mobile",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "She Leads Africa LMS — dedicated mobile app (reuses the web app's shared @/* backend layer).",
   "type": "module",
   "scripts": {

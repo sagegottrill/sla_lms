@@ -7,7 +7,9 @@
  */
 import { Suspense, lazy } from "react";
 import { Component, useEffect, useState, type ReactNode } from "react";
+import { AnimatePresence } from "framer-motion";
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from "react-router-dom";
+import { listenForOAuthReturn } from "./lib/oauth";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { queryClient } from "@/lib/react-query";
@@ -26,6 +28,7 @@ const Jobs = lazy(() => import("./pages/Jobs"));
 const Sessions = lazy(() => import("./pages/Sessions"));
 const Certificates = lazy(() => import("./pages/Certificates"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 
 /**
  * BOOT GUARD — the splash can NEVER hold the app hostage: after 8s the gate
@@ -38,58 +41,61 @@ function Gate() {
   useAndroidBackButton(); // gesture/hardware back navigates the in-app stack
   const { isAuthenticated, loading, appUser } = useAuth();
   const [bootTimedOut, setBootTimedOut] = useState(false);
+  const [splashGone, setSplashGone] = useState(false);
 
   useEffect(() => {
     if (!loading || bootTimedOut) return;
-    const t = setTimeout(() => setBootTimedOut(true), BOOT_FALLBACK_MS - 1_400); // splash minMs=1300
+    const t = setTimeout(() => setBootTimedOut(true), BOOT_FALLBACK_MS - 1_400); // splash minMs=1600
     return () => clearTimeout(t);
   }, [loading, bootTimedOut]);
 
   const bootErrors = (window as any).__slaBootErrors as string[] | undefined;
 
-  if (loading) {
-    if (bootTimedOut) {
-      // Init never finished — show captured errors if we have them, else the
-      // auth screen. The onAuthStateChange listener still hot-swaps the user
-      // in the moment the session lands, so no state is lost.
-      if (bootErrors?.length) {
-        return (
-          <div className="min-h-[100dvh] bg-background px-6 py-16">
-            <p className="text-sm font-bold text-destructive">Startup problem</p>
-            <pre className="mt-3 whitespace-pre-wrap break-words text-[11px] text-muted-foreground">{bootErrors.slice(-3).join("\n\n")}</pre>
-            <button
-              className="mt-6 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white"
-              onClick={() => { (window as any).__slaBootErrors = undefined; location.reload(); }}
-            >
-              Restart app
-            </button>
-          </div>
-        );
-      }
-      return <AuthScreen />;
-    }
-    return <Splash ready={false} />;
-  }
-  if (!isAuthenticated) {
-    if (bootErrors?.length) {
-      return (
-        <div className="min-h-[100dvh] bg-background px-6 py-16">
-          <p className="text-sm font-bold text-destructive">Startup problem</p>
-          <pre className="mt-3 whitespace-pre-wrap break-words text-[11px] text-muted-foreground">{bootErrors.slice(-3).join("\n\n")}</pre>
-          <button
-            className="mt-6 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white"
-            onClick={() => { (window as any).__slaBootErrors = undefined; location.reload(); }}
-          >
-            Restart app
-          </button>
-        </div>
-      );
-    }
-    return <AuthScreen />;
-  }
-  const welcome = !appUser?.onboarding?.completed;
-  if (welcome) return <Onboarding />;
-  return <Outlet />;
+  // SPLASH HANDOFF: the splash is a self-dismissing OVERLAY (see Splash.tsx).
+  // The real UI always paints underneath as soon as it's decided, and the
+  // splash cross-fades away on top — no hard cut, no flash.
+  const holdSplash = loading && !bootTimedOut;
+  const splashReady = !holdSplash;
+
+  let content: ReactNode;
+  if (loading) content = null; // splash covers; blue body underlay avoids any flash
+  else if (bootErrors?.length) content = <StartupProblem bootErrors={bootErrors} />;
+  else if (!isAuthenticated) content = <AuthScreen />;
+  else if (!appUser?.onboarding?.completed) content = <Onboarding />;
+  else content = <Outlet />;
+
+  return (
+    <>
+      <div className={holdSplash ? "min-h-[100dvh] bg-primary" : undefined}>{content}</div>
+      <AnimatePresence>
+        {(holdSplash || (splashReady && !splashGone && !bootTimedOut)) && (
+          <Splash key="splash" ready={splashReady} onDone={() => setSplashGone(true)} />
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+/** Completes Google OAuth returns arriving via the deep link (system browser → app). */
+function OAuthReturn() {
+  useEffect(() => listenForOAuthReturn(), []);
+  return null;
+}
+
+/** Any captured startup failure → readable screen + restart, never a silent hang. */
+function StartupProblem({ bootErrors }: { bootErrors: string[] }) {
+  return (
+    <div className="min-h-[100dvh] bg-background px-6 py-16">
+      <p className="text-sm font-bold text-destructive">Startup problem</p>
+      <pre className="mt-3 whitespace-pre-wrap break-words text-[11px] text-muted-foreground">{bootErrors.slice(-3).join("\n\n")}</pre>
+      <button
+        className="mt-6 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white"
+        onClick={() => { (window as any).__slaBootErrors = undefined; location.reload(); }}
+      >
+        Restart app
+      </button>
+    </div>
+  );
 }
 
 /** Crash anywhere in the tree → readable screen + restart, never a silent white/splash hang. */
@@ -128,6 +134,7 @@ const router = createBrowserRouter([
     ),
     children: [
       { path: "/", element: <Navigate to="/home" replace /> },
+      { path: "/auth/callback", element: <AuthCallback /> },
       { path: "/tabs/:tab", element: <Tabs /> },
       { path: "/home", element: <Navigate to="/tabs/home" replace /> },
       { path: "/course/:id", element: <CourseDetail /> },
@@ -149,6 +156,7 @@ export default function AppMobile() {
     <BootErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <OAuthReturn />
         <OfflineBanner />
         <Toaster position="top-center" richColors closeButton />
         <Suspense fallback={<PageLoader />}>
