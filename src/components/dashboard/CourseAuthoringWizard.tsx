@@ -580,9 +580,9 @@ export default function CourseAuthoringWizard() {
          const c = response.data;
          setIdentity({
            title: String(c.title ?? ""),
-           description: String(c.description ?? ""),
+           description: String((c as any).description ?? ""),
            subject: String(c.category ?? ""),
-           objectives: Array.isArray(c.what_youll_learn) ? c.what_youll_learn.join("\n") : "",
+           objectives: Array.isArray((c as any).what_youll_learn) ? (c as any).what_youll_learn.join("\n") : "",
          });
          setCourseThumbnailUrl(typeof c.image === "string" ? c.image : null);
 
@@ -616,7 +616,7 @@ export default function CourseAuthoringWizard() {
         setSettings((prev) => ({
           ...prev,
           title: String(c.title ?? prev.title),
-          status: (c.status === "published" ? "published" : "draft"),
+          status: ((c as any).status === "published" ? "published" : "draft"),
         }));
       } catch (e: any) {
         toast.error(e?.message ?? "Failed to load course for editing.");
@@ -659,11 +659,10 @@ export default function CourseAuthoringWizard() {
         const url = l.contentLabel ?? "";
         return {
           title: l.title,
-          type: l.type,
-          duration: "",
           // Compatibility with existing course viewer patterns in this repo:
           // CourseDetail treats both "text" and "reading" as text lessons.
           type: l.type === "reading" ? "text" : l.type,
+          duration: "",
           vimeo_url: l.type === "video" ? url : "",
           transcript_url: l.type === "reading" ? url : "",
           content_url: url,

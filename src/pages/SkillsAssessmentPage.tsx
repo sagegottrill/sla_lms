@@ -65,8 +65,9 @@ export default function SkillsAssessmentPage() {
         api.getSkillsAssessments(assessmentFilters),
         api.getUserSkillsResults(appUser.id)
       ]);
-      setAssessments(fetchedAssessments as Assessment[]);
-      setResults(fetchedResults.map((r: any) => ({
+      setAssessments((fetchedAssessments as unknown as { data: Assessment[] }).data ?? []);
+      const resultRows = (fetchedResults as unknown as { data?: any[] }).data ?? [];
+      setResults(resultRows.map((r: any) => ({
         assessmentId: r.assessment_id,
         score: r.score,
         total: r.total,

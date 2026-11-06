@@ -104,8 +104,13 @@ export default function AIChatbot() {
     setTyping(false);
   };
 
+  /** Escape HTML BEFORE the markdown transform — user-typed text must never
+      reach dangerouslySetInnerHTML as raw markup. */
+  const escapeHtml = (t: string) =>
+    t.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+
   const renderText = (text: string) =>
-    text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br/>");
+    escapeHtml(text).replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br/>");
 
   return (
     <>

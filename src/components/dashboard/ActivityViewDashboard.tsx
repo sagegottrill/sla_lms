@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { coursePathSegment } from '@/lib/publicRoutes';
-import { 
+import {
+  Activity,
+ 
   BookOpen, 
   CheckCircle2, 
   MessageSquare, 

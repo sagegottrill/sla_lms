@@ -157,7 +157,7 @@ export default function CertificateManagementPanel({
           [stats.active, "Active", Award],
           [stats.revoked, "Revoked", ShieldOff],
           [stats.thisMonth, "This month", Users],
-        ].map(([val, label, Icon]) => (
+        ].map(([val, label, Icon]: [any, string, any]) => (
           <div
             key={String(label)}
             className="bg-card rounded-2xl ring-1 ring-black/5 dark:ring-white/10 p-5"

@@ -28,6 +28,10 @@ export const dashboardProfileDropdownLinks: Record<
     { icon: User, label: "My Profile", href: "/dashboard/profile" },
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
   ],
+  recruiter: [
+    { icon: User, label: "My Profile", href: "/dashboard/profile" },
+    { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+  ],
   admin: [
     { icon: User, label: "Profile", href: "/dashboard/profile" },
     { icon: Users, label: "User management", href: "/dashboard/users" },

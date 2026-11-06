@@ -57,6 +57,7 @@ export default function ParticipantsPage() {
   const [smsModalOpen, setSmsModalOpen] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<any>(null);
   const [smsMessage, setSmsMessage] = useState("");
+  const [smsChannel, setSmsChannel] = useState<string>("sms");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [sending, setSending] = useState(false);
 

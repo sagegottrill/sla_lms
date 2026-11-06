@@ -10,7 +10,7 @@ export function isCourseOrProgramRouteParam(s: string | undefined): boolean {
   return UUID_ROUTE.test(t);
 }
 
-export function coursePathSegment(c: { id: number; public_id?: string | null }): string {
+export function coursePathSegment(c: { id: number; public_id?: string | null; title?: unknown }): string {
   return c.public_id && UUID_ROUTE.test(String(c.public_id)) ? String(c.public_id) : String(c.id);
 }
 

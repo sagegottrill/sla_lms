@@ -92,7 +92,20 @@ export default function ToDoListWidget({ userId, limit = 7 }: ToDoListWidgetProp
     );
   }
 
-  const { deadlines = [], todoItems = [] } = data || {};
+  /* The hook returns flat UpcomingDeadline rows; map them into the shape the
+     widget renders (previously the widget was always empty). */
+  const deadlineRows = Array.isArray(data) ? data : [];
+  const deadlines = deadlineRows.map((d) => ({
+    id: d.lesson_id,
+    lesson_title: d.assignment_title,
+    course_title: d.course_title,
+    due_date: d.due_date,
+    completed: d.pending_submissions === 0,
+    submitted: d.received_submissions > 0,
+    lesson_type: "assignment",
+    course_id: d.course_id,
+  }));
+  const todoItems: Array<{ id: string; title: string; description: string; due_date: string; completed: boolean }> = [];
   
   // Combine and sort all items by due date
   const allItems = [

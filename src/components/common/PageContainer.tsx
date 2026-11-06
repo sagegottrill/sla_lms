@@ -26,7 +26,7 @@ export function PageContainer({ children, className }: PageContainerProps) {
 }
 
 interface PageHeaderProps {
-  title: string;
+  title: React.ReactNode;
   subtitle?: string;
   actions?: ReactNode;
   className?: string;

@@ -103,7 +103,7 @@ export default function UpcomingDeadlinesWidget({
                         {deadline.assignment_title}
                       </h3>
                       {isUrgent && (
-                        <AlertCircle className="w-4 h-4 text-red-500 shrink-0" title="Due soon!" />
+                        <AlertCircle className="w-4 h-4 text-red-500 shrink-0" aria-label="Due soon!" />
                       )}
                     </div>
                     

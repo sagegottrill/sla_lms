@@ -1,4 +1,5 @@
 import type { Course, Program } from "@/types";
+import { courseRowSchema, programRowSchema, warnRowDrift } from '@/lib/schemas';
 
 /** Parse common lesson duration strings into minutes. */
 export function parseDurationToMinutes(raw: unknown): number {
@@ -135,6 +136,8 @@ function mapLegacyReviews(raw: unknown): CourseReview[] {
 /** Normalize Supabase course rows (snake_case) into the app Course shape. */
 export function mapCourseRow(row: CourseRow | null | undefined): Course | undefined {
   if (!row || row.id == null) return undefined;
+  const parsedCourse = courseRowSchema.safeParse(row);
+  if (!parsedCourse.success) warnRowDrift("course", row.id, parsedCourse.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`));
 
   const curriculum = Array.isArray(row.curriculum) ? row.curriculum : [];
   const storedDuration = asString(row.duration).trim();
@@ -230,6 +233,8 @@ type ProgramRow = Record<string, unknown> & {
 /** Normalize Supabase program rows into the app Program shape. */
 export function mapProgramRow(row: ProgramRow | null | undefined): Program | undefined {
   if (!row || row.id == null) return undefined;
+  const parsedProgram = programRowSchema.safeParse(row);
+  if (!parsedProgram.success) warnRowDrift("program", row.id, parsedProgram.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`));
   return {
     id: Number(row.id),
     public_id: row.public_id ?? null,

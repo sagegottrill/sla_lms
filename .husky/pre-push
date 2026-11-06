@@ -1,0 +1,3 @@
+# Type safety + dependency security gate
+npx tsc --noEmit -p tsconfig.app.json
+npm audit --omit=dev --audit-level=high

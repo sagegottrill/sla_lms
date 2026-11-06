@@ -171,9 +171,9 @@ export default function NotificationPrefsPage() {
       <div className="bg-card rounded-2xl shadow-sm border-0 overflow-hidden">
         <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-6 py-3 border-b border-border bg-muted/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           <span>Category</span>
-          <span className="w-14 text-center"><span className="sr-only">Email</span><Mail className="w-3.5 h-3.5 mx-auto" title="Email" /></span>
-          <span className="w-14 text-center"><span className="sr-only">SMS</span><Smartphone className="w-3.5 h-3.5 mx-auto" title="SMS" /></span>
-          <span className="w-14 text-center"><span className="sr-only">Push</span><Bell className="w-3.5 h-3.5 mx-auto" title="Push" /></span>
+          <span className="w-14 text-center"><span className="sr-only">Email</span><Mail className="w-3.5 h-3.5 mx-auto" aria-label="Email" /></span>
+          <span className="w-14 text-center"><span className="sr-only">SMS</span><Smartphone className="w-3.5 h-3.5 mx-auto" aria-label="SMS" /></span>
+          <span className="w-14 text-center"><span className="sr-only">Push</span><Bell className="w-3.5 h-3.5 mx-auto" aria-label="Push" /></span>
         </div>
         {prefs.map((pref: NotifPref, i: number) => (
           <motion.div key={pref.key} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}

@@ -17,6 +17,7 @@ type NavItem = { label: string; icon: React.ElementType; href: string; badge?: s
 type NavGroup = { group: string; items: NavItem[] };
 
 const navByRole: Record<UserRole, NavGroup[]> = {
+  recruiter: [],
   student: [
     {
       group: "Overview",
@@ -195,6 +196,7 @@ const roleLabels: Record<UserRole, string> = {
   instructor: "Instructor",
   program_manager: "Program Manager",
   admin: "Administrator",
+  recruiter: "Recruiter",
 };
 
 const roleColors: Record<UserRole, string> = {
@@ -202,6 +204,7 @@ const roleColors: Record<UserRole, string> = {
   instructor:      "bg-primary/10 text-primary",
   program_manager: "bg-secondary/10 text-secondary",
   admin:           "bg-primary/10 text-primary font-bold",
+  recruiter:       "bg-primary/10 text-primary",
 };
 
 export default function DashboardSidebar() {

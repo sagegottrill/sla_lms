@@ -65,6 +65,10 @@ export interface Program {
   /** Program-level required post-assessment (Google Form) inherited by its courses. */
   postAssessmentUrl?: string | null;
   postAssessmentTitle?: string | null;
+  /** PM-dashboard enrichment fields (attached client-side). */
+  cohort?: string;
+  participants?: number;
+  completionRate?: number;
   applicationDeadline?: string | null;
 }
 

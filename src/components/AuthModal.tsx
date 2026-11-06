@@ -67,7 +67,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
     e.preventDefault();
     const validation = loginSchema.safeParse({ email, password });
     if (!validation.success) {
-      toast.error(validation.error.errors[0].message);
+      toast.error(validation.error.issues[0].message);
       return;
     }
     setLoading(true);
@@ -87,7 +87,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
     e.preventDefault();
     const validation = signupSchema.safeParse({ name, email, password });
     if (!validation.success) {
-      toast.error(validation.error.errors[0].message);
+      toast.error(validation.error.issues[0].message);
       return;
     }
     if (!consentAccepted) {

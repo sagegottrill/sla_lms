@@ -199,7 +199,6 @@ export default function CheckoutPage() {
       enrollMutation.mutate(
         { userId: appUser.id, courseId: course.id },
         {
-          meta: { silentToast: true },
           onSuccess: () => {
             setProcessing(false);
             setStep("success");
@@ -269,7 +268,6 @@ export default function CheckoutPage() {
           }
           await enrollMutation.mutateAsync(
             { userId: appUser.id, courseId: course.id },
-            { meta: { silentToast: true } },
           );
           setReceiptId(paidRef);
           setProcessing(false);

@@ -67,7 +67,7 @@ export default function ReportBuilderPage() {
       dateRange: form.dateRange,
     };
 
-     api.upsertSavedReport(payload).then((response) => {
+     api.upsertSavedReport({ userId: appUser.id, reportName: form.name, reportData: payload }).then((response) => {
        if (!response.success || !response.data) {
          toast.error("Failed to save report. Check Supabase connection/RLS.");
          return;

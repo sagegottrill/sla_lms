@@ -62,7 +62,11 @@ export const PERMISSIONS = {
   },
 } as const;
 
-export type PermissionKey = typeof PERMISSIONS[keyof typeof PERMISSIONS][keyof typeof PERMISSIONS[keyof typeof PERMISSIONS]];
+/** Union of every permission literal. The naive double-index collapses to
+    `never` (keyof a union is the intersection), so map per category instead. */
+export type PermissionKey = {
+  [C in keyof typeof PERMISSIONS]: (typeof PERMISSIONS)[C][keyof (typeof PERMISSIONS)[C]];
+}[keyof typeof PERMISSIONS];
 
 export interface Permission {
   key: PermissionKey;

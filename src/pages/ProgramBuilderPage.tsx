@@ -79,15 +79,15 @@ export default function ProgramBuilderPage() {
 
   useEffect(() => {
     if (!isEdit || !programData || hydrated) return;
-    const p = programData as Record<string, unknown>;
+    const p = programData as unknown as Record<string, unknown>;
     setTitle(String(p.title ?? ""));
     setTagline(String((p as any).tagline ?? ""));
     setDescription(String(p.description ?? ""));
     setCategory(typeof p.category === "string" && p.category ? p.category : CATEGORIES[0]);
     setLevel(
-      typeof (p as any).level === "string" && (p as any).level
-        ? String((p as any).level)
-        : "All Levels",
+      (typeof (p as any).level === "string" && LEVELS.includes((p as any).level)
+        ? (p as any).level
+        : "All Levels") as (typeof LEVELS)[number],
     );
     setDuration(String(p.duration ?? ""));
     setStartDate(String(p.startDate ?? p.start_date ?? "").slice(0, 10));

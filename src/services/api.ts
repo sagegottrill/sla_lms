@@ -412,7 +412,7 @@ export const api = {
           .insert(stripCertificateConfig(payload))
           .select(COURSE_COLUMNS_CORE)
           .single();
-        data = retry.data;
+        data = retry.data as unknown as typeof data;
         error = retry.error;
       }
       
@@ -421,7 +421,7 @@ export const api = {
         return { data: null, error: error.message, success: false };
       }
       
-      return { data: mapCourseRow(data as Record<string, unknown>) ?? null, error: null, success: true };
+      return { data: mapCourseRow(data as unknown as Record<string, unknown>) ?? null, error: null, success: true };
     } catch (error: any) {
       console.error("Supabase createCourse error:", error.message);
       return { data: null, error: error.message, success: false };
@@ -448,7 +448,7 @@ export const api = {
           .eq("id", id)
           .select(COURSE_COLUMNS_CORE)
           .single();
-        data = retry.data;
+        data = retry.data as unknown as typeof data;
         error = retry.error;
       }
       
@@ -457,7 +457,7 @@ export const api = {
         return { data: null, error: error.message, success: false };
       }
       
-      return { data: mapCourseRow(data as Record<string, unknown>) ?? null, error: null, success: true };
+      return { data: mapCourseRow(data as unknown as Record<string, unknown>) ?? null, error: null, success: true };
     } catch (error: any) {
       console.error("Supabase updateCourse error:", error.message);
       return { data: null, error: error.message, success: false };
@@ -806,7 +806,7 @@ export const api = {
           .insert(stripProgramOptionalColumns(payload))
           .select(PROGRAM_COLUMNS_MINIMAL)
           .single();
-        data = retry.data;
+        data = retry.data as unknown as typeof data;
         error = retry.error;
       }
       
@@ -823,7 +823,7 @@ export const api = {
         await syncProgramCourses(createdId, selectedCourseIds);
       }
 
-      return { data: mapProgramRow(data as Record<string, unknown>) ?? null, error: null, success: true };
+      return { data: mapProgramRow(data as unknown as Record<string, unknown>) ?? null, error: null, success: true };
     } catch (error: any) {
       console.error("Supabase createProgram error:", error.message);
       return { data: null, error: error.message, success: false };
@@ -850,7 +850,7 @@ export const api = {
           .eq("id", id)
           .select(PROGRAM_COLUMNS_MINIMAL)
           .single();
-        data = retry.data;
+        data = retry.data as unknown as typeof data;
         error = retry.error;
       }
       
@@ -866,7 +866,7 @@ export const api = {
         await syncProgramCourses(id, selectedCourseIds);
       }
 
-      return { data: mapProgramRow(data as Record<string, unknown>) ?? null, error: null, success: true };
+      return { data: mapProgramRow(data as unknown as Record<string, unknown>) ?? null, error: null, success: true };
     } catch (error: any) {
       console.error("Supabase updateProgram error:", error.message);
       return { data: null, error: error.message, success: false };
@@ -926,7 +926,8 @@ export const api = {
 
     const profileReady = await ensureProfileExistsForEnrollment(userId);
     if (!profileReady.ok) {
-      return { data: null, error: profileReady.error, success: false };
+      const err = "error" in profileReady ? String(profileReady.error) : "Profile setup failed.";
+      return { data: null, error: err, success: false };
     }
 
     const payload = {
@@ -1011,7 +1012,8 @@ export const api = {
 
     const profileReady = await ensureProfileExistsForEnrollment(userId);
     if (!profileReady.ok) {
-      return { data: null, error: profileReady.error, success: false };
+      const err = "error" in profileReady ? String(profileReady.error) : "Profile setup failed.";
+      return { data: null, error: err, success: false };
     }
 
     const payload = {
@@ -2492,10 +2494,12 @@ ${config.org_name}`;
       .order("created_at", { ascending: false });
     if (error) {
       console.warn("getPayments with relations failed, retrying core columns:", error.message);
-      ({ data, error } = await supabase
+      const coreRes = await supabase
         .from("payments")
         .select(core)
-        .order("created_at", { ascending: false }));
+        .order("created_at", { ascending: false });
+      data = coreRes.data as typeof data;
+      error = coreRes.error;
     }
     if (error) {
       console.error("Supabase getPayments error:", error.message);
@@ -3804,17 +3808,16 @@ ${config.org_name}`;
   // -------------------------
   // PLACEMENT OUTCOMES
   // -------------------------
-  getPlacementOutcomes: async () => {
-    if (!USE_SUPABASE) return [];
+  getPlacementOutcomes: async (): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) return { data: [], error: null, success: true };
     const { data, error } = await supabase
       .from("placement_outcomes")
       .select("*")
       .order("created_at", { ascending: false });
     if (error) {
-      console.error("Supabase getPlacementOutcomes error:", error.message);
-      return [];
+      return { data: [], error: error.message, success: false };
     }
-    return data ?? [];
+    return { data: data ?? [], error: null, success: true };
   },
 
   createPlacementOutcome: async (payload: {
@@ -3868,33 +3871,33 @@ ${config.org_name}`;
     return data;
   },
 
-  deletePlacementOutcome: async (id: string) => {
-    if (!USE_SUPABASE) return false;
+  deletePlacementOutcome: async (id: string): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) return { data: true, error: null, success: true };
     const { error } = await supabase
       .from("placement_outcomes")
       .delete()
       .eq("id", id);
     if (error) {
       console.error("Supabase deletePlacementOutcome error:", error.message);
-      return false;
+      return { data: false, error: error.message, success: false };
     }
-    return true;
+    return { data: true, error: null, success: true };
   },
 
   // -------------------------
   // INTERVIEW SCHEDULES
   // -------------------------
-  getInterviewSchedules: async () => {
-    if (!USE_SUPABASE) return [];
+  getInterviewSchedules: async (): Promise<ApiResponse<any[]>> => {
+    if (!USE_SUPABASE) return { data: [], error: null, success: true };
     const { data, error } = await supabase
       .from("interview_schedules")
       .select("*")
       .order("interview_date", { ascending: true });
     if (error) {
       console.error("Supabase getInterviewSchedules error:", error.message);
-      return [];
+      return { data: [], error: error.message, success: false };
     }
-    return data ?? [];
+    return { data: data ?? [], error: null, success: true };
   },
 
   createInterviewSchedule: async (payload: {
@@ -3945,17 +3948,17 @@ ${config.org_name}`;
     return data;
   },
 
-  deleteInterviewSchedule: async (id: string) => {
-    if (!USE_SUPABASE) return false;
+  deleteInterviewSchedule: async (id: string): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) return { data: true, error: null, success: true };
     const { error } = await supabase
       .from("interview_schedules")
       .delete()
       .eq("id", id);
     if (error) {
       console.error("Supabase deleteInterviewSchedule error:", error.message);
-      return false;
+      return { data: false, error: error.message, success: false };
     }
-    return true;
+    return { data: true, error: null, success: true };
   },
 
   // -------------------------
@@ -4016,17 +4019,17 @@ ${config.org_name}`;
     return data;
   },
 
-  deleteLeadCapture: async (id: string) => {
-    if (!USE_SUPABASE) return false;
+  deleteLeadCapture: async (id: string): Promise<ApiResponse<boolean>> => {
+    if (!USE_SUPABASE) return { data: true, error: null, success: true };
     const { error } = await supabase
       .from("lead_captures")
       .delete()
       .eq("id", id);
     if (error) {
       console.error("Supabase deleteLeadCapture error:", error.message);
-      return false;
+      return { data: false, error: error.message, success: false };
     }
-    return true;
+    return { data: true, error: null, success: true };
   },
 
   // -------------------------
@@ -4221,7 +4224,7 @@ ${config.org_name}`;
   // -------------------------
   getUserGroups: async (): Promise<ApiResponse<any[]>> => {
     if (!USE_SUPABASE) {
-      return { data: [], error: [], success: true };
+      return { data: [], error: null, success: true };
     }
 
     try {

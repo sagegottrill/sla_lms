@@ -515,7 +515,6 @@ export default function CourseDetailPage() {
     toast.promise(
       enrollMutation.mutateAsync(
         { userId: appUser.id, courseId: course.id },
-        { meta: { silentToast: true } },
       ),
       {
         loading: "Enrolling...",
@@ -1195,7 +1194,7 @@ export default function CourseDetailPage() {
                   </div>
                   <div className="space-y-4">
                     {displayReviews.map((review, i) => (
-                      <div key={review.id || i} className="p-4 bg-card rounded-2xl shadow-sm border-0">
+                      <div key={`${review.name}-${i}`} className="p-4 bg-card rounded-2xl shadow-sm border-0">
                         <div className="flex items-center gap-3 mb-2">
                           <div className="w-9 h-9 rounded-full gradient-card flex items-center justify-center text-sm font-bold text-primary-foreground">
                             {(review.name ?? "S").charAt(0).toUpperCase()}

@@ -90,7 +90,7 @@ export default function GradingQueueWidget({ instructorId, limit = 10 }: Grading
                         {item.assignment_title}
                       </h3>
                       {isUrgent && (
-                        <AlertCircle className="w-4 h-4 text-red-500 shrink-0" title="Urgent: 3+ days waiting" />
+                        <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                       )}
                     </div>
                     

@@ -76,7 +76,7 @@ export const useCourse = (routeOrNumericId: string | number | undefined) => {
      mutationFn: async (course: Record<string, unknown>) => {
        const response = await api.createCourse({
          ...course,
-         instructor_id: appUser?.id ?? course.instructor_id,
+         instructor_id: appUser?.id ?? (typeof course.instructor_id === "string" ? course.instructor_id : undefined),
        });
        if (!response.success || !response.data) {
          throw new Error(response.error || "Failed to create course");
@@ -248,6 +248,7 @@ type EnrollMutationMeta = { silentToast?: boolean };
    const { appUser } = useAuth();
 
    return useMutation({
+     meta: { silentToast: false } as { silentToast?: boolean },
      mutationFn: async ({ userId, courseId }: { userId: string, courseId: number }) => {
        const response = await api.enrollUser(userId, courseId);
        if (!response.success) {
@@ -864,7 +865,7 @@ export const useUpdatePlatformConfigMutation = () => {
    return useQuery({
      queryKey: ['lead-captures', 'all'],
      queryFn: api.getLeadCaptures,
-     select: (response) => response.data || [],
+     select: (response: unknown) => (Array.isArray(response) ? response : (response as any)?.data ?? []),
    });
  };
 

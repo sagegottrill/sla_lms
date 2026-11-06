@@ -1,0 +1,5 @@
+# Lint staged TS/TSX files (Karpathy rule: verify before done)
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E "\.(ts|tsx)$" | tr '\n' ' ')
+if [ -n "${STAGED// }" ]; then
+  npx eslint $STAGED --max-warnings 200
+fi
