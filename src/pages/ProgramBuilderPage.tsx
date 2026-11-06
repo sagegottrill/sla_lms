@@ -591,6 +591,30 @@ export default function ProgramBuilderPage() {
               </p>
             </div>
 
+            <div className="rounded-2xl ring-1 ring-primary/25 bg-accent/60 p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-foreground">Upload a course specifically for this program</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    Opens the course builder in program mode — the course is born private to this program's members and
+                    never appears in the general catalog or public search. Your program form stays saved in this tab;
+                    the new course appears in the list below once you publish it.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const params = new URLSearchParams({ program: isEdit ? String(editId) : "new" });
+                    params.set("programName", title.trim() || "your program");
+                    window.open(`/dashboard/courses/new?${params.toString()}`, "_blank");
+                  }}
+                  className="shrink-0 inline-flex items-center gap-2 rounded-xl gradient-card text-primary-foreground px-5 py-3 text-sm font-bold hover:opacity-90"
+                >
+                  <Plus className="w-4 h-4" /> Upload for this program
+                </button>
+              </div>
+            </div>
+
             <div>
               <p className="text-sm font-semibold text-foreground mb-2">Selected ({selectedCourses.length})</p>
               <div className="space-y-2">

@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   BookOpen, Plus, Trash2, ChevronDown, ChevronRight, Video,
   FileText, HelpCircle, ArrowLeft, Save, CheckCircle2, Loader2,
-  GripVertical, Link2, Eye, EyeOff
+  GripVertical, Link2, Eye, EyeOff, Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -48,6 +48,15 @@ export default function CourseBuilderPage() {
   const editIdRaw = searchParams.get("edit");
   const editId = editIdRaw ? Number(editIdRaw) : 0;
   const isEdit = Number.isFinite(editId) && editId > 0;
+
+  // PROGRAM MODE — uploading a course directly for a program. The course is
+  // born private: program members only, never in the general catalog.
+  const programParam = searchParams.get("program");
+  const programNameParam = searchParams.get("programName");
+  const attachProgramId =
+    programParam && /^\d+$/.test(programParam) && Number(programParam) > 0 ? Number(programParam) : null;
+  const programMode = programParam === "new" ? "new" : attachProgramId ? "existing" : null;
+  const programModeName = programNameParam ? decodeURIComponent(programNameParam) : "";
 
   const createCourse = useCreateCourseMutation();
   const updateCourse = useUpdateCourseMutation();
@@ -360,6 +369,7 @@ export default function CourseBuilderPage() {
       certificate_config: certificateConfig,
       post_assessment_url: postAssessmentUrl.trim() || null,
       post_assessment_title: postAssessmentUrl.trim() ? postAssessmentTitle.trim() || "Post-Assessment" : null,
+      ...(attachProgramId ? { program_id: attachProgramId } : {}),
     };
 
     const mutate = isEdit
@@ -428,6 +438,25 @@ export default function CourseBuilderPage() {
           </Button>
         </div>
       </div>
+
+      {/* Program mode banner — the upload is scoped to the program */}
+      {programMode && (
+        <div className="mb-4 flex items-start gap-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10 ring-1 ring-amber-300/60 dark:ring-amber-500/30 p-4">
+          <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-500/15 flex items-center justify-center shrink-0">
+            <Lock className="w-4.5 h-4.5 text-amber-600 dark:text-amber-500" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-foreground">
+              Uploading for {programModeName || "a program"} <span className="ml-1 align-middle text-[10px] font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-500">Program upload</span>
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+              {programMode === "existing"
+                ? "This course will be born private to this program's members. It will never appear in the general catalog or public search."
+                : "Save the program after this — the course attaches to it on save and becomes private to its members, never in the general catalog."}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Steps */}
       <div className="flex items-center gap-2">

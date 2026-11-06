@@ -2,7 +2,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useInstructorCourses, useCourses, useDeleteCourseMutation } from "@/hooks/useQueries";
 import { Link, useNavigate } from "react-router-dom";
-import { BookOpen, Users, DollarSign, Star, Plus, Search, Loader2, EyeOff, Eye, Trash2 } from "lucide-react";
+import { BookOpen, Users, DollarSign, Star, Plus, Search, Loader2, EyeOff, Eye, Trash2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/services/api";
 import { toast } from "sonner";
@@ -191,13 +191,20 @@ export default function InstructorCoursesPage() {
                       </td>
                     )}
                     <td className="px-6 py-4">
-                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-md capitalize ${
-                        course.status === "published" 
-                          ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                          : "bg-muted text-muted-foreground"
-                      }`}>
-                        {course.status}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-md capitalize ${
+                          course.status === "published"
+                            ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                            : "bg-muted text-muted-foreground"
+                        }`}>
+                          {course.status}
+                        </span>
+                        {Number((course as { program_id?: number | null }).program_id ?? 0) > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-500">
+                            <Lock className="w-3 h-3" /> Program-only
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-3 text-xs text-muted-foreground">
